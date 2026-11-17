@@ -512,11 +512,20 @@ class GroupComm:
     process_group : Any
         The ``torch.distributed`` process group covering ``group.ranks``, or
         ``None`` when the group needs no communication.
+    device : torch.device | str | None, optional
+        Device of the tensors :meth:`share` broadcasts, by default the current
+        CUDA device for NCCL groups and the CPU otherwise.
     """
 
-    def __init__(self, group: EnsembleGroup, process_group: Any = None) -> None:
+    def __init__(
+        self,
+        group: EnsembleGroup,
+        process_group: Any = None,
+        device: torch.device | str | None = None,
+    ) -> None:
         self._group = group
         self._pg = process_group
+        self._device = None if device is None else torch.device(device)
 
     @property
     def group(self) -> EnsembleGroup:
@@ -574,9 +583,99 @@ class GroupComm:
         dist.all_reduce(t, op=dist.ReduceOp.MAX, group=self._pg)
         return bool(t[0].item() == value and -t[1].item() == value)
 
+    def _collective_device(self) -> torch.device:
+        if self._device is not None:
+            return self._device
+        if dist.get_backend(self._pg) == "nccl":
+            return torch.device("cuda", torch.cuda.current_device())
+        return torch.device("cpu")
+
+    def share(self, compute: Callable[[], xr.DataArray]) -> xr.DataArray:
+        """Run ``compute`` on the group root and return its field on every rank.
+
+        The ranks of a group start each item from the same inputs, for example
+        a data assimilation analysis and the observations behind it, so the
+        root computes them once and broadcasts the result.  A failure on the
+        root raises on every rank instead of leaving the others waiting.
+        Collective over the group.
+
+        Parameters
+        ----------
+        compute : Callable[[], xr.DataArray]
+            Zero-argument function returning a NumPy-backed field; only the
+            root calls it.
+
+        Returns
+        -------
+        xr.DataArray
+            The root's field, NumPy-backed, on every rank of the group.
+
+        Raises
+        ------
+        RuntimeError
+            On the other ranks, when ``compute`` failed on the root.
+        """
+        if self._pg is None:
+            return compute()
+        root = self._group.root_rank
+        device = self._collective_device()
+        field: xr.DataArray | None = None
+        failure: Exception | None = None
+        header: dict[str, Any] = {}
+        if self.is_root:
+            try:
+                field = compute()
+                header = {
+                    "dims": field.dims,
+                    "coords": {
+                        name: (coord.dims, np.asarray(coord.values), dict(coord.attrs))
+                        for name, coord in field.coords.items()
+                    },
+                    "attrs": dict(field.attrs),
+                    "name": field.name,
+                    "dtype": np.dtype(field.dtype).str,
+                    "shape": tuple(field.shape),
+                }
+            except Exception as error:  # noqa: BLE001 - raised on every rank below
+                failure = error
+                header = {"error": f"{type(error).__name__}: {error}"}
+        box = [header]
+        dist.broadcast_object_list(box, src=root, group=self._pg, device=device)
+        header = box[0]
+        if "error" in header:
+            if failure is not None:
+                raise failure
+            raise RuntimeError(
+                f"Rank {root}, the root of this ensemble group, failed to compute "
+                f"the shared field: {header['error']}"
+            )
+        if field is not None:
+            data = torch.from_numpy(np.ascontiguousarray(field.values)).to(device)
+        else:
+            dtype = torch.from_numpy(np.empty(0, dtype=header["dtype"])).dtype
+            data = torch.empty(header["shape"], dtype=dtype, device=device)
+        dist.broadcast(data, src=root, group=self._pg)
+        if field is not None:
+            return field
+        coords = {
+            name: (dims, values, attrs)
+            for name, (dims, values, attrs) in header["coords"].items()
+        }
+        return xr.DataArray(
+            data.cpu().numpy(),
+            dims=header["dims"],
+            coords=coords,
+            attrs=header["attrs"],
+            name=header["name"],
+        )
+
 
 def build_group_comm(
-    settings: OnlineSettings, rank: int, world_size: int, ensemble_size: int
+    settings: OnlineSettings,
+    rank: int,
+    world_size: int,
+    ensemble_size: int,
+    device: torch.device | str | None = None,
 ) -> GroupComm:
     """Create this rank's :class:`GroupComm`.  Collective over the world.
 
@@ -593,6 +692,9 @@ def build_group_comm(
         Total ranks in the job.
     ensemble_size : int
         Ensemble size ``M``.
+    device : torch.device | str | None, optional
+        This rank's device, for the tensors :meth:`GroupComm.share`
+        broadcasts, by default derived from the group's backend.
 
     Returns
     -------
@@ -614,7 +716,7 @@ def build_group_comm(
         f"(G={group_size}, K={members_per_rank}, members={list(group.member_ids)}, "
         f"root={group.is_root})"
     )
-    return GroupComm(group, process_group)
+    return GroupComm(group, process_group, device)
 
 
 # ---------------------------------------------------------------------------
@@ -3105,7 +3207,13 @@ class OnlineRun:
             np.array([item.time for item in items], dtype="datetime64[ns]")
         )
 
-        comm = build_group_comm(settings, rank, world_size, ensemble_size)
+        comm = build_group_comm(settings, rank, world_size, ensemble_size, device)
+        # Every rank of an ensemble group starts an item from the same initial
+        # condition.  A runner whose initial conditions are data assimilation
+        # analyses then computes each one on the group root and shares it.
+        analysis = getattr(runner, "analysis_source", None)
+        if analysis is not None and comm.active:
+            analysis.share = comm.share
         sources = resolve_verification_sources(cfg)
         nan_policy = str(cfg.scoring.get("nan_policy", "propagate")).lower()
         valid_ranges_cfg = cfg.scoring.get("valid_ranges", None)

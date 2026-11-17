@@ -5,7 +5,7 @@ description: Earth2Studio native DataArray diagnostic model implementation guide
 
 # Earth2Studio Diagnostic Models
 
-Follow `dev/spec/MODEL_CONTRACT_SPEC.md` and activate
+Follow `docs/specs/E2S-06_MODEL_CONTRACT_SPEC.md` and activate
 `earth2studio-create-diagnostic` before implementing a new wrapper. Its native
 reference skeleton demonstrates a complete single-call diagnostic.
 

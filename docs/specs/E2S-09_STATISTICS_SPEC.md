@@ -1,10 +1,14 @@
-# Earth2Studio Statistics and Metrics
+# E2S-09: Earth2Studio Statistics and Metrics
+
+## Purpose
 
 Statistics reduce a single field; metrics compare a forecast against an
 observation. Both operate on Xarray `DataArray`s, matching the diagnostic model (DX)
 interface.
 
-## Protocol
+## Contract
+
+### Protocol
 
 ```python
 class Statistic(Protocol):
@@ -27,7 +31,7 @@ class Metric(Protocol):
 - There is no `coords` argument and no tuple return. Tensor/`CoordSystem` calls are
   unsupported.
 
-## Dimensions and Alignment
+### Dimensions and Alignment
 
 - Reduction dimensions are located by name in `x.dims`. A missing dimension raises
   `ValueError` in `__call__` and `KeyError` in `output_coords`.
@@ -40,14 +44,14 @@ class Metric(Protocol):
 - Dimension names reserved by a method (`threshold`, `window_size`) may not appear
   in the inputs (`ValueError`).
 
-## Weights
+### Weights
 
 Weights are constructor arguments (`torch.Tensor` or `np.ndarray`, for example from
 `lat_weight`). They have `ndim == len(reduction_dimensions)` (`ValueError`) and a
 shape equal to the sizes of the reduction dimensions in `x` order (`AssertionError`).
 `None` means uniform weights.
 
-## Backends
+### Backends
 
 - Inputs may be NumPy, CuPy, or Torch backed. All numerical computation uses
   PyTorch: inputs are converted with `x.e2s.to_torch()` and results are returned
@@ -60,7 +64,7 @@ shape equal to the sizes of the reduction dimensions in `x` order (`AssertionErr
 - `crps`, `rank_histogram`, and `log_spectral_distance` require the `statistics`
   extra (PhysicsNeMo).
 
-## Methods
+### Methods
 
 - `mean`, `std`, `variance`: `batch_update` keeps running sums across calls.
   `mean` with no reduction dims is the identity; `variance` and `std` require at
@@ -84,7 +88,7 @@ shape equal to the sizes of the reduction dimensions in `x` order (`AssertionErr
 - `spread_skill_ratio`, `skill_spread`: `skill_spread` has a leading `metric` dim
   (`mse`, `variance`).
 
-## Custom Statistics
+### Custom Statistics
 
 Any object with the members above satisfies the protocol. A `Statistic` used by
 workflows (for example the seasonal statistics example) is called as `stat(x)` and

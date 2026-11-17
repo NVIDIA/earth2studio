@@ -11,3 +11,4 @@
 utils/*
 !utils/baselines.py
 !utils/sources.py
+!utils/rank_entry.sh

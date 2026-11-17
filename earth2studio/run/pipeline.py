@@ -19,8 +19,7 @@
 :class:`Pipeline` drives any :class:`~earth2studio.run.runner.Runner`: it
 distributes work items over ranks, filters and regrids each yielded stream,
 hands it to an optional :class:`Scorer`, writes it to that stream's store, and
-records finished items so a run can resume. See
-``dev/spec/EXECUTION_CONTRACT_SPEC.md``.
+records finished items so a run can resume.
 """
 
 from __future__ import annotations

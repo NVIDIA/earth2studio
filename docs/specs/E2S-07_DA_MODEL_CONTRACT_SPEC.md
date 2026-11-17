@@ -1,5 +1,11 @@
 <!-- markdownlint-disable MD013 -->
-# Data assimilation model contract
+# E2S-07: Data assimilation model contract
+
+## Purpose
+
+Define independent and stateful data assimilation interfaces.
+
+## Contract
 
 - `AssimilationModel`: `__call__`, `input_coords`, `output_coords`, `default_sources`, `to`, `stochastic`, `set_rng(seed, reset=True)`.
 - `StatefulAssimilationModel` extends it: `forcing_coords`, `initialize(*inputs, *forcing) -> (y, state)`, `step(*outputs, *forcing, state) -> (y, state)`, `create_iterator(*inputs, *forcing)`.
