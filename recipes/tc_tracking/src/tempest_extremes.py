@@ -19,7 +19,7 @@ import shutil
 import tempfile
 import time
 from concurrent.futures import Future, ThreadPoolExecutor
-from subprocess import run
+from subprocess import TimeoutExpired, run
 
 import numpy as np
 import torch
@@ -89,7 +89,8 @@ class TempestExtremes:
         Number of members tracked in parallel in asynchronous mode, by default
         the number of CPU cores per GPU
     timeout : float, optional
-        Seconds :meth:`close` waits for each member, by default 120
+        Seconds a TE command may run, after which it is stopped and counts as
+        failed, by default 120
     detect_chunk_steps : int, optional
         Run DetectNodes every this many recorded steps instead of once on the
         whole forecast. DetectNodes works on one time step at a time, so the
@@ -254,8 +255,7 @@ class TempestExtremes:
         """Discard the forecast of the current batch, e.g. of an unstable one.
 
         Waits for its detection tasks that are already running and removes their
-        files. A task still running after the timeout keeps its files, which
-        are in a directory of their own and removed at :meth:`close`.
+        files.
         """
         self._buffer = []
         discarded = set()
@@ -264,7 +264,7 @@ class TempestExtremes:
                 discarded.add(task)
                 if task is not None and not task.cancel():
                     try:
-                        task.result(timeout=self.timeout)
+                        task.result()
                     except Exception:  # noqa: S110
                         pass  # the batch is discarded anyway
                 if os.path.exists(node_file):
@@ -454,10 +454,17 @@ class TempestExtremes:
         TE exits with 0 even on errors, but reports them as EXCEPTION. A
         non-zero exit code means the operating system killed the process.
         """
-        out = run(command, capture_output=True, text=True)  # noqa: S603
+        try:
+            out = run(  # noqa: S603
+                command, capture_output=True, text=True, timeout=self.timeout
+            )
+        except TimeoutExpired as error:
+            raise ChildProcessError(
+                f"{command[0]} did not finish within {self.timeout} s"
+            ) from error
         failed = out.returncode != 0 or "EXCEPTION" in out.stdout
         if self.print_te_output or failed:
-            print(out.stdout, out.stderr)
+            logger.info(f"{command[0]} output:\n{out.stdout}{out.stderr}")
         if failed:
             raise ChildProcessError(
                 f"{command[0]} failed (exit code {out.returncode}), see output above"
@@ -474,6 +481,21 @@ class TempestExtremes:
                 raise ChildProcessError("cyclone tracking failed") from task.exception()
         self._tasks = pending
 
+    def wait(self) -> None:
+        """Wait until all members passed to the tracker so far are tracked.
+
+        Raises
+        ------
+        ChildProcessError
+            If TE failed for any member
+        """
+        tasks, self._tasks = self._tasks, []
+        for task in tasks:
+            try:
+                task.result()
+            except Exception as error:
+                raise ChildProcessError("cyclone tracking failed") from error
+
     def close(self) -> None:
         """Wait for all members to be tracked and remove the scratch directory.
 
@@ -483,8 +505,7 @@ class TempestExtremes:
             If TE failed for any member
         """
         try:
-            for task in self._tasks:
-                task.result(timeout=self.timeout)
+            self.wait()
         finally:
             if self._executor is not None:
                 self._executor.shutdown(wait=True, cancel_futures=True)
