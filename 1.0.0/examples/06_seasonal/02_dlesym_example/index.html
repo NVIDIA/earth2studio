@@ -3646,49 +3646,44 @@ source, wrap it: <code>DLESyMInputSource(WB2ERA5(), nside=model.nside)</code>.</
 <a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Output lead times [h]:&quot;</span><span class="p">,</span> <span class="n">out_coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s2">&quot;timedelta64[h]&quot;</span><span class="p">))</span>
 <a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Recommended source:&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">default_sources</span><span class="p">())</span><span class="o">.</span><span class="vm">__name__</span><span class="p">)</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>43 lines</small></summary><pre class="no-copy"><code>Downloading config.yaml: 0%|          | 0.00/955 [00:00&lt;?, ?B/s]
-Downloading config.yaml: 100%|██████████| 955/955 [00:00&lt;00:00, 3.96kB/s]
-Downloading config.yaml: 100%|██████████| 955/955 [00:00&lt;00:00, 3.94kB/s]
+<details class="e2sg-output" open><summary><span>Console output</span><small>38 lines</small></summary><pre class="no-copy"><code>Downloading config.yaml: 0%|          | 0.00/955 [00:00&lt;?, ?B/s]
+Downloading config.yaml: 100%|██████████| 955/955 [00:00&lt;00:00, 4.82kB/s]
+Downloading config.yaml: 100%|██████████| 955/955 [00:00&lt;00:00, 4.77kB/s]
 
 Downloading config.yaml: 0%|          | 0.00/1.50k [00:00&lt;?, ?B/s]
-Downloading config.yaml: 100%|██████████| 1.50k/1.50k [00:00&lt;00:00, 5.89kB/s]
-Downloading config.yaml: 100%|██████████| 1.50k/1.50k [00:00&lt;00:00, 5.87kB/s]
-
-Downloading atmos_model_0.mdlus: 0%|          | 0.00/19.7M [00:00&lt;?, ?B/s]
-Downloading atmos_model_0.mdlus: 51%|█████     | 10.0M/19.7M [00:01&lt;00:01, 7.20MB/s]
-Downloading atmos_model_0.mdlus: 100%|██████████| 19.7M/19.7M [00:01&lt;00:00, 15.5MB/s]
-Downloading atmos_model_0.mdlus: 100%|██████████| 19.7M/19.7M [00:01&lt;00:00, 13.1MB/s]
-
-Downloading ocean_model_0.mdlus: 0%|          | 0.00/18.6M [00:00&lt;?, ?B/s]
-Downloading ocean_model_0.mdlus: 54%|█████▎    | 10.0M/18.6M [00:01&lt;00:01, 7.99MB/s]
-Downloading ocean_model_0.mdlus: 100%|██████████| 18.6M/18.6M [00:01&lt;00:00, 15.4MB/s]
-Downloading ocean_model_0.mdlus: 100%|██████████| 18.6M/18.6M [00:01&lt;00:00, 13.2MB/s]
+Downloading config.yaml: 100%|██████████| 1.50k/1.50k [00:00&lt;00:00, 7.45kB/s]
+Downloading config.yaml: 100%|██████████| 1.50k/1.50k [00:00&lt;00:00, 7.36kB/s]
 
 Downloading hpx_lat.npy: 0%|          | 0.00/384k [00:00&lt;?, ?B/s]
-Downloading hpx_lat.npy: 100%|██████████| 384k/384k [00:00&lt;00:00, 446kB/s]
-Downloading hpx_lat.npy: 100%|██████████| 384k/384k [00:00&lt;00:00, 446kB/s]
+Downloading hpx_lat.npy: 100%|██████████| 384k/384k [00:00&lt;00:00, 550kB/s]
+Downloading hpx_lat.npy: 100%|██████████| 384k/384k [00:00&lt;00:00, 545kB/s]
 
 Downloading hpx_lon.npy: 0%|          | 0.00/384k [00:00&lt;?, ?B/s]
-Downloading hpx_lon.npy: 100%|██████████| 384k/384k [00:00&lt;00:00, 711kB/s]
-Downloading hpx_lon.npy: 100%|██████████| 384k/384k [00:00&lt;00:00, 708kB/s]
+Downloading hpx_lon.npy: 100%|██████████| 384k/384k [00:00&lt;00:00, 1.87MB/s]
+Downloading hpx_lon.npy: 100%|██████████| 384k/384k [00:00&lt;00:00, 1.84MB/s]
+
+Downloading atmos_model_0.mdlus: 0%|          | 0.00/19.7M [00:00&lt;?, ?B/s]
+Downloading atmos_model_0.mdlus: 51%|█████     | 10.0M/19.7M [00:00&lt;00:00, 14.7MB/s]
+Downloading atmos_model_0.mdlus: 100%|██████████| 19.7M/19.7M [00:00&lt;00:00, 28.4MB/s]
+Downloading atmos_model_0.mdlus: 100%|██████████| 19.7M/19.7M [00:00&lt;00:00, 24.6MB/s]
+
+Downloading ocean_model_0.mdlus: 0%|          | 0.00/18.6M [00:00&lt;?, ?B/s]
+Downloading ocean_model_0.mdlus: 54%|█████▎    | 10.0M/18.6M [00:00&lt;00:00, 23.7MB/s]
+Downloading ocean_model_0.mdlus: 100%|██████████| 18.6M/18.6M [00:00&lt;00:00, 39.7MB/s]
+Downloading ocean_model_0.mdlus: 100%|██████████| 18.6M/18.6M [00:00&lt;00:00, 35.4MB/s]
 
 Downloading land_sea_mask.npy: 0%|          | 0.00/192k [00:00&lt;?, ?B/s]
-Downloading land_sea_mask.npy: 100%|██████████| 192k/192k [00:00&lt;00:00, 304kB/s]
-Downloading land_sea_mask.npy: 100%|██████████| 192k/192k [00:00&lt;00:00, 303kB/s]
+Downloading land_sea_mask.npy: 100%|██████████| 192k/192k [00:00&lt;00:00, 388kB/s]
+Downloading land_sea_mask.npy: 100%|██████████| 192k/192k [00:00&lt;00:00, 386kB/s]
 
 Downloading topography.npy: 0%|          | 0.00/192k [00:00&lt;?, ?B/s]
-Downloading topography.npy: 100%|██████████| 192k/192k [00:00&lt;00:00, 264kB/s]
-Downloading topography.npy: 100%|██████████| 192k/192k [00:00&lt;00:00, 263kB/s]
-DLESyM LatLon input coord shapes:  [('batch', (0,)), ('time', (0,)), ('lead_time', (9,)), ('variable', (12,)), ('lat', (721,)), ('lon', (1440,))]
-DLESyM HPX input coord shapes:  [('batch', (0,)), ('time', (0,)), ('lead_time', (9,)), ('variable', (10,)), ('face', (12,)), ('height', (64,)), ('width', (64,))]
-Lat-lon input variable names:  ['z500' 'z1000' 't2m' 'tcwv' 't850' 'z250' 'ttr03' 'sst' 'u10m' 'v10m'
- 'z300' 'z700']
-Lat-lon output variable names:  ['z500' 'tau300-700' 'z1000' 't2m' 'tcwv' 't850' 'z250' 'ws10m' 'ttr03'
- 'tp6' 'msl' 'sst']
-HEALPix input variable names:  ['z500' 'tau300-700' 'z1000' 't2m' 'tcwv' 't850' 'z250' 'ws10m' 'ttr03'
- 'sst']
-HEALPix output variable names:  ['z500' 'tau300-700' 'z1000' 't2m' 'tcwv' 't850' 'z250' 'ws10m' 'ttr03'
- 'tp6' 'msl' 'sst']</code></pre></details>
+Downloading topography.npy: 100%|██████████| 192k/192k [00:00&lt;00:00, 434kB/s]
+Downloading topography.npy: 100%|██████████| 192k/192k [00:00&lt;00:00, 431kB/s]
+Input variables: ['z500', 'tau300-700', 'z1000', 't2m', 'tcwv', 't850', 'z250', 'ws10m', 'ttr03', 'sst']
+Input lead times [h]: [-48 -42 -36 -30 -24 -18 -12  -6   0]
+Output variables: ['z500', 'tau300-700', 'z1000', 't2m', 'tcwv', 't850', 'z250', 'ws10m', 'ttr03', 'tp06', 'msl', 'sst']
+Output lead times [h]: [ 6 12 18 24 30 36 42 48 54 60 66 72 78 84 90 96]
+Recommended source: DLESyMInputSource</code></pre></details>
 
 <h2 id="the-fused-model-under-pipeline">The Fused Model Under Pipeline<a class="headerlink" href="#the-fused-model-under-pipeline" title="Permanent link">&para;</a></h2>
 <p>A <code>Pipeline</code> drives a runner over work items. <code>Pipeline.from_model</code> wraps the
@@ -3720,65 +3715,101 @@ lead times.</p>
 <a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a>    <span class="n">fused_ds</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="n">valid_sst</span><span class="o">.</span><span class="n">values</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s2">&quot;timedelta64[h]&quot;</span><span class="p">),</span>
 <a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a><span class="p">)</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>59 lines</small></summary><pre class="no-copy"><code>Fetching ARCO_ERA5 data:   0%|          | 0/8 [00:00&lt;?, ?it/s]
-Fetching ARCO_ERA5 data:  12%|█▎        | 1/8 [00:00&lt;00:03,  1.89it/s]
-Fetching ARCO_ERA5 data:  50%|█████     | 4/8 [00:00&lt;00:00,  7.81it/s]
-Fetching ARCO_ERA5 data:  75%|███████▌  | 6/8 [00:00&lt;00:00, 10.61it/s]
-Fetching ARCO_ERA5 data: 100%|██████████| 8/8 [00:02&lt;00:00,  3.05it/s]
-Fetching ARCO_ERA5 data: 100%|██████████| 8/8 [00:02&lt;00:00,  3.73it/s]
+<details class="e2sg-output" open><summary><span>Console output</span><small>95 lines</small></summary><pre class="no-copy"><code>Fetching ARCO_ERA5 data:   0%|          | 0/8 [00:00&lt;?, ?it/s]
+Fetching ARCO_ERA5 data:  12%|█▎        | 1/8 [00:00&lt;00:02,  2.65it/s]
+Fetching ARCO_ERA5 data:  62%|██████▎   | 5/8 [00:00&lt;00:00,  9.63it/s]
+Fetching ARCO_ERA5 data:  88%|████████▊ | 7/8 [00:01&lt;00:00,  4.44it/s]
+Fetching ARCO_ERA5 data: 100%|██████████| 8/8 [00:02&lt;00:00,  3.20it/s]
+Fetching ARCO_ERA5 data: 100%|██████████| 8/8 [00:02&lt;00:00,  3.83it/s]
+
+Fetching ARCO_ERA5 statistics: 0it [00:00, ?it/s]
+Fetching ARCO_ERA5 statistics: 0it [00:00, ?it/s]
 
 Fetching ARCO_ERA5 data:   0%|          | 0/8 [00:00&lt;?, ?it/s]
-Fetching ARCO_ERA5 data:  12%|█▎        | 1/8 [00:00&lt;00:03,  1.86it/s]
-Fetching ARCO_ERA5 data:  88%|████████▊ | 7/8 [00:02&lt;00:00,  3.42it/s]
-Fetching ARCO_ERA5 data: 100%|██████████| 8/8 [00:02&lt;00:00,  3.42it/s]
-Fetching ARCO_ERA5 data: 100%|██████████| 8/8 [00:02&lt;00:00,  3.31it/s]
+Fetching ARCO_ERA5 data:  12%|█▎        | 1/8 [00:00&lt;00:02,  2.72it/s]
+Fetching ARCO_ERA5 data:  25%|██▌       | 2/8 [00:00&lt;00:01,  4.70it/s]
+Fetching ARCO_ERA5 data:  88%|████████▊ | 7/8 [00:01&lt;00:00,  4.58it/s]
+Fetching ARCO_ERA5 data: 100%|██████████| 8/8 [00:02&lt;00:00,  2.47it/s]
+Fetching ARCO_ERA5 data: 100%|██████████| 8/8 [00:02&lt;00:00,  2.87it/s]
+
+Fetching ARCO_ERA5 statistics: 0it [00:00, ?it/s]
+Fetching ARCO_ERA5 statistics: 0it [00:00, ?it/s]
 
 Fetching ARCO_ERA5 data:   0%|          | 0/8 [00:00&lt;?, ?it/s]
-Fetching ARCO_ERA5 data:  12%|█▎        | 1/8 [00:00&lt;00:02,  3.29it/s]
-Fetching ARCO_ERA5 data:  25%|██▌       | 2/8 [00:00&lt;00:01,  4.07it/s]
-Fetching ARCO_ERA5 data:  75%|███████▌  | 6/8 [00:00&lt;00:00, 13.03it/s]
-Fetching ARCO_ERA5 data: 100%|██████████| 8/8 [00:01&lt;00:00,  3.70it/s]
-Fetching ARCO_ERA5 data: 100%|██████████| 8/8 [00:01&lt;00:00,  4.30it/s]
+Fetching ARCO_ERA5 data:  12%|█▎        | 1/8 [00:00&lt;00:03,  2.20it/s]
+Fetching ARCO_ERA5 data:  75%|███████▌  | 6/8 [00:00&lt;00:00, 13.07it/s]
+Fetching ARCO_ERA5 data: 100%|██████████| 8/8 [00:01&lt;00:00,  4.92it/s]
+
+Fetching ARCO_ERA5 statistics: 0it [00:00, ?it/s]
+Fetching ARCO_ERA5 statistics: 0it [00:00, ?it/s]
 
 Fetching ARCO_ERA5 data:   0%|          | 0/8 [00:00&lt;?, ?it/s]
-Fetching ARCO_ERA5 data:  12%|█▎        | 1/8 [00:00&lt;00:01,  3.99it/s]
-Fetching ARCO_ERA5 data:  25%|██▌       | 2/8 [00:00&lt;00:01,  3.48it/s]
-Fetching ARCO_ERA5 data:  75%|███████▌  | 6/8 [00:00&lt;00:00,  9.98it/s]
-Fetching ARCO_ERA5 data: 100%|██████████| 8/8 [00:01&lt;00:00,  3.65it/s]
-Fetching ARCO_ERA5 data: 100%|██████████| 8/8 [00:01&lt;00:00,  4.17it/s]
+Fetching ARCO_ERA5 data:  12%|█▎        | 1/8 [00:00&lt;00:02,  2.78it/s]
+Fetching ARCO_ERA5 data:  25%|██▌       | 2/8 [00:00&lt;00:01,  4.61it/s]
+Fetching ARCO_ERA5 data:  88%|████████▊ | 7/8 [00:01&lt;00:00,  3.89it/s]
+Fetching ARCO_ERA5 data: 100%|██████████| 8/8 [00:01&lt;00:00,  4.21it/s]
+Fetching ARCO_ERA5 data: 100%|██████████| 8/8 [00:01&lt;00:00,  4.07it/s]
+
+Fetching ARCO_ERA5 statistics: 0it [00:00, ?it/s]
+Fetching ARCO_ERA5 statistics: 0it [00:00, ?it/s]
 
 Fetching ARCO_ERA5 data:   0%|          | 0/8 [00:00&lt;?, ?it/s]
-Fetching ARCO_ERA5 data:  12%|█▎        | 1/8 [00:00&lt;00:03,  2.01it/s]
-Fetching ARCO_ERA5 data:  62%|██████▎   | 5/8 [00:00&lt;00:00, 10.13it/s]
-Fetching ARCO_ERA5 data: 100%|██████████| 8/8 [00:02&lt;00:00,  2.71it/s]
-Fetching ARCO_ERA5 data: 100%|██████████| 8/8 [00:02&lt;00:00,  3.06it/s]
+Fetching ARCO_ERA5 data:  12%|█▎        | 1/8 [00:00&lt;00:02,  3.09it/s]
+Fetching ARCO_ERA5 data:  25%|██▌       | 2/8 [00:00&lt;00:01,  4.30it/s]
+Fetching ARCO_ERA5 data:  88%|████████▊ | 7/8 [00:01&lt;00:00,  4.66it/s]
+Fetching ARCO_ERA5 data: 100%|██████████| 8/8 [00:01&lt;00:00,  4.38it/s]
+Fetching ARCO_ERA5 data: 100%|██████████| 8/8 [00:01&lt;00:00,  4.37it/s]
+
+Fetching ARCO_ERA5 statistics: 0it [00:00, ?it/s]
+Fetching ARCO_ERA5 statistics: 0it [00:00, ?it/s]
 
 Fetching ARCO_ERA5 data:   0%|          | 0/8 [00:00&lt;?, ?it/s]
-Fetching ARCO_ERA5 data:  12%|█▎        | 1/8 [00:00&lt;00:02,  2.79it/s]
-Fetching ARCO_ERA5 data:  25%|██▌       | 2/8 [00:00&lt;00:01,  3.86it/s]
-Fetching ARCO_ERA5 data:  88%|████████▊ | 7/8 [00:02&lt;00:00,  2.77it/s]
-Fetching ARCO_ERA5 data: 100%|██████████| 8/8 [00:02&lt;00:00,  3.23it/s]
+Fetching ARCO_ERA5 data:  12%|█▎        | 1/8 [00:00&lt;00:03,  2.33it/s]
+Fetching ARCO_ERA5 data:  88%|████████▊ | 7/8 [00:01&lt;00:00,  3.90it/s]
+Fetching ARCO_ERA5 data: 100%|██████████| 8/8 [00:01&lt;00:00,  4.24it/s]
+
+Fetching ARCO_ERA5 statistics: 0it [00:00, ?it/s]
+Fetching ARCO_ERA5 statistics: 0it [00:00, ?it/s]
 
 Fetching ARCO_ERA5 data:   0%|          | 0/8 [00:00&lt;?, ?it/s]
-Fetching ARCO_ERA5 data:  12%|█▎        | 1/8 [00:00&lt;00:03,  1.97it/s]
-Fetching ARCO_ERA5 data:  62%|██████▎   | 5/8 [00:00&lt;00:00,  9.49it/s]
-Fetching ARCO_ERA5 data:  88%|████████▊ | 7/8 [00:02&lt;00:00,  2.94it/s]
-Fetching ARCO_ERA5 data: 100%|██████████| 8/8 [00:03&lt;00:00,  2.41it/s]
+Fetching ARCO_ERA5 data:  12%|█▎        | 1/8 [00:00&lt;00:03,  2.02it/s]
+Fetching ARCO_ERA5 data:  88%|████████▊ | 7/8 [00:01&lt;00:00,  4.25it/s]
+Fetching ARCO_ERA5 data: 100%|██████████| 8/8 [00:02&lt;00:00,  3.94it/s]
+Fetching ARCO_ERA5 data: 100%|██████████| 8/8 [00:02&lt;00:00,  3.87it/s]
+
+Fetching ARCO_ERA5 statistics: 0it [00:00, ?it/s]
+Fetching ARCO_ERA5 statistics: 0it [00:00, ?it/s]
 
 Fetching ARCO_ERA5 data:   0%|          | 0/8 [00:00&lt;?, ?it/s]
-Fetching ARCO_ERA5 data:  12%|█▎        | 1/8 [00:00&lt;00:02,  3.04it/s]
-Fetching ARCO_ERA5 data:  25%|██▌       | 2/8 [00:00&lt;00:01,  4.04it/s]
-Fetching ARCO_ERA5 data:  88%|████████▊ | 7/8 [00:02&lt;00:00,  3.36it/s]
-Fetching ARCO_ERA5 data: 100%|██████████| 8/8 [00:02&lt;00:00,  3.33it/s]
-Fetching ARCO_ERA5 data: 100%|██████████| 8/8 [00:02&lt;00:00,  3.36it/s]
+Fetching ARCO_ERA5 data:  12%|█▎        | 1/8 [00:00&lt;00:02,  3.49it/s]
+Fetching ARCO_ERA5 data:  25%|██▌       | 2/8 [00:00&lt;00:01,  4.16it/s]
+Fetching ARCO_ERA5 data:  88%|████████▊ | 7/8 [00:01&lt;00:00,  4.73it/s]
+Fetching ARCO_ERA5 data: 100%|██████████| 8/8 [00:01&lt;00:00,  4.20it/s]
+Fetching ARCO_ERA5 data: 100%|██████████| 8/8 [00:01&lt;00:00,  4.27it/s]
+
+Fetching ARCO_ERA5 statistics: 0it [00:00, ?it/s]
+Fetching ARCO_ERA5 statistics: 0it [00:00, ?it/s]
 
 Fetching ARCO_ERA5 data:   0%|          | 0/8 [00:00&lt;?, ?it/s]
-Fetching ARCO_ERA5 data:  12%|█▎        | 1/8 [00:00&lt;00:03,  1.95it/s]
-Fetching ARCO_ERA5 data:  75%|███████▌  | 6/8 [00:00&lt;00:00, 12.33it/s]
-Fetching ARCO_ERA5 data: 100%|██████████| 8/8 [00:02&lt;00:00,  3.72it/s]
-Atmosphere outputs (variables, lead_time [hrs]): ['z500' 'tau300-700' 'z1000' 't2m' 'tcwv' 't850' 'z250' 'ws10m' 'ttr03'
- 'tp6' 'msl'] [ 6 12 18 24 30 36 42 48 54 60 66 72 78 84 90 96]
-Ocean outputs (variables, lead_time [hrs]): ['sst'] [48 96]</code></pre></details>
+Fetching ARCO_ERA5 data:  12%|█▎        | 1/8 [00:00&lt;00:03,  1.87it/s]
+Fetching ARCO_ERA5 data:  88%|████████▊ | 7/8 [00:01&lt;00:00,  3.93it/s]
+Fetching ARCO_ERA5 data: 100%|██████████| 8/8 [00:01&lt;00:00,  4.29it/s]
+
+Fetching ARCO_ERA5 statistics: 0it [00:00, ?it/s]
+Fetching ARCO_ERA5 statistics: 0it [00:00, ?it/s]
+2026-11-17 19:28:49.517 | INFO     | earth2studio.run.pipeline:_log_finished:536 - Rank 0: finished work item 1/1 (time 2021-06-15T00:00:00, final_lead_time 2764800 seconds)
+&lt;xarray.Dataset&gt; Size: 51MB
+Dimensions:    (time: 1, lead_time: 129, face: 12, height: 64, width: 64)
+Coordinates:
+  * time       (time) datetime64[ns] 8B 2021-06-15
+  * lead_time  (lead_time) timedelta64[ns] 1kB 0 days 00:00:00 ... 32 days 00...
+  * face       (face) int64 96B 0 1 2 3 4 5 6 7 8 9 10 11
+  * height     (height) int64 512B 0 1 2 3 4 5 6 7 8 ... 56 57 58 59 60 61 62 63
+  * width      (width) int64 512B 0 1 2 3 4 5 6 7 8 ... 56 57 58 59 60 61 62 63
+Data variables:
+    ws10m      (time, lead_time, face, height, width) float32 25MB 7.433 ... ...
+    sst        (time, lead_time, face, height, width) float32 25MB 271.5 ... ...
+Lead times with valid sst [h]: [  0  48  96 144 192 240 288 336 384 432 480 528 576 624 672 720 768]</code></pre></details>
 
 <h2 id="the-atmosphere-and-ocean-as-components">The Atmosphere and Ocean as Components<a class="headerlink" href="#the-atmosphere-and-ocean-as-components" title="Permanent link">&para;</a></h2>
 <p>A fused model whose outputs advance at different cadences cannot be coupled as it
@@ -3823,7 +3854,12 @@ the same package, like any other model, and declares its own slots:</p>
 <a id="__codelineno-2-25" name="__codelineno-2-25" href="#__codelineno-2-25"></a><span class="n">print_slots</span><span class="p">(</span><span class="s2">&quot;atmos&quot;</span><span class="p">,</span> <span class="n">atmos</span><span class="p">)</span>
 <a id="__codelineno-2-26" name="__codelineno-2-26" href="#__codelineno-2-26"></a><span class="n">print_slots</span><span class="p">(</span><span class="s2">&quot;ocean&quot;</span><span class="p">,</span> <span class="n">ocean</span><span class="p">)</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>1 line</small></summary><pre class="no-copy"><code>Completed forecast with 16 steps</code></pre></details>
+<details class="e2sg-output" open><summary><span>Console output</span><small>6 lines</small></summary><pre class="no-copy"><code>atmos input:   ['z500', 'tau300-700', 'z1000', 't2m', 'tcwv', 't850', 'z250', 'ws10m', 'ttr03'] at [-18 -12  -6   0]
+atmos forcing: ['sst'] at [0]
+atmos output:  ['z500', 'tau300-700', 'z1000', 't2m', 'tcwv', 't850', 'z250', 'ws10m', 'ttr03', 'tp06', 'msl'] at [ 6 12 18 24 30 36 42 48 54 60 66 72 78 84 90 96]
+ocean input:   ['sst'] at [-48   0]
+ocean forcing: ['z1000:mean:48h', 'ws10m:mean:48h'] at [48 96]
+ocean output:  ['sst'] at [48 96]</code></pre></details>
 
 <h2 id="declaring-the-coupling">Declaring the Coupling<a class="headerlink" href="#declaring-the-coupling" title="Permanent link">&para;</a></h2>
 <p>Components are named models and connectors are edges between them. Both components
@@ -3852,26 +3888,19 @@ connected slot reads from.</p>
 <a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="p">)</span>
 <a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="nb">print</span><span class="p">(</span><span class="n">runner</span><span class="o">.</span><span class="n">describe</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">timedelta64</span><span class="p">(</span><span class="mi">192</span><span class="p">,</span> <span class="s2">&quot;h&quot;</span><span class="p">)))</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>20 lines</small></summary><pre class="no-copy"><code>&lt;xarray.Dataset&gt; Size: 13GB
-Dimensions:     (time: 1, lead_time: 265, lat: 721, lon: 1440)
-Coordinates:
-  * time        (time) datetime64[s] 8B 2021-06-15
-  * lead_time   (lead_time) timedelta64[ns] 2kB -2 days +00:00:00 ... 64 days...
-  * lat         (lat) float64 6kB 90.0 89.75 89.5 89.25 ... -89.5 -89.75 -90.0
-  * lon         (lon) float64 12kB 0.0 0.25 0.5 0.75 ... 359.0 359.2 359.5 359.8
-Data variables:
-    z500        (time, lead_time, lat, lon) float32 1GB 5.253e+04 ... 4.891e+04
-    tau300-700  (time, lead_time, lat, lon) float32 1GB 5.85e+04 ... 5.489e+04
-    z1000       (time, lead_time, lat, lon) float32 1GB 890.4 890.4 ... 377.2
-    t2m         (time, lead_time, lat, lon) float32 1GB 273.7 273.7 ... 226.6
-    tcwv        (time, lead_time, lat, lon) float32 1GB 8.898 8.898 ... 0.465
-    t850        (time, lead_time, lat, lon) float32 1GB 265.6 265.6 ... 241.0
-    z250        (time, lead_time, lat, lon) float32 1GB 9.844e+04 ... 9.155e+04
-    ws10m       (time, lead_time, lat, lon) float32 1GB 0.0292 0.0292 ... 9.901
-    ttr03       (time, lead_time, lat, lon) float32 1GB -2.384e+06 ... -1.484...
-    tp6         (time, lead_time, lat, lon) float32 1GB 0.0 0.0 ... 7.208 7.208
-    msl         (time, lead_time, lat, lon) float32 1GB 0.0 0.0 ... 1.013e+05
-    sst         (time, lead_time, lat, lon) float32 1GB 271.5 271.5 ... 271.0</code></pre></details>
+<details class="e2sg-output" open><summary><span>Console output</span><small>13 lines</small></summary><pre class="no-copy"><code>Components:
+  atmos  stateful    every 96h
+  ocean  stateful    every 96h
+Connectors:
+  ocean -&gt; atmos forcing[0] (hold): sst
+  atmos -&gt; ocean forcing[0] (exact): z1000:mean:48h, ws10m:mean:48h
+Schedule through +192h:
+      +0h  atmos  initial condition  -&gt; +0h
+      +0h  ocean  initial condition  -&gt; +0h
+     +96h  atmos  initialize         -&gt; +6h, +12h, +18h, +24h, +30h, +36h, +42h, +48h, +54h, +60h, +66h, +72h, +78h, +84h, +90h, +96h  [forcing[0] &lt;- ocean at +0h]
+     +96h  ocean  initialize         -&gt; +48h, +96h  [forcing[0] &lt;- atmos at +48h, +96h from +6h..+96h]
+    +192h  atmos  step               -&gt; +102h, +108h, +114h, +120h, +126h, +132h, +138h, +144h, +150h, +156h, +162h, +168h, +174h, +180h, +186h, +192h  [forcing[0] &lt;- ocean at +6h, +12h, +18h, +24h, +30h, +36h, +42h, +48h, +54h, +60h, +66h, +72h, +78h, +84h, +90h, +96h from +0h..+96h]
+    +192h  ocean  step               -&gt; +144h, +192h  [forcing[0] &lt;- atmos at +144h, +192h from +102h..+192h]</code></pre></details>
 
 <h2 id="running-the-coupled-model-under-pipeline">Running the Coupled Model Under Pipeline<a class="headerlink" href="#running-the-coupled-model-under-pipeline" title="Permanent link">&para;</a></h2>
 <p>A coupled runner is a <code>Runner</code>, so the same <code>Pipeline</code> drives it over the same
@@ -3898,7 +3927,86 @@ run. With deterministic cores the two agree exactly.</p>
 <a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="p">)</span>
 <a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Ocean lead times [h]:&quot;</span><span class="p">,</span> <span class="n">ocean_ds</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s2">&quot;timedelta64[h]&quot;</span><span class="p">))</span>
 </code></pre></div>
-<p><img alt="Output from Running DLESyM Inference" class="e2sg-output-image" loading="lazy" src="../../_assets/06_seasonal-02_dlesym_example/001-cell-10.webp" /></p>
+<details class="e2sg-output" open><summary><span>Console output</span><small>79 lines</small></summary><pre class="no-copy"><code>Fetching ARCO_ERA5 data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
+Fetching ARCO_ERA5 data:  86%|████████▌ | 6/7 [00:00&lt;00:00, 18.30it/s]
+Fetching ARCO_ERA5 data: 100%|██████████| 7/7 [00:00&lt;00:00, 20.90it/s]
+
+Fetching ARCO_ERA5 statistics: 0it [00:00, ?it/s]
+Fetching ARCO_ERA5 statistics: 0it [00:00, ?it/s]
+
+Fetching ARCO_ERA5 data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
+Fetching ARCO_ERA5 data:  86%|████████▌ | 6/7 [00:00&lt;00:00, 20.15it/s]
+Fetching ARCO_ERA5 data: 100%|██████████| 7/7 [00:00&lt;00:00, 22.94it/s]
+
+Fetching ARCO_ERA5 statistics: 0it [00:00, ?it/s]
+Fetching ARCO_ERA5 statistics: 0it [00:00, ?it/s]
+
+Fetching ARCO_ERA5 data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
+Fetching ARCO_ERA5 data:  86%|████████▌ | 6/7 [00:00&lt;00:00, 24.44it/s]
+Fetching ARCO_ERA5 data: 100%|██████████| 7/7 [00:00&lt;00:00, 28.24it/s]
+
+Fetching ARCO_ERA5 statistics: 0it [00:00, ?it/s]
+Fetching ARCO_ERA5 statistics: 0it [00:00, ?it/s]
+
+Fetching ARCO_ERA5 data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
+Fetching ARCO_ERA5 data:  86%|████████▌ | 6/7 [00:00&lt;00:00, 18.94it/s]
+Fetching ARCO_ERA5 data: 100%|██████████| 7/7 [00:00&lt;00:00, 21.94it/s]
+
+Fetching ARCO_ERA5 statistics: 0it [00:00, ?it/s]
+Fetching ARCO_ERA5 statistics: 0it [00:00, ?it/s]
+
+Fetching ARCO_ERA5 data:   0%|          | 0/1 [00:00&lt;?, ?it/s]
+Fetching ARCO_ERA5 data: 100%|██████████| 1/1 [00:00&lt;00:00, 110.05it/s]
+
+Fetching ARCO_ERA5 statistics: 0it [00:00, ?it/s]
+Fetching ARCO_ERA5 statistics: 0it [00:00, ?it/s]
+
+Fetching ARCO_ERA5 data:   0%|          | 0/1 [00:00&lt;?, ?it/s]
+Fetching ARCO_ERA5 data: 100%|██████████| 1/1 [00:00&lt;00:00, 56.94it/s]
+
+Fetching ARCO_ERA5 statistics: 0it [00:00, ?it/s]
+Fetching ARCO_ERA5 statistics: 0it [00:00, ?it/s]
+2026-11-17 19:28:57.110 | INFO     | earth2studio.run.pipeline:_log_finished:536 - Rank 0: finished work item 1/1 (time 2021-06-15T00:00:00, final_lead_time 2764800 seconds)
+&lt;xarray.Dataset&gt; Size: 279MB
+Dimensions:     (time: 1, lead_time: 129, face: 12, height: 64, width: 64)
+Coordinates:
+  * time        (time) datetime64[ns] 8B 2021-06-15
+  * lead_time   (lead_time) timedelta64[ns] 1kB 0 days 00:00:00 ... 32 days 0...
+  * face        (face) int64 96B 0 1 2 3 4 5 6 7 8 9 10 11
+  * height      (height) int64 512B 0 1 2 3 4 5 6 7 ... 56 57 58 59 60 61 62 63
+  * width       (width) int64 512B 0 1 2 3 4 5 6 7 8 ... 56 57 58 59 60 61 62 63
+Data variables:
+    z500        (time, lead_time, face, height, width) float32 25MB 5.26e+04 ...
+    tau300-700  (time, lead_time, face, height, width) float32 25MB 5.881e+04...
+    z1000       (time, lead_time, face, height, width) float32 25MB 473.2 ......
+    t2m         (time, lead_time, face, height, width) float32 25MB 273.9 ......
+    tcwv        (time, lead_time, face, height, width) float32 25MB 9.496 ......
+    t850        (time, lead_time, face, height, width) float32 25MB 271.0 ......
+    z250        (time, lead_time, face, height, width) float32 25MB 9.872e+04...
+    ws10m       (time, lead_time, face, height, width) float32 25MB 7.433 ......
+    ttr03       (time, lead_time, face, height, width) float32 25MB -2.535e+0...
+    tp06        (time, lead_time, face, height, width) float32 25MB nan ... 7...
+    msl         (time, lead_time, face, height, width) float32 25MB nan ... 1...
+&lt;xarray.Dataset&gt; Size: 3MB
+Dimensions:    (time: 1, lead_time: 17, face: 12, height: 64, width: 64)
+Coordinates:
+  * time       (time) datetime64[ns] 8B 2021-06-15
+  * lead_time  (lead_time) timedelta64[ns] 136B 0 days 2 days ... 32 days
+  * face       (face) int64 96B 0 1 2 3 4 5 6 7 8 9 10 11
+  * height     (height) int64 512B 0 1 2 3 4 5 6 7 8 ... 56 57 58 59 60 61 62 63
+  * width      (width) int64 512B 0 1 2 3 4 5 6 7 8 ... 56 57 58 59 60 61 62 63
+Data variables:
+    sst        (time, lead_time, face, height, width) float32 3MB 271.5 ... 2...
+Atmosphere lead times [h]: [  0   6  12  18  24  30  36  42  48  54  60  66  72  78  84  90  96 102
+ 108 114 120 126 132 138 144 150 156 162 168 174 180 186 192 198 204 210
+ 216 222 228 234 240 246 252 258 264 270 276 282 288 294 300 306 312 318
+ 324 330 336 342 348 354 360 366 372 378 384 390 396 402 408 414 420 426
+ 432 438 444 450 456 462 468 474 480 486 492 498 504 510 516 522 528 534
+ 540 546 552 558 564 570 576 582 588 594 600 606 612 618 624 630 636 642
+ 648 654 660 666 672 678 684 690 696 702 708 714 720 726 732 738 744 750
+ 756 762 768]
+Ocean lead times [h]: [  0  48  96 144 192 240 288 336 384 432 480 528 576 624 672 720 768]</code></pre></details>
+
 <h2 id="post-processing">Post Processing<a class="headerlink" href="#post-processing" title="Permanent link">&para;</a></h2>
 <p>Every stream is on the native HEALPix grid. For plotting we regrid onto a 1 degree
 lat/lon grid with a standalone
@@ -3945,10 +4053,11 @@ the final lead time, next to the fused model's wind speed at the same lead time.
 <a id="__codelineno-5-37" name="__codelineno-5-37" href="#__codelineno-5-37"></a><span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
 <a id="__codelineno-5-38" name="__codelineno-5-38" href="#__codelineno-5-38"></a><span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="s2">&quot;outputs/02_dlesym_coupled_ws10m_sst.jpg&quot;</span><span class="p">)</span>
 </code></pre></div>
+<p><img alt="Output from Running DLESyM Inference" class="e2sg-output-image" loading="lazy" src="../../_assets/06_seasonal-02_dlesym_example/001-cell-12.webp" /></p>
 <hr />
-<div class="e2sg-downloads"><a class="e2sg-download" href="../../_assets/06_seasonal-02_dlesym_example/02_dlesym_example.py" download>Download Python source</a><a class="e2sg-download" href="../../_assets/06_seasonal-02_dlesym_example/02_dlesym_example.ipynb" download>Download Jupyter notebook</a><span class="e2sg-download-meta">executed in 123.4s</span></div>
+<div class="e2sg-downloads"><a class="e2sg-download" href="../../_assets/06_seasonal-02_dlesym_example/02_dlesym_example.py" download>Download Python source</a><a class="e2sg-download" href="../../_assets/06_seasonal-02_dlesym_example/02_dlesym_example.ipynb" download>Download Jupyter notebook</a><span class="e2sg-download-meta">executed in 76.4s</span></div>
 
-<section class="e2sg-telemetry" aria-labelledby="e2sg-telemetry-title"><div class="e2sg-telemetry-heading"><div><span class="e2sg-eyebrow">Execution profile</span><h2 id="e2sg-telemetry-title">Runtime telemetry</h2></div></div><div class="e2sg-total-runtime"><span>Total runtime</span><strong>2m 3s</strong></div><h3 class="e2sg-telemetry-subtitle">Execution environment</h3><div class="e2sg-hardware-grid"><div class="e2sg-hardware-item"><span>CPU</span><strong>AMD EPYC 7313P 16-Core Processor</strong></div><div class="e2sg-hardware-item"><span>GPU</span><strong>NVIDIA H100 PCIe · 79.6 GiB</strong></div><div class="e2sg-hardware-item"><span>System RAM</span><strong>58.5 GiB</strong></div><div class="e2sg-hardware-item"><span>Platform</span><strong>Linux 6.8.0-137-generic</strong></div><div class="e2sg-hardware-item"><span>Python</span><strong>3.13.13</strong></div><div class="e2sg-hardware-item"><span>GPU driver / CUDA</span><strong>Driver 595.84 · CUDA support 13.2</strong></div></div></section>
+<section class="e2sg-telemetry" aria-labelledby="e2sg-telemetry-title"><div class="e2sg-telemetry-heading"><div><span class="e2sg-eyebrow">Execution profile</span><h2 id="e2sg-telemetry-title">Runtime telemetry</h2></div></div><div class="e2sg-total-runtime"><span>Total runtime</span><strong>1m 16s</strong></div><h3 class="e2sg-telemetry-subtitle">Execution environment</h3><div class="e2sg-hardware-grid"><div class="e2sg-hardware-item"><span>CPU</span><strong>AMD EPYC 9554 64-Core Processor</strong></div><div class="e2sg-hardware-item"><span>GPU</span><strong>NVIDIA H100 NVL · 93.6 GiB</strong></div><div class="e2sg-hardware-item"><span>System RAM</span><strong>58.4 GiB</strong></div><div class="e2sg-hardware-item"><span>Platform</span><strong>Linux 6.8.0-147-generic</strong></div><div class="e2sg-hardware-item"><span>Python</span><strong>3.13.13</strong></div><div class="e2sg-hardware-item"><span>GPU driver / CUDA</span><strong>Driver 595.99.02 · CUDA support 13.2</strong></div></div></section>
 
 
 
