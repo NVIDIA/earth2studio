@@ -28,7 +28,7 @@ composable inference APIs, and GPU-accelerated workflows in one Python package.
 
 ![Earth2Studio hero][e2studio_hero_img]
 
-## For agents
+## Get Started
 
 Paste this into your coding agent (Claude, Codex, OpenCode, Cursor, etc.):
 
