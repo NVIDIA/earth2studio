@@ -12,7 +12,6 @@ the latest release, main, or a specific version?"**
 Verify the branch and file exist; if unavailable, explain and ask before substituting.
 Carry the choice forward without asking again. Use that branch's skills and documentation;
 prefer local files only when they match. Released package installs use the matching release tag.
-For a first forecast, start with [Earth2Studio - Get Started][get-started].
 
 Earth2Studio is an AI weather and climate Python package with a large catalog of data sources
 and prognostic, diagnostic, and data assimilation models. It builds on PyTorch, xarray, and CuPy.
@@ -46,6 +45,8 @@ by metric and lead time. See [evaluation configuration][scorecard-config],
 [score data][scorecard-data], and the [page generator][scorecard-generator].
 
 ## Skills
+
+For a first forecast, start with [Earth2Studio - Get Started][get-started].
 
 Activate the matching skill with your agent's skill tool, or read its `SKILL.md` directly.
 

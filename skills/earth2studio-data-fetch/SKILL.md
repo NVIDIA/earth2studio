@@ -35,6 +35,11 @@ DataArray (or a pandas DataFrame for observations).
 
 ## Core principle: read the repo and live docs, do not memorize
 
+Use the selected version's [fetch specification](../../docs/specs/E2S-05_FETCH_DATA_SPEC.md),
+[time-statistics specification](../../docs/specs/E2S-03_TIME_STATISTICS_SPEC.md) and
+[grid specification](../../docs/specs/E2S-02_GRID_SPEC.md) for behavior requirements.
+Consult these directly rather than recreating their contracts in this skill.
+
 Sources, variables, and lexicons change every release. Any list in this skill
 would go stale, so look things up and cite what you used.
 

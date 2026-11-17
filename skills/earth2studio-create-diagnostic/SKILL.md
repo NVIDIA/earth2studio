@@ -30,9 +30,9 @@ Preserve existing licenses in copied code, including reference skeleton SPDX hea
 These samples do not impose NVIDIA copyright on newly authored local code.
 
 Implement the [DiagnosticModel protocol](../../earth2studio/models/dx/base.py).
-Read [the local diagnostic contract](references/model-contract.md) before coding;
-it contains the coordinate, slot, ownership, source and RNG requirements.
-Follow every rule in its [D1–D11 checklist](references/model-contract.md#rules-and-verification).
+Read [E2S-06: Model Contract][model-spec] before coding, including its diagnostic
+rules and conformance sections. The selected version's spec is authoritative;
+use its requirements directly rather than maintaining a separate skill contract.
 Diagnostics transform fields without a rollout, forcing API or iterator hooks.
 
 ## Workflow
@@ -43,7 +43,7 @@ Diagnostics transform fields without a rollout, forcing API or iterator hooks.
    variables before querying signatures.
    Unless already specified, ask: “Do you want checkpoint/restart integration? I recommend no for the
    initial implementation because it adds storage, restore and testing complexity.”
-   Add it only if requested; see [checkpointing](references/model-contract.md#optional-checkpoint-integration).
+   Add it only if requested; consult the selected version's package and execution APIs.
 2. **Choose packaging.** Use the local project's dependency conventions and
    `earth2studio-install` for setup. `AutoModelMixin` supports packaged weights.
    For contributions only, packaged/generative models get a named optional extra,
@@ -52,21 +52,14 @@ Diagnostics transform fields without a rollout, forcing API or iterator hooks.
 3. **Implement** in the user's project, or for contributions in
    `earth2studio/models/dx/<name>.py`, using the
    [runnable skeleton](references/skeleton-template.py) and, as needed,
-   [method examples](references/method-templates.py). Declare fixed named inputs
-   in `__call__`, one DataArray per slot. Implement `input_coords`,
-   `output_coords`, `default_sources` and `to` (normally inherited from
-   `torch.nn.Module`), plus a boolean `stochastic`. Protocol inheritance is optional.
-4. **Handle the core boundary.** Plan and validate coordinates without allocating
-   fields. Use `.e2s.to_torch()`/`from_torch()` for Torch conversion. Pack leading
-   axes only where needed; clone borrowed storage before in-place kernels.
-   Declare sample axes and changed grids for generative outputs. Use
-   `set_rng(seed, reset=True)` for stochastic models, with isolated RNG draws.
-   If the model can run on a sub-domain, also implement
-   [`with_region`](references/model-contract.md#regional-views-domainadaptable).
+   [method examples](references/method-templates.py). Follow the spec's
+   [diagnostic interface][diagnostic-spec] for methods and slots.
+4. **Handle the core boundary** using the spec's coordinate, execution-boundary,
+   ownership and stochasticity requirements. Consult [domain selection][domain-spec]
+   for models that support sub-domains.
 5. **Load weights when applicable.** Resolve immutable `Package` assets, load on
    CPU, call `eval()`, register buffers, and guard actual optional dependencies.
-   Override `to` for non-Torch state. Follow
-   [packaging guidance](references/model-contract.md#packaging).
+   Override `to` for non-Torch state. Use the packaging examples in the templates.
 6. **Validate locally** with a small numerical smoke case and
    `check_diagnostic_contract(model)` using mock weights; check relevant sampling
    behavior and report skipped checks. Follow the project's test layout.
@@ -97,8 +90,7 @@ make format && make lint && make license
 Use `uv run` or the project virtualenv for Python. For contributions, include
 SPDX headers in newly authored repository code, typed public methods and
 NumPy-style docstrings; use `loguru.logger` in library code.
-Follow the [method docstring checklist](references/model-contract.md#method-docstrings)
-and the complete docstrings in the templates. Describe the actual variables,
+Use the complete docstrings in the templates. Describe the actual variables,
 grids, sample axes and output slots rather than a generic "forward pass."
 
 ## Contributor Checklist
@@ -117,10 +109,10 @@ and the [developer guide](../../docs/userguide/developer/overview.md):
 
 | Reference | Read when |
 | --- | --- |
-| [Model contract](references/model-contract.md) | Always, before implementation |
+| [Model contract][model-spec] | Always, before implementation |
 | [Skeleton](references/skeleton-template.py) | Starting a single-input wrapper |
 | [Method examples](references/method-templates.py) | Packaging or multiple slots |
-| [Regional views](references/model-contract.md#regional-views-domainadaptable) | The model supports sub-domains |
+| [Regional views][domain-spec] | The model supports sub-domains |
 | [Testing guide](references/testing-guide.py) | Building mock/contract tests |
 | [Validation guide](references/validation-guide.md) | Comparing with upstream inference |
 | [PR body](references/pr-body-template.md), [validation comment](references/pr-comment-template.md) | A PR is requested |
@@ -141,5 +133,9 @@ For local work, use the user's project root. For contributor Harbor tasks only,
 output goes under `/workspace/output/earth2studio/models/dx/`; a copied repo is at
 `/workspace/repo`. Never read `evals/targets/` (grader-only material). Keep
 validation scripts, checkpoints, images and credentials out of contribution commits.
-If a reference conflicts with the current protocol, follow the protocol and report
-the discrepancy; edit repository guidance only for contributions.
+If a template or implementation conflicts with the selected version's spec, report
+the discrepancy; do not redefine the contract in this skill.
+
+[model-spec]: ../../docs/specs/E2S-06_MODEL_CONTRACT_SPEC.md
+[diagnostic-spec]: ../../docs/specs/E2S-06_MODEL_CONTRACT_SPEC.md#diagnostic-models
+[domain-spec]: ../../docs/specs/E2S-06_MODEL_CONTRACT_SPEC.md#domain-selection

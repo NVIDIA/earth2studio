@@ -29,9 +29,9 @@ Preserve existing licenses in copied code, including reference skeleton SPDX hea
 These samples do not impose NVIDIA copyright on newly authored local code.
 
 Implement the [PrognosticModel protocol](../../earth2studio/models/px/base.py).
-Read [the local prognostic contract](references/model-contract.md) before coding;
-it specifies slots, state, forcing, forecasts-only iteration, hooks and RNG.
-Follow every rule in its [P1–P24 checklist](references/model-contract.md#rules-and-verification).
+Read [E2S-06: Model Contract][model-spec] before coding, including its prognostic
+rules and conformance sections. The selected version's spec is authoritative;
+use its requirements directly rather than maintaining a separate skill contract.
 Use [PrognosticMixin](../../earth2studio/models/px/utils.py) optionally: it supplies
 no public execution methods; explicit wrapper methods can delegate to its private
 helpers.
@@ -45,7 +45,7 @@ helpers.
    Configure domains and variables before querying signatures.
    Unless already specified, ask: “Do you want checkpoint/restart integration? I recommend no for the
    initial implementation because it adds storage, restore and testing complexity.”
-   Add it only if requested; see [checkpointing](references/model-contract.md#optional-checkpoint-integration).
+   Add it only if requested; see [explicit state][state-spec].
    Explicit `initialize`/`step` state remains required either way.
 2. **Propose dependencies.** Use the local project's dependency conventions and
    `earth2studio-install` for setup. For contributions only, every packaged
@@ -57,27 +57,15 @@ helpers.
    [history methods](references/method-templates.py). `torch.nn.Module` supplies
    device movement; `AutoModelMixin` is for packaged weights. Protocol compliance,
    not triple inheritance, is required.
-4. **Declare slots and sources.** Implement `input_coords`, `output_coords`,
-   `forcing_coords` and `default_sources`. The mixin supplies the latter two as
-   `None`. Planning is allocation-free and validates finite relative history.
-   Pass fields, then forcing, as individual positional DataArrays.
-5. **Implement explicit execution methods.** Declare fixed named parameters for
-   `__call__`, `initialize`, `step` and `create_iterator`; `state` follows the
-   arrays as a positional-or-keyword parameter. `initialize` computes the first
-   forecast. `step` consumes previous outputs plus new forcing and serializable
-   state, returning the next `(y, state)` without modifying its inputs. Use
-   `return self._default_call(...)` and
-   `yield from self._default_create_iterator(...)` for thin wrapper delegates.
-   The mixin has no execution stubs: implement all four methods rather than
-   calling `super().__call__`, `super().initialize`, `super().step` or
-   `super().create_iterator`. No mixin override suppressions are needed.
-   Each iterator yield is a complete forecast, including all core-produced leads.
+4. **Declare slots and sources** following the spec's [model interface][interface-spec]
+   and coordinate requirements. Use the templates as implementation examples.
+5. **Implement explicit execution methods** following the spec's
+   [state and continuation requirements][state-spec], iteration and hooks sections.
+   Check the selected version's `PrognosticMixin` before using its private helpers.
 6. **Handle weights and RNG.** Resolve immutable `Package` assets, load on CPU,
    call `eval()`, register buffers and guard optional backend dependencies.
-   Override `to` for non-Torch state. Stochastic models implement `set_rng` and
-   retain per-rollout RNG position in explicit state for replay. If the model can
-   run on a sub-domain, also implement
-   [`with_region`](references/model-contract.md#regional-views-domainadaptable).
+   Override `to` for non-Torch state. Follow the spec's stochasticity requirements
+   and [domain selection][domain-spec] when applicable.
 7. **Validate locally** with a small numerical smoke case and
    `check_prognostic_contract(model)` using mock weights; check replay and relevant
    forcing/RNG behavior and report skipped checks. Follow the project's test layout.
@@ -108,8 +96,7 @@ make format && make lint && make license
 Use `uv run` or the project virtualenv for Python. For contributions, include
 SPDX headers in newly authored repository code, typed public methods and
 NumPy-style docstrings; use `loguru.logger` in library code.
-Follow the [method docstring checklist](references/model-contract.md#method-docstrings)
-and the complete docstrings in the templates. Adapt descriptions to the model's
+Use the complete docstrings in the templates. Adapt descriptions to the model's
 state, forcing windows and forecast chunk; avoid stale initial-condition-first
 or single-frame wording from older wrappers.
 
@@ -129,11 +116,11 @@ and the [developer guide](../../docs/userguide/developer/overview.md):
 
 | Reference | Read when |
 | --- | --- |
-| [Model contract](references/model-contract.md) | Always, before implementation |
+| [Model contract][model-spec] | Always, before implementation |
 | [Skeleton](references/skeleton-template.py) | Starting a single-frame wrapper |
 | [Method examples](references/method-templates.py) | Retaining history in explicit state |
-| [Forcing and slots](references/model-contract.md#forcing-and-slots) | Forced or coupled execution |
-| [Regional views](references/model-contract.md#regional-views-domainadaptable) | The model supports sub-domains |
+| [Forcing and slots][interface-spec] | Forced or coupled execution |
+| [Regional views][domain-spec] | The model supports sub-domains |
 | [Testing guide](references/testing-guide.py) | Building mock/contract tests |
 | [Validation guide](references/validation-guide.md) | Comparing with upstream inference |
 | [PR body](references/pr-body-template.md), [validation comment](references/pr-comment-template.md) | A PR is requested |
@@ -155,5 +142,10 @@ For local work, use the user's project root. For contributor Harbor tasks only,
 output goes under `/workspace/output/earth2studio/models/px/`; a copied repo is at
 `/workspace/repo`. Never read `evals/targets/` (grader-only material). Keep
 validation scripts, checkpoints, images and credentials out of contribution commits.
-If a reference conflicts with the current protocol, follow the protocol and report
-the discrepancy; edit repository guidance only for contributions.
+If a template or implementation conflicts with the selected version's spec, report
+the discrepancy; do not redefine the contract in this skill.
+
+[model-spec]: ../../docs/specs/E2S-06_MODEL_CONTRACT_SPEC.md
+[interface-spec]: ../../docs/specs/E2S-06_MODEL_CONTRACT_SPEC.md#model-interface
+[state-spec]: ../../docs/specs/E2S-06_MODEL_CONTRACT_SPEC.md#explicit-state
+[domain-spec]: ../../docs/specs/E2S-06_MODEL_CONTRACT_SPEC.md#domain-selection

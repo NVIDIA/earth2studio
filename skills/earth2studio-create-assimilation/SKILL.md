@@ -23,15 +23,15 @@ If unavailable locally, consult matching-version sources on GitHub or the docume
 Preserve existing licenses in copied code, including reference skeleton SPDX headers.
 These samples do not impose NVIDIA copyright on newly authored local code.
 
-Read the [local DA contract](references/da-contract.md) before coding; it holds
-the slot, cadence, state, iterator, RNG and ownership requirements. Then read the
-[protocols](../../earth2studio/models/da/base.py) (their docstrings are
-normative), a
+Read [E2S-07: DA Model Contract][da-spec] before coding; it is authoritative for
+slots, cadence, state, iteration, RNG and ownership. Use the selected version's
+spec directly rather than maintaining a separate skill contract. Then read the
+[protocols](../../earth2studio/models/da/base.py), a
 current wrapper of the same kind in `earth2studio/models/da/` (independent:
 `interp.py`, `healda.py`, `sda_corrdiff_cosmo_era5.py`; stateful: `sda_stormcast.py`,
 `sda_stormcastconus.py`) and, when migrating a 0.x wrapper, the data assimilation
 section of [MIGRATION.md](../../MIGRATION.md). Prognostic-style state semantics
-are in the [prognostic contract](../earth2studio-create-prognostic/references/model-contract.md).
+are in [E2S-06: Model Contract][model-spec].
 
 ## Workflow
 
@@ -43,35 +43,12 @@ are in the [prognostic contract](../earth2studio-create-prognostic/references/mo
 2. Record grids, variables, observation columns and time windows, which slots are
    optional, sources, normalization, sampling and checkpoints. Configure the
    domain and variable set on the instance before querying signatures.
-3. Declare fixed named inputs and matching `input_coords`/`output_coords` slots.
-   Use DataArray/CoordinateSystem for fields and DataFrame/FrameSchema for tables
-   (empty column array = unconstrained, non-empty = allowed values). Preserve
-   optional `None` slots. Only stateful models declare `forcing_coords`.
-   Callers fetch data; `default_sources` follows input-then-forcing order and
-   models never fetch. Document each observation window and any required
-   DataFrame `attrs`; drivers request DataFrame forcing at the analysis valid
-   time and pass `None` when no rows return.
-   Stateful gridded outputs carry `lead_time`; output offsets are added to the
-   final input lead time. The step interval is the output's last lead minus the
-   later of the first input's last lead and zero, so a background ending before
-   zero (brought up to the analysis time by `initialize`) does not lengthen it
-   and publishes no initial condition. Several output leads per step are
-   declared together and returned together.
-4. Implement `__call__`, device movement, `stochastic` and `set_rng(seed, reset=True)`.
-   Deterministic setters are no-ops; stochastic models keep a local generator that
-   each call or new trajectory advances, `reset=False` creates it only if absent,
-   and global RNG state is left unchanged.
-   For stateful models add `initialize`, `step`, and `create_iterator`.
-   `initialize` returns `(first_analysis, state)` after one core computation and
-   keeps static forcing in the state. `step(*outputs, *new_forcing, state)` takes
-   the previous outputs, new dynamic forcing only and `state` as a
-   positional-or-keyword parameter after the arrays. `(output, state)` is the whole
-   continuation: serializable (RNG as counter or snapshot), never mutated,
-   replayable bit for bit including stochastic draws. `__call__` equals
-   `initialize(...)[0]`. The iterator yields computed analyses only (no initial
-   state or priming `None`); `send` supplies the next forcing in declared order,
-   required conditioning is never reused (reject `send(None)`), observations
-   may be `None`. Hooks, if offered, are iterator-only.
+3. Declare inputs, outputs, sources and observation windows according to
+   [E2S-07][da-spec]. Use [E2S-01: Core Metadata][metadata-spec] for field coordinates
+   and DataFrame schemas, and [E2S-06][model-spec] for lead-time semantics.
+4. Implement the chosen interface using [E2S-07][da-spec] for execution and RNG
+   requirements. For stateful models, also consult the explicit-state and
+   iteration sections of [E2S-06][model-spec].
 5. Reuse existing numerical cores and package loaders where appropriate. Guard
    optional dependencies and use `earth2studio-install` for setup. Follow the
    local project's packaging; only contributors propose repository extras changes.
@@ -118,5 +95,9 @@ and the [developer guide](../../docs/userguide/developer/overview.md):
 
 For contributions, use SPDX headers in newly authored repository code, typed public
 methods, NumPy-style docstrings, and `loguru` in library code. Follow the repository
-testing conventions; keep this skill and its contract and test guides aligned with
-`base.py` when the protocol changes.
+testing conventions. If examples or implementations differ from the selected version's
+specs, report the discrepancy rather than redefining the contract in this skill.
+
+[da-spec]: ../../docs/specs/E2S-07_DA_MODEL_CONTRACT_SPEC.md
+[model-spec]: ../../docs/specs/E2S-06_MODEL_CONTRACT_SPEC.md
+[metadata-spec]: ../../docs/specs/E2S-01_CORE_METADATA_SPEC.md

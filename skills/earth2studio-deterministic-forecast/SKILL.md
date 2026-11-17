@@ -37,6 +37,11 @@ output streams.
 Models, data sources, and APIs change between releases. Read these instead of
 recalling them, and cite what you used.
 
+Use the selected version's [model contract](../../docs/specs/E2S-06_MODEL_CONTRACT_SPEC.md),
+[execution contract](../../docs/specs/E2S-11_EXECUTION_CONTRACT_SPEC.md) and
+[IO specification](../../docs/specs/E2S-10_IO_SPEC.md) as the source of truth.
+Consult these directly for behavior requirements; examples below do not define a separate contract.
+
 | Need | Where to look (repo path first, live page as a fallback) |
 |------|------------------------------------------------|
 | Prognostic models and their badges (region, VRAM, class) | `docs/modules/models_px.md` |

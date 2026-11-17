@@ -23,6 +23,11 @@ from data sources.
 
 ## Components
 
+Read [E2S-12: Coupling][coupling-spec] before wiring models. It is the authoritative
+contract for components, connectors, scheduling, streams and rule identifiers.
+Use the selected version's spec; the workflow and examples here are implementation aids.
+For model slots and state, consult [E2S-06][model-spec] and [E2S-07][da-spec].
+
 | Component | Runs | Calls |
 | --- | --- | --- |
 | Prognostic model | Every cadence | `initialize(*inputs, *forcing)`, then `step(*outputs, *forcing, state=state)` |
@@ -152,7 +157,7 @@ from data sources.
    (`None` keeps a recommendation, a single source covers the first input slot,
    more sources than slots is an error), and optionally `devices` and `seed`.
    Construction validates everything; fix each `CouplingError` using the
-   tables below.
+   [spec's rules][coupling-rules].
 4. **Check the schedule** with `print(runner.describe(final_lead_time))` over a
    few cadences of the slowest component, before running anything. Each row is
    a call: when it is due, what it outputs, and where each connected slot reads
@@ -181,20 +186,9 @@ make format && make lint
 suggests close names for misspelled components and variables. Rules C6, C9 and
 C10 describe runtime behavior rather than errors.
 
-| Rule | Requirement | Typical cause / fix |
-| --- | --- | --- |
-| `C1` | Components are prognostic, stateful assimilation or diagnostic models with gridded outputs; a stateful component's output slots share one `lead_time` | Outputs not gridded or at different leads: split the model |
-| `C2` | Stateful components step at their declared cadence; a diagnostic runs when its inputs arrive and needs at least one `exact` connector | Feed it with an `exact` edge |
-| `C3` | Connectors target a time-varying gridded forcing slot or a diagnostic input slot; several may feed one slot if their labels differ. State connectors target state slots and may share one if their variables differ | Two connectors feed one label, or a bad `slot=`: name each connector's labels in `variables` |
-| `C4` | Every fed label's base, after `variables`, is published by exactly one producer output slot; `variables` names declared bases | Label unknown or published by two output slots: rename with `variables=` or pick the right producer |
-| `C5` | Without a regridder, each producer slot read and the consumer slot have the same geometry; with one, its source grid matches each slot read and its target grid the consumer slot | `BilinearRegridder(src_grid, dst_grid)` built from `infer_grid` |
-| `C6` | Required valid times follow the model contract; DataFrame slots are requested at the chunk's end, static slots only initially | (behavior) |
-| `C7` | `exact` waits for frames at each required time; `hold` takes the latest earlier-published frame and applies to plain labels only | `hold` on a qualified label: use `exact`, or declare the slot at an earlier lead |
-| `C8` | Qualified labels reduce producer frames over `(T - w, T]`; the window must divide by the producer's frame spacing | Fix the window or the producer's cadence |
-| `C9` | Frames at or before the item time that the producer does not hold come from the slot's source, for stateful consumers only, including early frames of a later window; state connectors keep the model's own values instead | (behavior) |
-| `C10` | An empty DataFrame from a source is passed as `None` | (behavior) |
-| `C11` | A stateful chunk due by the final lead time that cannot run raises, naming the cycle or the missing frame; construction checks this first | Cycle of `exact` edges, or a frame that never arrives: make one edge `hold`; check cadences and the final lead |
-| `C12` | One uniquely named stream per output slot; `describe`, `output_coords` and `data_requests` come from the scheduler that runs the item | Two output slots resolve to the same stream name: rename a component |
+Look up each rule in [E2S-12's rules section][coupling-rules] rather than maintaining
+a second rule table here. Inspect `runner.describe(...)` and the affected model's
+declarations to diagnose a mismatch.
 
 Other construction errors: a slot with no source and no connector (`needs a
 source`), more sources than slots, a source or device for an unknown component,
@@ -226,6 +220,8 @@ component.
 
 | Reference | Read when |
 | --- | --- |
+| [Coupling specification][coupling-spec] | Always, before wiring models |
+| [Execution specification](../../docs/specs/E2S-11_EXECUTION_CONTRACT_SPEC.md) | Pipeline, work items and output streams |
 | [Coupling template](references/coupling-template.py) | Always; runnable CPU starting point |
 | [Connector patterns](references/connector-patterns.md) | Choosing timing, variables, grids, units, state, sources, devices |
 | [Testing template](references/testing-template.py) | Writing tests for a coupling |
@@ -234,3 +230,8 @@ component.
 | [Run package](../../earth2studio/run/) | `Runner`, `WorkItem`, `Pipeline` |
 | [Coupling tests](../../test/coupling/) | Worked toys: observations, state overwrite, chunks, seeding, devices |
 | [Migration notes](../../MIGRATION.md) | Model contract changes behind the slot and state rules |
+
+[coupling-spec]: ../../docs/specs/E2S-12_COUPLING_SPEC.md
+[coupling-rules]: ../../docs/specs/E2S-12_COUPLING_SPEC.md#rules
+[model-spec]: ../../docs/specs/E2S-06_MODEL_CONTRACT_SPEC.md
+[da-spec]: ../../docs/specs/E2S-07_DA_MODEL_CONTRACT_SPEC.md

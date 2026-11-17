@@ -165,58 +165,21 @@ If empty, ask:
 
 Key factors: gridded vs sparse → DataArray vs DataFrame; analysis vs forecast → Source vs ForecastSource.
 
-Output contract shared by all types (details in `earth2studio/data/base.py`):
+Read the selected version's specs before implementing output behavior:
 
-- Device convention (documented in the `DataSource` docstring in `base.py`):
-  an optional constructor keyword `device: torch.device | str = "cpu"`, stored
-  as `self.device = torch.device(device)`; NumPy/pandas on CPU, CuPy/cuDF on
-  CUDA. It is not part of the protocol and `gfs.py`/`arco.py`/`hrrr.py` do not
-  implement it yet, so add it only for sources that can produce CUDA output
-  (or when asked). Never add `device` to `__call__` or `fetch`.
-- Gridded dims start `[time, variable, ...]` (`[time, lead_time, variable, ...]`
-  for forecasts). `fetch_data(source, time, variable, lead_time, device,
-  target_grid, regridder)` adds `lead_time` to analysis output, moves data to
-  `device` (CUDA needs CuPy), and returns one `xr.DataArray` with dims
-  `[time, lead_time, variable, ...]`. It does not repair grid metadata, but it
-  does call `infer_grid(array)` when `target_grid` is given, so output must be
-  inferable (below).
-- Grid metadata so `infer_grid` works (`earth2studio/grids/__init__.py`):
-  - 1D `lat`/`lon` dims: `LatLonGrid`.
-  - Projected sources: dims `y`/`x` with 1D projected-coordinate axes, 2D
-    `lat`/`lon` auxiliary coords, and the `earth2studio_crs` attr (or the
-    `earth2studio_grid_id` attr for a registered grid). A CRS alone is not a
-    grid. See `hrrr.py` for `y`/`x` axes and
-    `with_grid_metadata(..., "hrrr-conus-3km")`.
-  - 2D `lat`/`lon` on `(y, x)`: curvilinear. `lat`/`lon` along `x`: point grid.
-  - If the grid is registered (`list_grids()`), build coordinates with
-    `resolve_grid("<id>").coords()` (returns axes plus 2D auxiliaries) and set
-    `earth2studio_grid_id`. Register a new fixed grid with
-    `register_grid(name, definition)` in the user's project, or in
-    `earth2studio/grids` for contributions.
-  - Callers regrid with `target_grid=infer_grid(model.input_coords())` or an
-    explicit `NearestRegridder`/`BilinearRegridder` (`earth2studio.grids`).
-    `RegriddedSource`, `CompositeSource` and `CompositeForecastSource` in
-    `earth2studio.data` wrap sources; do not reimplement them.
-- Temporal statistics (gridded sources; details in `temporal-statistics.py`):
-  - Labels are `base:method:window`, e.g. `t2m:mean:1day`, `t2m:max:30days`,
-    or an offset window `t2m:mean:-12h:+12h`. Split only at the first `:`;
-    base names never contain `:` and raw backend IDs with `::` pass through.
-  - Methods: `mean`, `sum`, `min`, `max`. Windows are left-open/right-closed: `mean:24h`
-    is `(T-24h, T]`, `mean:-12h:+12h` is `(T-12h, T+12h]`. The source cadence
-    must divide the window exactly. Units: ns, us, ms, s, m/min, h/hr, d/day,
-    w/wk/week (plurals fine); no months or years.
-  - Means are sample-weighted. Unqualified labels keep the source's own
-    meaning (including native accumulations). Unsupported methods raise
-    `ValueError`; `fetch_data` rejects statistics for sources without
-    `lexicon.TIME_STATISTICS`.
-  - Forecast sources shift leads within one initialization and never
-    substitute another cycle; validate every expanded lead (including
-    negative ones) before downloading. Analysis sources use valid times.
-  - Record reductions in `attrs[E2S_STATISTICS]` (from
-    `earth2studio.utils.coords`) via the `attrs` returned by `plan_statistics`.
-- DataFrame sources with a time window take `time_tolerance: TimeTolerance` and
-  use `normalize_time_tolerance` from `earth2studio/utils/time.py`;
-  never interpret the value by hand.
+- [E2S-01: Core Metadata](../../docs/specs/E2S-01_CORE_METADATA_SPEC.md)
+  for coordinates, attributes and DataFrame schemas.
+- [E2S-02: Grids](../../docs/specs/E2S-02_GRID_SPEC.md) for grid metadata and inference.
+- [E2S-03: Time Statistics](../../docs/specs/E2S-03_TIME_STATISTICS_SPEC.md)
+  for labels, windows, source responsibilities and reduction metadata.
+- [E2S-05: Fetch Data](../../docs/specs/E2S-05_FETCH_DATA_SPEC.md)
+  for dispatch, source backing/device and output requirements.
+
+Use these as the contract, not a copied checklist in this skill. Consult
+[`data/base.py`](../../earth2studio/data/base.py) for source signatures and device
+conventions, and current sources such as `hrrr.py` for implementation examples.
+Reuse existing grid, time-tolerance, statistics and source-composition helpers.
+If a template differs from the selected version's spec, report the discrepancy.
 
 #### [CONFIRM — Source Type]
 
