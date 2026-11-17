@@ -29,21 +29,21 @@ MPL = os.path.join(os.path.dirname(matplotlib.__file__), "mpl-data", "fonts", "t
 
 
 def wind_cmap():
-    """Return the sapphire, cyan, and lemon palette shared by globe and legend."""
-    # Echo satellite blues/cyan, reserving their yellow accent for the fastest winds.
+    """Return the NVIDIA-inspired forest-to-lime palette for globe and legend."""
+    # Anchor the ramp in NVIDIA green; yellow-green highlights avoid the vapour teal.
     # Increasing luminance preserves the ordering of wind speed on the dark canvas.
     return LinearSegmentedColormap.from_list(
-        "sapphire_cyan_lemon",
+        "forest_nvidia_lime",
         [
-            "#030913",
-            "#081e42",
-            "#10396e",
-            "#1756a0",
-            "#1687c5",
-            "#38b6da",
-            "#9bd9df",
-            "#e9e7b0",
-            "#fff3b0",
+            "#080c0b",
+            "#192b24",
+            "#284b31",
+            "#416e31",
+            "#5c9320",
+            "#76b900",
+            "#a2d548",
+            "#d1eb86",
+            "#f1fac8",
         ],
     )
 
