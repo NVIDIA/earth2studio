@@ -70,7 +70,7 @@ select extras from `install_options.yml`, and give the user install and verifica
 
 ### Available skills
 
-- [earth2studio-get-started][get-started]: set up, run, and plot your first UCAST forecast.
+- [earth2studio-get-started][get-started]: set up, run, and plot your first Atlas CRPS forecast.
 - [earth2studio-discover](./skills/earth2studio-discover/SKILL.md): choose models, sources, and examples.
 - [earth2studio-install](./skills/earth2studio-install/SKILL.md): install and configure the package.
 - [earth2studio-deterministic-forecast](./skills/earth2studio-deterministic-forecast/SKILL.md)

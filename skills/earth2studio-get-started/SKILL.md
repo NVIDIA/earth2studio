@@ -2,7 +2,7 @@
 name: earth2studio-get-started
 description: >
   Use when getting started with Earth2Studio or setting up a first forecast,
-  from a Python environment through UCAST inference, Zarr output, and plotting.
+  from a Python environment through Atlas CRPS inference, Zarr output, and plotting.
 license: Apache-2.0
 metadata:
   author: NVIDIA Earth-2 Team
@@ -17,19 +17,19 @@ After each successful stage, explicitly offer the next step rather than ending a
 
 Follow `AGENTS.md` version routing first; retain an existing choice. Then ask:
 **"Do you want to get started with a minimal runnable example?"** Explain briefly:
-"We'll initialize UCAST from ARCO ERA5 and save a five-day forecast to Zarr."
+"We'll initialize Atlas CRPS from ARCO ERA5 and save a five-day forecast to Zarr."
 Wait for the answer. If no, stop; if yes, continue with environment setup.
 
 ## 2. Set up the environment
 
 Read the selected
-version's install options, `pyproject.toml`, `ucast.py`, and deterministic example.
-Confirm `UCast` and the `ucast` extra exist before giving commands.
+version's install options, `pyproject.toml`, `atlas_crps.py`, and deterministic example.
+Confirm `AtlasCRPS` and the `atlas` extra exist before giving commands.
 
 Ask: **"Are you already in a Python project, and does it use uv?"** Recommend uv.
-Check GPU availability. A GPU with 40 GB of memory is recommended for UCAST;
+Check GPU availability. A GPU with 40 GB of memory is recommended for this example;
 depending on the workflow, it may run on GPUs with less memory.
-Model loading downloads weights and WeatherBench2 static fields.
+Model loading downloads the Atlas CRPS weights, processors and shared autoencoder.
 
 Use `earth2studio-install` for version-specific commands and troubleshooting. Give commands
 for the user to execute, then wait for their result. For a new uv project:
@@ -37,7 +37,7 @@ for the user to execute, then wait for their result. For a new uv project:
 ```bash
 mkdir first-forecast && cd first-forecast
 uv init --python=3.13
-uv add "earth2studio[ucast] @ git+https://github.com/NVIDIA/earth2studio.git@<ref>"
+uv add "earth2studio[atlas] @ git+https://github.com/NVIDIA/earth2studio.git@<ref>"
 uv run python -c "import earth2studio, torch; print(earth2studio.__version__, torch.cuda.is_available())"
 ```
 
@@ -45,19 +45,21 @@ Replace `<ref>` with the selected release tag or `main` before presenting comman
 use the selected branch for an explicit unreleased RC. Main may change incompatibly.
 Use that version's supported Python. For an existing uv project, omit `mkdir` and
 `uv init`; preserve its Python pin. For pip projects, give the matching pip command.
-The current `ucast` extra is empty; it needs no additional model-specific dependencies.
+Follow the selected version's `atlas` dependency notes and the install skill's
+source-build guidance. Set `TORCH_ALLOW_TF32_CUBLAS_OVERRIDE=1` before starting Python
+for the model's recommended inference performance.
 
 Once the user confirms setup and verification succeeded, continue to the forecast step.
 If the environment is already ready, skip installation and proceed directly.
 
 ## 3. Save and run the forecast
 
-UCAST needs `sst`, absent from the current GFS lexicon. Use its recommended ARCO ERA5
+Atlas CRPS needs `sst`, absent from the current GFS lexicon. Use ARCO ERA5
 source rather than giving a failing GFS script. If GFS is required, discuss a compatible
 model or verified data adapter. GFS itself needs no extra dependency group.
 
 ARCO ERA5 is delayed: do not use yesterday's date without verifying availability for
-both initialization and its 12-hour history. Default to the historical example below;
+both initialization and its six-hour history. Default to the historical example below;
 it forecasts five days **from that date**, not the next five days from today.
 For a verified recent date, round UTC down to a six-hour cycle and ensure both times exist.
 
@@ -67,20 +69,21 @@ Show this as `forecast.py`, adapting APIs to the selected version:
 import torch
 from earth2studio.data import ARCO_ERA5
 from earth2studio.io import ZarrBackend
-from earth2studio.models.px import UCast
+from earth2studio.models.px import AtlasCRPS
 from earth2studio.run import deterministic
 
-model = UCast.load_model(UCast.load_default_package())
-store = ZarrBackend("ucast.zarr")
-deterministic(["2023-01-01T00:00:00"], 10, model, ARCO_ERA5(), store,
+model = AtlasCRPS.load_model(AtlasCRPS.load_default_package())
+store = ZarrBackend("atlas_crps.zarr")
+deterministic(["2023-01-01T00:00:00"], 20, model, ARCO_ERA5(), store,
               device=torch.device("cuda"))
 ```
 
-UCAST steps every 12 hours: 10 steps = five days, 20 = ten days. The single-member
-workflow still uses UCAST's default stochastic dropout. Its inputs include two times;
+Atlas CRPS steps every six hours: 20 steps = five days, 40 = ten days. This is a
+single-member forecast with the model's internal stochastic sampling. Its inputs include two times;
 the workflow fetches that history. Use a fresh store path for a new run.
 
-Give `uv run python forecast.py` (or their environment's Python) and ask:
+Give `TORCH_ALLOW_TF32_CUBLAS_OVERRIDE=1 uv run python forecast.py`
+(or the equivalent in their environment) and ask:
 **"Would you like to run the forecast now?"** If no, stop with the script and command
 ready. If yes, have the user run the command and share the result. Wait for completion;
 do not claim output exists before the user confirms or you verify it. On failure,
@@ -102,12 +105,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 import xarray as xr
 
-ds = xr.open_zarr("ucast.zarr", consolidated=False)
+ds = xr.open_zarr("atlas_crps.zarr", consolidated=False)
 field = ds["t2m"].isel(time=0).sel(lead_time=np.timedelta64(120, "h")) - 273.15
 field.plot.contourf(x="lon", y="lat", levels=20, cbar_kwargs={"label": "°C"})
 init = ds.time.values[0]
 valid = init + np.timedelta64(120, "h")
-plt.title(f"UCAST 2-metre temperature\nInit {init}; valid {valid} UTC (+120 h)")
+plt.title(f"Atlas CRPS 2-metre temperature\nInit {init}; valid {valid} UTC (+120 h)")
 plt.savefig("temperature.png", dpi=150, bbox_inches="tight")
 plt.close()
 ds.close()
