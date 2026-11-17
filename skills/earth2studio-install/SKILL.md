@@ -59,11 +59,6 @@ the sources below and quote from them.
 - `pyproject.toml`: `requires-python` and `[project.optional-dependencies]`.
 - `docs/userguide/support/troubleshooting.md` and `docs/userguide/support/faq.md`:
   known failures.
-- [Astral GPU indexes](https://wheels.astral.sh/) and
-  [uv's PyTorch extension guide](https://docs.astral.sh/uv/guides/integration/pytorch/#installing-gpu-enabled-pytorch-extensions):
-  prebuilt FlashAttention wheels and package-specific index configuration.
-- [NATTEN installation](https://natten.org/install/) and
-  [wheel listing](https://whl.natten.org): prebuilt NATTEN wheels, including `libnatten`.
 
 Live pages (note the `/main/` segment; URLs without it return 404):
 
@@ -102,9 +97,8 @@ incomplete.
    that version. For main, read those sources from main. If local sources target
    a different version, fetch the matching sources rather than mixing releases.
 3. **Use uv to add Earth2Studio to their Python project.** Ask only what is
-   missing (at most 3 questions total): version choice, existing project, and
-    models or data sources needed. Request missing GPU environment diagnostics
-    separately when needed to verify wheel compatibility. For a new project, follow the guide's
+   missing (at most 3 initial questions): version choice, existing project, and
+   models or data sources needed. For a new project, follow the guide's
    "uv Project" setup with **Python 3.13** by default:
 
    ```bash
@@ -128,9 +122,7 @@ incomplete.
    groups. If a class is not listed, check `[project.optional-dependencies]` in
    `pyproject.toml` and the class docstring before guessing. Several extras can
    go in one command.
-5. **Check GPU wheels before recommending a build.** If the selected extras need
-   FlashAttention (`flash-attn`) or NATTEN, follow the compatibility checks below.
-   Then **provide the command(s)** built from the `command_templates` and the extras
+5. **Provide the command(s)** built from the `command_templates` and the extras
    found above. Follow the guide's default uv source: `github` for a release tag,
    `github-main` for main. Substitute the verified or requested tag into
    `{release_ref}`, or `package.main_ref` into `{main_ref}`. Use `uv add`, not
@@ -145,48 +137,45 @@ incomplete.
    source, so pick the one matching the command you chose), `warnings`, or `notes` attached to
    the chosen entries (slow builds such as flash-attn, `--no-build-isolation`,
    CUDA-specific packages, large checkpoint downloads, and so on). Do not
-   paraphrase from memory.
+   paraphrase from memory. If dependencies require compilation, mention possible
+   build times and consult [Source builds](#source-builds) below.
 6. **Wait for the user to run it**, then have them verify using the command in
    `install.md` (use the `uv run` form inside a uv project).
 7. **Mention configuration only when relevant** (limited disk, shared
    filesystem, CI). The environment variables and their meaning are listed in
    `install.md`.
-8. **On failure**, start from `troubleshooting.md` and `faq.md`. Check that
-   PyTorch and CUDA are working before blaming Earth2Studio.
+8. **On failure**, follow [Troubleshooting](#troubleshooting) below.
 
-## FlashAttention and NATTEN wheels
+## Troubleshooting
 
-These dependencies can take a long time to build. Prefer a compatible
-prebuilt wheel over a lengthy source build; check the live sources above each time.
+Start with the selected version's [troubleshooting guide][troubleshooting] and
+[FAQ][faq]. Read the actual error and check that PyTorch and CUDA are working
+before recommending a fix.
 
-1. Establish the selected model's dependency constraints and the environment's
-   Python version/ABI, OS, CPU architecture, PyTorch build, CUDA build, and GPU
-   capability. Inspect existing pins first. `torch.__version__` and
-   `torch.version.cuda` identify the Torch build; the CUDA version displayed by
-   `nvidia-smi` alone does not establish wheel compatibility.
-2. For **FlashAttention**, check `https://wheels.astral.sh/` for the matching CUDA
-   index and Torch-compatible wheel. For uv projects, use a named
-   `[[tool.uv.index]]` with `explicit = true` and map `flash-attn` to it in
-   `[tool.uv.sources]`. Read the current uv guide for the exact command/config.
-   Do not copy a CUDA index or version from an example without checking the wheel.
-3. For **NATTEN**, check `https://natten.org/install/`, including older builds,
-   and `https://whl.natten.org`. Use the exact compatible version, including its
-   `+torch...cu...` suffix when applicable, with `uv add "natten==<verified-build>"
-   --find-links https://whl.natten.org` (one command). Persist the find-links
-   setting in the consuming uv project. For pip, use the equivalent pinned
-   `pip install` command with `--find-links`. Check whether the model requires
-   `libnatten`; an importable base package alone does not establish that it works.
-4. Put index/source/find-links configuration in the **consuming project**:
-   Earth2Studio's uv settings are not inherited by projects installing it.
-   Keep Torch/CUDA and extension versions compatible through resolution; do not
-   silently change an existing Torch pin to fit a wheel. For pip, use the same
-   verified wheel sources with pip-compatible options.
-5. If no compatible wheel exists (including custom/NGC Torch builds), explain
-   the mismatch and consult upstream source-build requirements, including the
-   CUDA toolkit and build isolation settings. Offer a compatible environment
-   change or source build, rather than assuming either will work. After the
-   user installs, verify the import and required backend; for supported NATTEN
-   versions check `natten.HAS_LIBNATTEN` when the model requires it.
+### Common issues
+
+- **Missing optional dependency:** check the model's extra and documented pre-install steps.
+- **Build failures:** use the troubleshooting guide for missing Python headers,
+  CMake, or other build prerequisites.
+- **Import errors or undefined symbols:** check the installed dependency versions
+  against the selected release and PyTorch/CUDA build.
+
+### Source builds
+
+Some dependencies, such as FlashAttention, NATTEN and Earth2Grid, can take a while
+to build from source. Check the version recommended by the selected Earth2Studio
+release before suggesting an alternative build:
+
+- **FlashAttention:** check the [Astral GPU index](https://wheels.astral.sh/) for
+  that version and a build compatible with the user's environment. Consult
+  [uv's extension guide](https://docs.astral.sh/uv/guides/integration/pytorch/#installing-gpu-enabled-pytorch-extensions)
+  for usage rather than recommending an arbitrary prebuilt version.
+- **NATTEN:** check the [installation guide](https://natten.org/install/) and
+  [build listing](https://whl.natten.org) for the recommended version and its
+  supported PyTorch/CUDA combination, including older builds when needed.
+
+[troubleshooting]: ../../docs/userguide/support/troubleshooting.md
+[faq]: ../../docs/userguide/support/faq.md
 
 ## Limitations
 
