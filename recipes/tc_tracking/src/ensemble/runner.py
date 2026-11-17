@@ -24,7 +24,7 @@ batch as a :class:`BatchObserver`.
 """
 
 from collections.abc import Callable, Generator, Iterator, Mapping, Sequence
-from typing import Any, Protocol
+from typing import Any, Protocol, cast
 
 import numpy as np
 import xarray as xr
@@ -250,7 +250,8 @@ class StableRunner(PrognosticRunner):
             self.stability_check.reset()
         # PrognosticRunner seeds the model from self.seed when the rollout starts
         self.seed = self.base_seed + attempt
-        steps = super().run_item(item)
+        # a generator, annotated as Iterator by PrognosticRunner
+        steps = cast(Generator[Step, None, None], super().run_item(item))
         total = self.nsteps(item.final_lead_time) + self.publishes_initial_condition
         try:
             for step in tqdm(steps, total=total):
