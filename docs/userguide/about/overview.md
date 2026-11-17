@@ -60,8 +60,7 @@ Build bespoke pipelines using Earth2Studio's selection of open models, your own
 custom models, or a combination of both. Bring your own open or proprietary data
 through data-source interfaces, including observations, initial conditions, and
 existing forecasts. Assemble these components around your application to create a
-workflow with its own unique value. Join at any stage, including supplying an
-existing forecast directly to a diagnostic or decision model.
+workflow with its own unique value.
 
 ## Constructing Pipelines
 
