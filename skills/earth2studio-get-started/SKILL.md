@@ -15,7 +15,11 @@ After each successful stage, explicitly offer the next step rather than ending a
 
 ## 1. Confirm the version and offer the example
 
-Follow `AGENTS.md` version routing first; retain an existing choice. Then ask:
+Ask which Earth2Studio version to use, unless already specified: **latest release,
+main, or a specific version?** Follow `earth2studio-install` to resolve the latest
+stable release and present the version choices. Wait for the choice and carry it
+through setup without asking again. Use matching-version sources and documentation.
+Then ask:
 **"Do you want to get started with a minimal runnable example?"** Explain briefly:
 "We'll initialize UCast from ARCO ERA5 and save a five-day forecast to Zarr."
 Wait for the answer. If no, stop; if yes, continue with environment setup.

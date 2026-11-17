@@ -1,18 +1,5 @@
 # Earth2Studio Agent Guide
 
-First ask, unless already specified: **"Which Earth2Studio version would you like:
-the latest release, main, or a specific version?"**
-
-- **Latest:** resolve the latest stable tag from GitHub releases, then read
-  `https://github.com/NVIDIA/earth2studio/blob/<version>-rc/AGENTS.md`.
-- **Main:** read `https://github.com/NVIDIA/earth2studio/blob/main/AGENTS.md`.
-- **Specific version:** read the corresponding `<version>-rc/AGENTS.md` at that repository.
-  Preserve an explicitly supplied `-rc` suffix rather than appending it twice.
-
-Verify the branch and file exist; if unavailable, explain and ask before substituting.
-Carry the choice forward without asking again. Use that branch's skills and documentation;
-prefer local files only when they match. Released package installs use the matching release tag.
-
 Earth2Studio is an AI weather and climate Python package with a large catalog of data sources
 and prognostic, diagnostic, and data assimilation models. It builds on PyTorch, xarray, and CuPy.
 Its goal is to make these components easy to discover, extend, and combine into reproducible,
