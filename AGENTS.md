@@ -37,9 +37,6 @@ Read and cite only the sources relevant to the task.
 | Compute or reproduce scorecards | [Scorecard recipe][scorecard-recipe], [metrics][statistics] |
 | Resolve setup problems | [Troubleshooting][troubleshooting], [FAQ][faq] |
 
-The [install-selector script][install-script] builds commands from `install_options.yml`;
-[the generator][install-generator] prepares it for the docs.
-
 Choose models by region, variables, forecast horizon, and GPU memory. Compare scorecards
 by metric and lead time. See [evaluation configuration][scorecard-config],
 [score data][scorecard-data], and the [page generator][scorecard-generator].
@@ -116,8 +113,6 @@ Repository make targets are defined in [Makefile](./Makefile). See the
 [install]: ./docs/userguide/about/install.md
 [get-started]: ./skills/earth2studio-get-started/SKILL.md
 [install-options]: ./docs/userguide/about/install_options.yml
-[install-script]: ./docs/assets/javascripts/e2s-install-selector.js
-[install-generator]: ./docs/generate_install_options.py
 [prognostics]: ./docs/modules/models_px.md
 [px]: ./earth2studio/models/px/
 [diagnostics]: ./docs/modules/models_dx.md
