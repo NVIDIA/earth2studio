@@ -38,7 +38,7 @@ https://github.com/NVIDIA/earth2studio
 ```
 
 [`AGENTS.md`](./AGENTS.md) routes usage and development tasks to the relevant
-documentation and skills. Then ask for what you want:
+documentation and skills. Learn more, install, and start forecasting with just a few prompts:
 
 ```text
 # Learn about the latest release
