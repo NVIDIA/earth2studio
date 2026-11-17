@@ -56,9 +56,7 @@ If the environment is already ready, skip installation and proceed directly.
 
 ## 3. Save and run the forecast
 
-UCast needs `sst`, absent from the current GFS lexicon. Use ARCO ERA5
-source rather than giving a failing GFS script. If GFS is required, discuss a compatible
-model or verified data adapter. GFS itself needs no extra dependency group.
+Use ARCO ERA5 for UCast's initial conditions, including sea surface temperature (`sst`).
 
 ARCO ERA5 is delayed: do not use yesterday's date without verifying availability for
 both initialization and its 12-hour history. Default to the historical example below;
