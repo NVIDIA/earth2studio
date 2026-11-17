@@ -68,7 +68,7 @@ npx skills add NVIDIA/earth2studio --skill earth2studio-install
 npx skills add NVIDIA/earth2studio --skill earth2studio-discover
 ```
 
-## For humans
+## Installation and Examples
 
 Each model has different dependencies; the install guide provides the exact commands for your setup.
 
