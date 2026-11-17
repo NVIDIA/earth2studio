@@ -1,0 +1,398 @@
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# %%
+"""
+Statistical Inference
+=====================
+
+Simple seasonal statistic inference workflow.
+
+This example will demonstrate how to run a simple inference workflow to generate a
+forecast and then to save a statistic of that data. There are a handful of built-in
+statistics available in `earth2studio.statistics`, but here we will demonstrate how
+to define a custom statistic and run inference.
+
+In this example you will learn:
+
+- How to instantiate a built in prognostic model
+- Creating a data source and IO object
+- Create a custom statistic
+- Running a simple built in workflow
+- Post-processing results
+"""
+
+# /// script
+# dependencies = [
+#   "earth2studio[pangu,statistics] @ git+https://github.com/NVIDIA/earth2studio.git",
+#   "matplotlib",
+# ]
+# ///
+
+# %%
+# Creating a Statistical Workflow
+# -------------------------------
+#
+# Start with creating a simple inference workflow to use. We encourage
+# users to explore and experiment with their own custom workflows that borrow ideas from
+# built in workflows inside [`earth2studio.run`][earth2studio.run] or the examples.
+#
+# Creating our own generalizable workflow to use with statistics is easy when we rely on
+# the component interfaces defined in Earth2Studio (use dependency injection). Here we
+# create a run method that accepts the following:
+#
+# - time: Input list of datetimes / strings to run inference for
+# - nsteps: Number of forecast steps to predict
+# - prognostic: Our initialized prognostic model
+# - statistic: our custom statistic
+# - data: Initialized data source to fetch initial conditions from
+# - io: IOBackend
+#
+# We do not run an ensemble inference workflow here, even though it is common for statistical
+# inference. See ensemble examples for details on how to extend this example for that purpose.
+
+# %%
+import os
+
+os.makedirs("outputs", exist_ok=True)
+from dotenv import load_dotenv
+
+load_dotenv()  # TODO: make common example prep function
+
+from datetime import datetime
+
+import numpy as np
+import pandas as pd
+from loguru import logger
+from tqdm import tqdm
+
+from earth2studio.data import DataSource, fetch_data
+from earth2studio.io import IOBackend
+from earth2studio.io.utils import output_template
+from earth2studio.models.px import PrognosticModel
+from earth2studio.models.px.utils import initial_condition
+from earth2studio.statistics import Statistic
+from earth2studio.utils.time import to_time_array
+
+logger.remove()
+logger.add(lambda msg: tqdm.write(msg, end=""), colorize=True)
+
+
+def run_stats(
+    time: list[str] | list[datetime] | list[np.datetime64],
+    nsteps: int,
+    nensemble: int,
+    prognostic: PrognosticModel,
+    statistic: Statistic,
+    data: DataSource,
+    io: IOBackend,
+) -> IOBackend:
+    """Simple statistics workflow
+
+    Parameters
+    ----------
+    time : list[str] | list[datetime] | list[np.datetime64]
+        List of string, datetimes or np.datetime64
+    nsteps : int
+        Number of forecast steps
+    nensemble : int
+        Number of ensemble members to run inference for.
+    prognostic : PrognosticModel
+        Prognostic models
+    statistic : Statistic
+        Custom statistic to compute and write to IO.
+    data : DataSource
+        Data source
+    io : IOBackend
+        IO object
+
+    Returns
+    -------
+    IOBackend
+        Output IO object
+    """
+    logger.info("Running simple statistics workflow!")
+    # Load model onto the device
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    logger.info(f"Inference device: {device}")
+    prognostic = prognostic.to(device)
+    # Fetch data from data source and load onto device
+    time = to_time_array(time)
+    from earth2studio.run import map_field
+
+    x = fetch_data(
+        source=data,
+        time=time,
+        lead_time=prognostic.input_coords().coords["lead_time"].values,
+        variable=prognostic.input_coords().coords["variable"].values,
+        device=device,
+    )
+    logger.success(f"Fetched data from {data.__class__.__name__}")
+
+    # Set up IO backend. Arrays are created from a concrete template: the model's
+    # output signature is concretized over the times and lead times of the roll out,
+    # then the dimensions the statistic reduces over are dropped and the statistic's
+    # name is attached, since a template without a `variable` dimension names a
+    # single array after itself.
+    signature = prognostic.output_coords(prognostic.input_coords())
+    leads = signature.coords["lead_time"].values
+    template = output_template(
+        signature,
+        leading={"time": time},
+        coords={
+            "lead_time": np.concatenate(
+                [
+                    np.zeros(1, dtype=leads.dtype),
+                    *(leads + leads[-1] * i for i in range(nsteps)),
+                ]
+            )
+        },
+    )
+    template = template.isel(
+        {dim: 0 for dim in statistic.reduction_dimensions}, drop=True
+    ).rename(str(statistic))
+    io.add_array(template)
+
+    # Map lat and lon if needed
+    x = map_field(x, prognostic.input_coords())
+
+    # Create prognostic iterator
+    model = prognostic.create_iterator(x)
+
+    # The iterator yields forecasts only, so the initial condition is written first
+    io.write(statistic(initial_condition(x)).rename(str(statistic)))
+
+    logger.info("Inference starting!")
+    with tqdm(total=nsteps + 1, initial=1, desc="Running inference") as pbar:
+        for step, x in enumerate(model, start=1):
+            # Statistics take and return xarray DataArrays, name the result for IO
+            io.write(statistic(x).rename(str(statistic)))
+            pbar.update(1)
+            if step == nsteps:
+                break
+
+    logger.success("Inference complete")
+    return io
+
+
+# %%
+# Set Up
+# ------
+# With the statistical workflow defined, we now need to create the individual components.
+#
+# We need the following:
+#
+# - Prognostic Model: Use the built in Pangu 24 hour model [`earth2studio.models.px.Pangu24`][earth2studio.models.px.Pangu24].
+# - statistic: We define our own statistic: the Southern Oscillation Index (SOI).
+# - Datasource: Pull data from the GFS data api [`earth2studio.data.GFS`][earth2studio.data.GFS].
+# - IO Backend: Save the outputs into a NetCDF4 store [`earth2studio.io.NetCDF4Backend`][earth2studio.io.NetCDF4Backend].
+
+# %%
+import fsspec
+import numpy as np
+import torch
+import xarray as xr
+
+from earth2studio.data import GFS
+from earth2studio.io import NetCDF4Backend
+from earth2studio.models.px import Pangu24
+
+# Load the default model package which downloads the check point from NGC
+package = Pangu24.load_default_package()
+model = Pangu24.load_model(package)
+
+# Create the data source
+data = GFS()
+
+# Create the IO handler, store in memory
+io = NetCDF4Backend(
+    file_name="outputs/soi.nc",
+    backend_kwargs={"mode": "w"},
+)
+
+
+# Create the custom statistic
+class SOI:
+    """Custom metric calculation the Southern Oscillation Index.
+
+    SOI = ( standardized_tahiti_slp - standardized_darwin_slp ) / soi_normalization
+
+    soi_normalization = std( historical ( standardized_tahiti_slp - standardized_darwin_slp ) )
+
+    standardized_*_slp = (*_slp - climatological_mean_*_slp) / climatological_std_*_slp
+
+    Note
+    ----
+    __str__
+        Name that will be applied to the output of this statistic, primarily for IO purposes.
+    reduction_dimensions
+        Dimensions that this statistic reduces over. This is used to help automatically determine
+        the output coordinates, primarily used for IO purposes.
+    """
+
+    def __str__(self) -> str:
+        return "soi"
+
+    def __init__(
+        self,
+    ):
+        # Read in Tahiti and Darwin SLP data
+        url = "https://data.longpaddock.qld.gov.au/SeasonalClimateOutlook/SouthernOscillationIndex/SOIDataFiles/DailySOI1933-1992Base.txt"
+        with fsspec.open(url, "r") as f:
+            ds = pd.read_csv(f, sep=r"\s+")
+        dates = pd.date_range("1999-01-01", freq="d", periods=len(ds))
+        ds["date"] = dates
+        ds = ds.set_index("date")
+        ds = ds.drop(["Year", "Day", "SOI"], axis=1)
+        ds = ds.rolling(30, min_periods=1).mean().dropna()
+
+        self.climatological_means = torch.tensor(
+            ds.groupby(ds.index.month).mean().to_numpy(), dtype=torch.float32
+        )
+        self.climatological_std = torch.tensor(
+            ds.groupby(ds.index.month).std().to_numpy(), dtype=torch.float32
+        )
+
+        standardized = ds.groupby(ds.index.month).transform(
+            lambda x: (x - x.mean()) / x.std()
+        )
+        diff = standardized["Tahiti"] - standardized["Darwin"]
+
+        self.normalization = torch.tensor(
+            diff.groupby(ds.index.month).std().to_numpy(), dtype=torch.float32
+        )
+
+        self.tahiti_coords = {
+            "variable": np.array(["msl"]),
+            "lat": np.array([-17.65]),
+            "lon": np.array([210.57]),
+        }
+        self.darwin_coords = {
+            "variable": np.array(["msl"]),
+            "lat": np.array([-12.46]),
+            "lon": np.array([130.84]),
+        }
+
+        self.reduction_dimensions = list(self.tahiti_coords)
+
+    def __call__(self, x: xr.DataArray) -> xr.DataArray:
+        """Computes the SOI given an input.
+
+        x must have `variable`, `lat`, `lon`, `time` and `lead_time` dimensions and
+        cover (to nearest grid point) both
+
+        tahiti_coords = {
+            'variable': np.array(['msl']),
+            'lat': np.array([-17.65]),
+            'lon': np.array([210.57])
+        }
+
+        and
+
+        darwin_coords = {
+            'variable': np.array(['msl']),
+            'lat': np.array([-12.46]),
+            'lon': np.array([130.84])
+        }
+
+        So make sure that the model chosen predicts the `msl` variable.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Input data array
+
+        Returns
+        -------
+        xr.DataArray
+            Returns the SOI with the `variable`, `lat` and `lon` dimensions reduced.
+        """
+        slp = x.e2s.as_numpy().sel(variable="msl")
+        tahiti = slp.sel(
+            lat=self.tahiti_coords["lat"][0],
+            lon=self.tahiti_coords["lon"][0],
+            method="nearest",
+        )
+        darwin = slp.sel(
+            lat=self.darwin_coords["lat"][0],
+            lon=self.darwin_coords["lon"][0],
+            method="nearest",
+        )
+        tahiti = tahiti.copy(data=tahiti.data / 100.0)
+        darwin = darwin.copy(data=darwin.data / 100.0)
+
+        # Get month of each valid time, broadcast against (..., time, lead_time)
+        times = x.coords["time"].values.reshape(-1, 1) + x.coords[
+            "lead_time"
+        ].values.reshape(1, -1)
+        months = np.array([pd.Timestamp(t).month for t in times.flatten()]).reshape(
+            times.shape
+        )
+
+        cm = self.climatological_means.numpy()
+        cs = self.climatological_std.numpy()
+        norm = self.normalization.numpy()
+
+        tahiti_std_anomaly = (tahiti.data - cm[months, 0]) / cs[months, 0]
+        darwin_std_anomaly = (darwin.data - cm[months, 1]) / cs[months, 1]
+
+        return tahiti.copy(
+            data=(tahiti_std_anomaly - darwin_std_anomaly) / norm[months]
+        ).drop_vars(["variable", "lat", "lon"], errors="ignore")
+
+
+soi = SOI()
+
+# %%
+# Execute the Workflow
+# --------------------
+# With all components initialized, running the workflow is a single line of Python code.
+# Workflow will return the provided IO object back to the user, which can be used to
+# then post process. Some have additional APIs that can be handy for post-processing or
+# saving to file. Check the API docs for more information.
+# We simulate a trajectory of 60 time steps, or 2 months using Pangu24
+
+# %%
+nsteps = 60
+nensemble = 1
+io = run_stats(["2022-01-01"], nsteps, nensemble, model, soi, data, io)
+
+
+# %%
+# Post Processing
+# ---------------
+# The last step is to post process our results.
+#
+# Notice that the NetCDF IO function has additional APIs to interact with the stored data.
+
+# %%
+import matplotlib.pyplot as plt
+
+# The NetCDF store holds CF encoded times: nanoseconds since the epoch for `time`
+# and nanoseconds for `lead_time`, so decode them before plotting
+times = (
+    io["time"][:].astype("datetime64[ns]").flatten()
+    + io["lead_time"][:].astype("timedelta64[ns]").flatten()
+)
+
+fig = plt.figure(figsize=(12, 4))
+ax = fig.add_subplot(1, 1, 1)
+ax.plot(times, io["soi"][:].flatten())
+ax.set_title("Southern Oscillation Index")
+ax.grid("on")
+
+plt.savefig("outputs/07_southern_oscillation_index_prediction_2022.png")
+io.close()
