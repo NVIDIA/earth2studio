@@ -1,6 +1,6 @@
 # Lexicon { #lexicon_userguide }
 
-As discussed in the [Data Movement](../about/overview.md#data_userguide)
+As discussed in [Data and Metadata](../components/coordinates.md#data_userguide)
 section, Earth2Studio tracks the geo-physical representation of tensor data
 inside workflows.
 This includes the name of the variable, parameter, and property the data represents, which
