@@ -4,6 +4,8 @@
 > **1.0.0**: This is a major release with breaking changes from pre-1.0 releases.
 > See the [migration guide](https://github.com/NVIDIA/earth2studio/blob/1.0.0-rc/MIGRATION.md)
 > if you need help transitioning, or point your agent to it.
+> To install the legacy version, please refer to the
+> [0.20.0 installation instructions](https://nvidia.github.io/earth2studio/0.20.0/userguide/about/install/).
 
 <div align="center">
 
