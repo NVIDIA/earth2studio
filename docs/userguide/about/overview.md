@@ -16,7 +16,7 @@ Each component has a focused role. Choose the pieces your application needs:
 | --- | --- |
 | [Data and metadata](../components/coordinates.md) | Describe what data means. |
 | [Data sources](../components/datasources.md) | Fetch fields, forecasts, or observations. |
-| [Data assimilation](../components/data_assimilation.md) | Turn observations into an analysis. |
+| [Data assimilation](../components/data_assimilation.md) | Ingest or predict sparse observations. |
 | [Prognostic models](../components/prognostic.md) | Advance a forecast through time. |
 | [Diagnostic models](../components/diagnostic.md) | Derive variables, downscale, or transform fields. |
 | [Perturbations](../components/perturbation.md) | Create alternative initial conditions. |
@@ -56,10 +56,12 @@ flowchart LR
     D --> E[Decision model]
 ```
 
-Build bespoke pipelines by combining open models with your own proprietary models
-and processes. Assemble components around your application to create a workflow
-with its own unique value. Bring your own model at any stage, or enter midway by
-supplying an existing forecast directly to a diagnostic or decision model.
+Build bespoke pipelines using Earth2Studio's selection of open models, your own
+custom models, or a combination of both. Bring your own open or proprietary data
+through data-source interfaces, including observations, initial conditions, and
+existing forecasts. Assemble these components around your application to create a
+workflow with its own unique value. Join at any stage, including supplying an
+existing forecast directly to a diagnostic or decision model.
 
 ## Constructing Pipelines
 

@@ -1,9 +1,8 @@
 # Advanced Output Handling
 
-Use this guide for versioned Icechunk output, asynchronous writes, Zarr sharding,
-multi-process ownership, and cloud storage. Start with [Output Handling](../components/io.md)
-for the common interface and creating output templates. Backend options are listed
-in the [IO API](../../modules/io.md).
+This guide outlines advanced features supported by Earth2Studio IO backends.
+Start with [Output Handling](../components/io.md) for the common interface and
+creating output templates. Backend options are listed in the [IO API](../../modules/io.md).
 
 ## Versioned Output with Icechunk
 
