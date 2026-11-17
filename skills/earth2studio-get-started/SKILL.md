@@ -27,8 +27,9 @@ version's install options, `pyproject.toml`, `ucast.py`, and deterministic examp
 Confirm `UCast` and the `ucast` extra exist before giving commands.
 
 Ask: **"Are you already in a Python project, and does it use uv?"** Recommend uv.
-Check GPU availability; the current UCAST catalog specifies a 40 GB GPU. Do not promise
-it fits smaller hardware. Model loading downloads weights and WeatherBench2 static fields.
+Check GPU availability. A GPU with 40 GB of memory is recommended for UCAST;
+depending on the workflow, it may run on GPUs with less memory.
+Model loading downloads weights and WeatherBench2 static fields.
 
 Use `earth2studio-install` for version-specific commands and troubleshooting. Give commands
 for the user to execute, then wait for their result. For a new uv project:
