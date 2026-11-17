@@ -72,23 +72,31 @@ def launch(entry: str, campaign: str, overrides: list[str], ngpu: int) -> None:
     TORCHRUN_ARGS="--nnodes=4 --rdzv_backend=c10d --rdzv_endpoint=host:29500".
     Stages are resumable, so large campaigns can also be advanced
     incrementally across separate queue allocations.
+
+    With SCORECARD_PIN_GPU=1 each rank starts through utils/rank_entry.sh,
+    which makes only that rank's GPU visible before CUDA starts, and runs the
+    entry point under this interpreter.
     """
     topology = os.environ.get(
         "TORCHRUN_ARGS", f"--nproc_per_node={ngpu} --standalone"
     ).split()
+    pin = os.environ.get("SCORECARD_PIN_GPU") == "1"
+    wrapper = ["--no-python", str(HERE / "utils" / "rank_entry.sh")] if pin else []
     cmd = [
         sys.executable,
         "-m",
         "torch.distributed.run",
         *topology,
+        *wrapper,
         entry,
         "--config-dir",
         str(HERE / "cfg"),
         f"campaign={campaign}",
         *overrides,
     ]
+    env = {**os.environ, "SCORECARD_PYTHON": sys.executable} if pin else None
     # cmd is built from sys.executable and our own arguments.
-    subprocess.run(cmd, check=True, cwd=RECIPE)  # noqa: S603
+    subprocess.run(cmd, check=True, cwd=RECIPE, env=env)  # noqa: S603
 
 
 def compose_campaign(campaign: str, overrides: Sequence[str]) -> DictConfig:
