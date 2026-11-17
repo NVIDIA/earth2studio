@@ -4141,20 +4141,96 @@ will be used.</p>
 <a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a><span class="c1"># Create the IO handler, store in memory</span>
 <a id="__codelineno-1-25" name="__codelineno-1-25" href="#__codelineno-1-25"></a><span class="n">io</span> <span class="o">=</span> <span class="n">ZarrBackend</span><span class="p">()</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>62 lines</small></summary><pre class="no-copy"><code>Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
-Fetching GFS data:   4%|▍         | 1/26 [00:00&lt;00:03,  6.36it/s]
-Fetching GFS data:  23%|██▎       | 6/26 [00:00&lt;00:02,  7.59it/s]
-Fetching GFS data:  31%|███       | 8/26 [00:00&lt;00:01,  9.14it/s]
-Fetching GFS data:  50%|█████     | 13/26 [00:01&lt;00:00, 15.56it/s]
-Fetching GFS data:  62%|██████▏   | 16/26 [00:01&lt;00:00, 10.74it/s]
-Fetching GFS data:  69%|██████▉   | 18/26 [00:03&lt;00:02,  3.28it/s]
-Fetching GFS data:  77%|███████▋  | 20/26 [00:07&lt;00:04,  1.30it/s]
-Fetching GFS data:  81%|████████  | 21/26 [00:08&lt;00:03,  1.47it/s]
-Fetching GFS data:  88%|████████▊ | 23/26 [00:08&lt;00:01,  1.75it/s]
-Fetching GFS data:  92%|█████████▏| 24/26 [00:09&lt;00:01,  1.75it/s]
-Fetching GFS data:  96%|█████████▌| 25/26 [00:10&lt;00:00,  1.52it/s]
-Fetching GFS data: 100%|██████████| 26/26 [00:11&lt;00:00,  1.43it/s]
-Fetching GFS data: 100%|██████████| 26/26 [00:11&lt;00:00,  2.34it/s]
+<details class="e2sg-output" open><summary><span>Console output</span><small>67 lines</small></summary><pre class="no-copy"><code>Downloading config.json: 0%|          | 0.00/22.0 [00:00&lt;?, ?B/s]
+Downloading config.json: 100%|██████████| 22.0/22.0 [00:00&lt;00:00, 103B/s]
+Downloading config.json: 100%|██████████| 22.0/22.0 [00:00&lt;00:00, 102B/s]
+
+Downloading fcn.mdlus: 0%|          | 0.00/287M [00:00&lt;?, ?B/s]
+Downloading fcn.mdlus: 3%|▎         | 10.0M/287M [00:00&lt;00:20, 14.3MB/s]
+Downloading fcn.mdlus: 7%|▋         | 20.0M/287M [00:00&lt;00:10, 27.6MB/s]
+Downloading fcn.mdlus: 14%|█▍        | 40.0M/287M [00:01&lt;00:05, 50.0MB/s]
+Downloading fcn.mdlus: 21%|██        | 60.0M/287M [00:01&lt;00:03, 69.6MB/s]
+Downloading fcn.mdlus: 24%|██▍       | 70.0M/287M [00:01&lt;00:03, 61.8MB/s]
+Downloading fcn.mdlus: 31%|███▏      | 90.0M/287M [00:01&lt;00:02, 79.8MB/s]
+Downloading fcn.mdlus: 38%|███▊      | 110M/287M [00:01&lt;00:01, 92.9MB/s] 
+Downloading fcn.mdlus: 45%|████▌     | 130M/287M [00:02&lt;00:03, 48.4MB/s]
+Downloading fcn.mdlus: 49%|████▊     | 140M/287M [00:02&lt;00:02, 53.7MB/s]
+Downloading fcn.mdlus: 56%|█████▌    | 160M/287M [00:02&lt;00:01, 68.1MB/s]
+Downloading fcn.mdlus: 59%|█████▉    | 170M/287M [00:03&lt;00:02, 55.1MB/s]
+Downloading fcn.mdlus: 63%|██████▎   | 180M/287M [00:03&lt;00:01, 56.9MB/s]
+Downloading fcn.mdlus: 66%|██████▌   | 190M/287M [00:03&lt;00:01, 61.4MB/s]
+Downloading fcn.mdlus: 70%|██████▉   | 200M/287M [00:03&lt;00:01, 68.4MB/s]
+Downloading fcn.mdlus: 77%|███████▋  | 220M/287M [00:03&lt;00:00, 84.8MB/s]
+Downloading fcn.mdlus: 84%|████████▎ | 240M/287M [00:03&lt;00:00, 95.7MB/s]
+Downloading fcn.mdlus: 91%|█████████ | 260M/287M [00:04&lt;00:00, 103MB/s] 
+Downloading fcn.mdlus: 97%|█████████▋| 280M/287M [00:04&lt;00:00, 107MB/s]
+Downloading fcn.mdlus: 100%|██████████| 287M/287M [00:04&lt;00:00, 68.8MB/s]
+
+Downloading global_means.npy: 0%|          | 0.00/336 [00:00&lt;?, ?B/s]
+Downloading global_means.npy: 100%|██████████| 336/336 [00:00&lt;00:00, 720B/s]
+Downloading global_means.npy: 100%|██████████| 336/336 [00:00&lt;00:00, 717B/s]
+
+Downloading global_stds.npy: 0%|          | 0.00/336 [00:00&lt;?, ?B/s]
+Downloading global_stds.npy: 100%|██████████| 336/336 [00:00&lt;00:00, 855B/s]
+Downloading global_stds.npy: 100%|██████████| 336/336 [00:00&lt;00:00, 850B/s]
+
+Downloading precipitation_afno.zip: 0%|          | 0.00/261M [00:00&lt;?, ?B/s]
+Downloading precipitation_afno.zip: 0%|          | 415k/261M [00:00&lt;01:05, 4.20MB/s]
+Downloading precipitation_afno.zip: 2%|▏         | 5.53M/261M [00:00&lt;00:08, 33.1MB/s]
+Downloading precipitation_afno.zip: 5%|▌         | 13.8M/261M [00:00&lt;00:04, 57.5MB/s]
+Downloading precipitation_afno.zip: 9%|▊         | 22.2M/261M [00:00&lt;00:03, 69.4MB/s]
+Downloading precipitation_afno.zip: 12%|█▏        | 30.6M/261M [00:00&lt;00:03, 76.0MB/s]
+Downloading precipitation_afno.zip: 15%|█▍        | 38.9M/261M [00:00&lt;00:02, 79.7MB/s]
+Downloading precipitation_afno.zip: 18%|█▊        | 47.3M/261M [00:00&lt;00:02, 82.2MB/s]
+Downloading precipitation_afno.zip: 21%|██▏       | 55.8M/261M [00:00&lt;00:02, 84.2MB/s]
+Downloading precipitation_afno.zip: 25%|██▍       | 64.3M/261M [00:00&lt;00:02, 85.5MB/s]
+Downloading precipitation_afno.zip: 28%|██▊       | 72.7M/261M [00:01&lt;00:02, 86.4MB/s]
+Downloading precipitation_afno.zip: 31%|███       | 81.2M/261M [00:01&lt;00:02, 86.9MB/s]
+Downloading precipitation_afno.zip: 34%|███▍      | 89.5M/261M [00:01&lt;00:02, 86.8MB/s]
+Downloading precipitation_afno.zip: 37%|███▋      | 97.9M/261M [00:01&lt;00:01, 86.7MB/s]
+Downloading precipitation_afno.zip: 41%|████      | 106M/261M [00:01&lt;00:01, 87.3MB/s] 
+Downloading precipitation_afno.zip: 44%|████▍     | 115M/261M [00:01&lt;00:01, 87.7MB/s]
+Downloading precipitation_afno.zip: 47%|████▋     | 123M/261M [00:01&lt;00:01, 88.1MB/s]
+Downloading precipitation_afno.zip: 51%|█████     | 132M/261M [00:01&lt;00:01, 88.5MB/s]
+Downloading precipitation_afno.zip: 54%|█████▍    | 140M/261M [00:01&lt;00:01, 87.8MB/s]
+Downloading precipitation_afno.zip: 57%|█████▋    | 149M/261M [00:01&lt;00:01, 88.3MB/s]
+Downloading precipitation_afno.zip: 60%|██████    | 157M/261M [00:02&lt;00:01, 88.3MB/s]
+Downloading precipitation_afno.zip: 64%|██████▎   | 166M/261M [00:02&lt;00:01, 88.5MB/s]
+Downloading precipitation_afno.zip: 67%|██████▋   | 174M/261M [00:02&lt;00:01, 88.9MB/s]
+Downloading precipitation_afno.zip: 70%|███████   | 183M/261M [00:02&lt;00:00, 88.0MB/s]
+Downloading precipitation_afno.zip: 73%|███████▎  | 191M/261M [00:02&lt;00:00, 88.1MB/s]
+Downloading precipitation_afno.zip: 77%|███████▋  | 200M/261M [00:02&lt;00:00, 87.8MB/s]
+Downloading precipitation_afno.zip: 80%|███████▉  | 208M/261M [00:02&lt;00:00, 88.3MB/s]
+Downloading precipitation_afno.zip: 83%|████████▎ | 217M/261M [00:02&lt;00:00, 88.6MB/s]
+Downloading precipitation_afno.zip: 86%|████████▋ | 225M/261M [00:02&lt;00:00, 87.5MB/s]
+Downloading precipitation_afno.zip: 90%|████████▉ | 234M/261M [00:02&lt;00:00, 87.9MB/s]
+Downloading precipitation_afno.zip: 93%|█████████▎| 243M/261M [00:03&lt;00:00, 88.4MB/s]
+Downloading precipitation_afno.zip: 96%|█████████▌| 251M/261M [00:03&lt;00:00, 88.6MB/s]
+Downloading precipitation_afno.zip: 99%|█████████▉| 260M/261M [00:03&lt;00:00, 88.6MB/s]
+Downloading precipitation_afno.zip: 100%|██████████| 261M/261M [00:03&lt;00:00, 84.3MB/s]</code></pre></details>
+
+<h2 id="fetch-data">Fetch Data<a class="headerlink" href="#fetch-data" title="Permanent link">&para;</a></h2>
+<p>You can easily fetch raw Xarray data from an initial condition data source with
+a simple call. By default, this caches the data locally on your machine, so you
+won't have to re-download it if you access it again or use it in an inference
+pipeline.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">sample</span> <span class="o">=</span> <span class="n">data</span><span class="p">(</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>    <span class="n">to_time_array</span><span class="p">([</span><span class="s2">&quot;2024-01-01&quot;</span><span class="p">]),</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>    <span class="n">prognostic_model</span><span class="o">.</span><span class="n">input_coords</span><span class="p">()</span><span class="o">.</span><span class="n">coords</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">,</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="p">)</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="nb">print</span><span class="p">(</span><span class="n">sample</span><span class="p">)</span>
+</code></pre></div>
+<details class="e2sg-output" open><summary><span>Console output</span><small>73 lines</small></summary><pre class="no-copy"><code>Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+Fetching GFS data:   4%|▍         | 1/26 [00:00&lt;00:06,  3.86it/s]
+Fetching GFS data:  23%|██▎       | 6/26 [00:00&lt;00:02,  6.85it/s]
+Fetching GFS data:  31%|███       | 8/26 [00:01&lt;00:02,  8.78it/s]
+Fetching GFS data:  42%|████▏     | 11/26 [00:01&lt;00:01,  9.27it/s]
+Fetching GFS data:  54%|█████▍    | 14/26 [00:01&lt;00:00, 12.12it/s]
+Fetching GFS data:  77%|███████▋  | 20/26 [00:01&lt;00:00, 19.61it/s]
+Fetching GFS data: 100%|██████████| 26/26 [00:01&lt;00:00, 16.21it/s]
+
+Fetching GFS statistics: 0it [00:00, ?it/s]
+Fetching GFS statistics: 0it [00:00, ?it/s]
 &lt;xarray.DataArray (time: 1, variable: 26, lat: 721, lon: 1440)&gt; Size: 216MB
 array([[[[-3.37807129e+00, -3.38807129e+00, -3.40807129e+00, ...,
           -3.33807129e+00, -3.34807129e+00, -3.36807129e+00],
@@ -4202,49 +4278,21 @@ Coordinates:
   * variable   (variable) &lt;U5 520B 'u10m' 'v10m' 't2m' ... 'v250' 'z250' 't250'
   * lat        (lat) float64 6kB 90.0 89.75 89.5 89.25 ... -89.5 -89.75 -90.0
   * lon        (lon) float64 12kB 0.0 0.25 0.5 0.75 ... 359.0 359.2 359.5 359.8
-    lead_time  timedelta64[ns] 8B 00:00:00</code></pre></details>
-
-<h2 id="fetch-data">Fetch Data<a class="headerlink" href="#fetch-data" title="Permanent link">&para;</a></h2>
-<p>You can easily fetch raw Xarray data from an initial condition data source with
-a simple call. By default, this caches the data locally on your machine, so you
-won't have to re-download it if you access it again or use it in an inference
-pipeline.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">sample</span> <span class="o">=</span> <span class="n">data</span><span class="p">(</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>    <span class="n">to_time_array</span><span class="p">([</span><span class="s2">&quot;2024-01-01&quot;</span><span class="p">]),</span>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>    <span class="n">prognostic_model</span><span class="o">.</span><span class="n">input_coords</span><span class="p">()</span><span class="o">.</span><span class="n">coords</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">,</span>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="p">)</span>
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="nb">print</span><span class="p">(</span><span class="n">sample</span><span class="p">)</span>
-</code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>30 lines</small></summary><pre class="no-copy"><code>2026-10-24 19:35:56.465 | INFO     | earth2studio.run:diagnostic:238 - Running diagnostic workflow!
-2026-10-24 19:35:56.465 | INFO     | earth2studio.run:diagnostic:244 - Inference device: cuda
-
-Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
-Fetching GFS data:   4%|▍         | 1/26 [00:00&lt;00:19,  1.30it/s]
-Fetching GFS data: 100%|██████████| 26/26 [00:00&lt;00:00, 32.23it/s]
-2026-10-24 19:35:57.566 | SUCCESS  | earth2studio.run:diagnostic:307 - Fetched data from GFS
-2026-10-24 19:35:57.567 | INFO     | earth2studio.run:diagnostic:312 - Inference starting!
-
-
-Running inference:   0%|          | 0/9 [00:00&lt;?, ?it/s]
-
-Running inference:  11%|█         | 1/9 [00:00&lt;00:02,  3.75it/s]
-
-Running inference:  33%|███▎      | 3/9 [00:00&lt;00:00,  7.91it/s]
-
-Running inference:  56%|█████▌    | 5/9 [00:00&lt;00:00,  9.93it/s]
-
-Running inference:  78%|███████▊  | 7/9 [00:00&lt;00:00, 11.05it/s]
-
-Running inference: 100%|██████████| 9/9 [00:00&lt;00:00, 11.73it/s]
-Running inference: 100%|██████████| 9/9 [00:00&lt;00:00, 10.22it/s]
-2026-10-24 19:35:58.449 | SUCCESS  | earth2studio.run:diagnostic:340 - 
-Inference complete
-/
-├── lat (720,) float64
-├── lead_time (9,) timedelta64[h]
-├── lon (1440,) float64
-├── time (1,) datetime64[ns]
-└── tp (1, 9, 720, 1440) float32</code></pre></details>
+    lead_time  timedelta64[ns] 8B 00:00:00
+Attributes: (12/17)
+    type:                         LatLonGrid
+    dims:                         ['lat', 'lon']
+    shape:                        [721, 1440]
+    topology:                     rectilinear
+    crs:                          EPSG:4326
+    crs_wkt:                      GEOGCRS["WGS 84",ENSEMBLE["World Geodetic S...
+    ...                           ...
+    prime_meridian_name:          Greenwich
+    geographic_crs_name:          WGS 84
+    horizontal_datum_name:        World Geodetic System 1984 ensemble
+    grid_mapping_name:            latitude_longitude
+    earth2studio_crs:             EPSG:4326
+    earth2studio_grid_id:         latlon-0.25deg</code></pre></details>
 
 <h2 id="execute-the-workflow">Execute the Workflow<a class="headerlink" href="#execute-the-workflow" title="Permanent link">&para;</a></h2>
 <p>With all components initialized, running the workflow is a single line of Python code.
@@ -4260,7 +4308,41 @@ saving to file. Check the API docs for more information.</p>
 <a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>
 <a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="nb">print</span><span class="p">(</span><span class="n">io</span><span class="o">.</span><span class="n">root</span><span class="o">.</span><span class="n">tree</span><span class="p">())</span>
 </code></pre></div>
-<p><img alt="Output from Running Diagnostic Inference" class="e2sg-output-image" loading="lazy" src="../../_assets/01_getting_started-02_diagnostic_workflow/001-cell-8.jpg" /></p>
+<details class="e2sg-output" open><summary><span>Console output</span><small>34 lines</small></summary><pre class="no-copy"><code>2026-11-17 06:37:37.487 | INFO     | earth2studio.run:diagnostic:267 - Running diagnostic workflow!
+2026-11-17 06:37:37.488 | INFO     | earth2studio.run:diagnostic:274 - Inference device: cuda
+
+Fetching GFS data:   0%|          | 0/26 [00:00&lt;?, ?it/s]
+Fetching GFS data:   4%|▍         | 1/26 [00:00&lt;00:20,  1.21it/s]
+Fetching GFS data:   8%|▊         | 2/26 [00:00&lt;00:09,  2.48it/s]
+Fetching GFS data: 100%|██████████| 26/26 [00:01&lt;00:00, 25.90it/s]
+
+Fetching GFS statistics: 0it [00:00, ?it/s]
+Fetching GFS statistics: 0it [00:00, ?it/s]
+2026-11-17 06:37:38.841 | SUCCESS  | earth2studio.run:diagnostic:317 - Fetched data from GFS
+2026-11-17 06:37:38.843 | INFO     | earth2studio.run:diagnostic:322 - Inference starting!
+
+
+Running inference:   0%|          | 0/9 [00:00&lt;?, ?it/s]
+
+Running inference:  11%|█         | 1/9 [00:00&lt;00:03,  2.59it/s]
+
+Running inference:  33%|███▎      | 3/9 [00:00&lt;00:00,  6.49it/s]
+
+Running inference:  56%|█████▌    | 5/9 [00:00&lt;00:00,  9.01it/s]
+
+Running inference:  78%|███████▊  | 7/9 [00:00&lt;00:00, 10.69it/s]
+
+Running inference: 100%|██████████| 9/9 [00:00&lt;00:00, 11.77it/s]
+Running inference: 100%|██████████| 9/9 [00:00&lt;00:00,  9.44it/s]
+2026-11-17 06:37:39.797 | SUCCESS  | earth2studio.run:diagnostic:352 - 
+Inference complete
+/
+├── lat (720,) float64
+├── lead_time (9,) timedelta64[ns]
+├── lon (1440,) float64
+├── time (1,) datetime64[ns]
+└── tp06 (1, 9, 720, 1440) float32</code></pre></details>
+
 <h2 id="post-processing">Post Processing<a class="headerlink" href="#post-processing" title="Permanent link">&para;</a></h2>
 <p>The last step is to plot the resulting predicted total precipitation. The power of
 diagnostic models is that they allow the prediction of any variable from a pre-trained
@@ -4315,10 +4397,11 @@ workflow.</p>
 <a id="__codelineno-4-41" name="__codelineno-4-41" href="#__codelineno-4-41"></a>
 <a id="__codelineno-4-42" name="__codelineno-4-42" href="#__codelineno-4-42"></a><span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="s2">&quot;outputs/02_tp_prediction.jpg&quot;</span><span class="p">)</span>
 </code></pre></div>
+<p><img alt="Output from Running Diagnostic Inference" class="e2sg-output-image" loading="lazy" src="../../_assets/01_getting_started-02_diagnostic_workflow/001-cell-10.jpg" /></p>
 <hr />
-<div class="e2sg-downloads"><a class="e2sg-download" href="../../_assets/01_getting_started-02_diagnostic_workflow/02_diagnostic_workflow.py" download>Download Python source</a><a class="e2sg-download" href="../../_assets/01_getting_started-02_diagnostic_workflow/02_diagnostic_workflow.ipynb" download>Download Jupyter notebook</a><span class="e2sg-download-meta">executed in 68.9s</span></div>
+<div class="e2sg-downloads"><a class="e2sg-download" href="../../_assets/01_getting_started-02_diagnostic_workflow/02_diagnostic_workflow.py" download>Download Python source</a><a class="e2sg-download" href="../../_assets/01_getting_started-02_diagnostic_workflow/02_diagnostic_workflow.ipynb" download>Download Jupyter notebook</a><span class="e2sg-download-meta">executed in 43.7s</span></div>
 
-<section class="e2sg-telemetry" aria-labelledby="e2sg-telemetry-title"><div class="e2sg-telemetry-heading"><div><span class="e2sg-eyebrow">Execution profile</span><h2 id="e2sg-telemetry-title">Runtime telemetry</h2></div></div><div class="e2sg-regions"><div class="e2sg-regions-heading"><h3 class="e2sg-telemetry-subtitle">Profiled phases</h3><div class="e2sg-total-runtime"><span>Total runtime</span><strong>1m 9s</strong></div></div><details class="e2sg-telemetry-region"><summary><span class="e2sg-region-name">Setup</span><span class="e2sg-region-meta">56.8 s · 52 samples</span></summary><div class="e2sg-metric-grid"><div class="e2sg-metric"><span class="e2sg-metric-label">Duration</span><strong>56.8 s</strong><span class="e2sg-metric-context">Tagged cells</span><div class="e2sg-spark-empty"></div></div><div class="e2sg-metric"><span class="e2sg-metric-label">CPU load</span><strong>5%</strong><span class="e2sg-metric-context">Average · Peak 78%</span><svg class="e2sg-sparkline" viewBox="0 0 120 28" preserveAspectRatio="none" role="img" aria-label="CPU load over time"><path d="M0 26H120" class="e2sg-spark-grid"/><polyline points="0.00,24.13 2.35,24.01 4.71,23.62 7.06,24.04 9.41,24.08 11.76,24.15 14.12,24.37 16.47,24.03 18.82,24.09 21.18,24.11 23.53,24.06 25.88,24.16 28.24,24.42 30.59,26.00 32.94,26.00 35.29,26.00 37.65,25.59 40.00,26.00 42.35,26.00 44.71,26.00 47.06,24.75 49.41,25.65 51.76,25.67 54.12,25.70 56.47,26.00 58.82,25.69 61.18,25.67 63.53,26.00 65.88,25.64 68.24,25.36 70.59,25.33 72.94,26.00 75.29,25.37 77.65,25.46 80.00,8.80 82.35,26.00 84.71,26.00 87.06,24.70 89.41,25.35 91.76,24.07 94.12,24.25 96.47,24.04 98.82,26.00 101.18,23.92 103.53,26.00 105.88,26.00 108.24,26.00 110.59,26.00 112.94,26.00 115.29,24.39 117.65,26.00 120.00,24.61"/></svg></div><div class="e2sg-metric"><span class="e2sg-metric-label">Process memory</span><strong>2.1 GiB</strong><span class="e2sg-metric-context">Peak resident set</span><svg class="e2sg-sparkline" viewBox="0 0 120 28" preserveAspectRatio="none" role="img" aria-label="rss bytes over time"><path d="M0 26H120" class="e2sg-spark-grid"/><polyline points="0.00,23.99 2.35,19.31 4.71,18.63 7.06,18.12 9.41,16.66 11.76,14.91 14.12,14.31 16.47,13.74 18.82,13.69 21.18,13.67 23.53,13.66 25.88,13.65 28.24,13.64 30.59,13.61 32.94,13.61 35.29,13.46 37.65,13.40 40.00,13.29 42.35,13.19 44.71,13.40 47.06,13.40 49.41,13.29 51.76,13.19 54.12,13.40 56.47,13.29 58.82,13.09 61.18,13.29 63.53,13.09 65.88,13.29 68.24,13.09 70.59,13.29 72.94,13.09 75.29,13.29 77.65,13.19 80.00,10.47 82.35,10.39 84.71,10.39 87.06,10.33 89.41,10.26 91.76,10.17 94.12,10.17 96.47,7.12 98.82,4.55 101.18,4.06 103.53,4.04 105.88,4.03 108.24,4.03 110.59,4.02 112.94,4.01 115.29,4.00 117.65,4.00 120.00,4.00"/></svg></div><div class="e2sg-metric"><span class="e2sg-metric-label">Network received</span><strong>575.6 MiB</strong><span class="e2sg-metric-context">Host-wide estimate</span><svg class="e2sg-sparkline" viewBox="0 0 120 28" preserveAspectRatio="none" role="img" aria-label="network received bytes over time"><path d="M0 26H120" class="e2sg-spark-grid"/><polyline points="0.00,26.00 2.35,26.00 4.71,26.00 7.06,26.00 9.41,26.00 11.76,26.00 14.12,26.00 16.47,26.00 18.82,26.00 21.18,26.00 23.53,26.00 25.88,26.00 28.24,26.00 30.59,26.00 32.94,26.00 35.29,25.62 37.65,25.11 40.00,24.67 42.35,24.31 44.71,24.00 47.06,23.67 49.41,23.34 51.76,22.89 54.12,22.30 56.47,21.76 58.82,21.04 61.18,20.25 63.53,19.56 65.88,18.86 68.24,18.10 70.59,17.35 72.94,16.55 75.29,15.68 77.65,14.84 80.00,14.84 82.35,14.84 84.71,14.84 87.06,12.18 89.41,8.17 91.76,4.68 94.12,4.68 96.47,4.68 98.82,4.67 101.18,4.25 103.53,4.22 105.88,4.19 108.24,4.16 110.59,4.13 112.94,4.08 115.29,4.03 117.65,4.02 120.00,4.00"/></svg></div><div class="e2sg-metric"><span class="e2sg-metric-label">Network sent</span><strong>5.4 MiB</strong><span class="e2sg-metric-context">Host-wide estimate</span><svg class="e2sg-sparkline" viewBox="0 0 120 28" preserveAspectRatio="none" role="img" aria-label="network sent bytes over time"><path d="M0 26H120" class="e2sg-spark-grid"/><polyline points="0.00,26.00 2.35,26.00 4.71,26.00 7.06,26.00 9.41,26.00 11.76,26.00 14.12,26.00 16.47,26.00 18.82,26.00 21.18,26.00 23.53,26.00 25.88,26.00 28.24,26.00 30.59,25.98 32.94,25.96 35.29,25.44 37.65,24.81 40.00,24.22 42.35,23.75 44.71,23.31 47.06,22.88 49.41,22.42 51.76,21.88 54.12,21.21 56.47,20.63 58.82,19.91 61.18,19.19 63.53,18.53 65.88,17.81 68.24,17.05 70.59,16.34 72.94,15.62 75.29,14.89 77.65,14.14 80.00,14.14 82.35,14.12 84.71,14.11 87.06,11.63 89.41,8.24 91.76,5.45 94.12,5.45 96.47,5.45 98.82,5.19 101.18,4.60 103.53,4.53 105.88,4.44 108.24,4.37 110.59,4.29 112.94,4.17 115.29,4.06 117.65,4.02 120.00,4.00"/></svg></div><div class="e2sg-metric"><span class="e2sg-metric-label">GPU utilization</span><strong>0%</strong><span class="e2sg-metric-context">Peak 0%</span><svg class="e2sg-sparkline" viewBox="0 0 120 28" preserveAspectRatio="none" role="img" aria-label="gpu percent over time"><path d="M0 26H120" class="e2sg-spark-grid"/><polyline points="0.00,15.00 2.35,15.00 4.71,15.00 7.06,15.00 9.41,15.00 11.76,15.00 14.12,15.00 16.47,15.00 18.82,15.00 21.18,15.00 23.53,15.00 25.88,15.00 28.24,15.00 30.59,15.00 32.94,15.00 35.29,15.00 37.65,15.00 40.00,15.00 42.35,15.00 44.71,15.00 47.06,15.00 49.41,15.00 51.76,15.00 54.12,15.00 56.47,15.00 58.82,15.00 61.18,15.00 63.53,15.00 65.88,15.00 68.24,15.00 70.59,15.00 72.94,15.00 75.29,15.00 77.65,15.00 80.00,15.00 82.35,15.00 84.71,15.00 87.06,15.00 89.41,15.00 91.76,15.00 94.12,15.00 96.47,15.00 98.82,15.00 101.18,15.00 103.53,15.00 105.88,15.00 108.24,15.00 110.59,15.00 112.94,15.00 115.29,15.00 117.65,15.00 120.00,15.00"/></svg></div><div class="e2sg-metric"><span class="e2sg-metric-label">GPU memory</span><strong>0.0 GiB</strong><span class="e2sg-metric-context">of 79.6 GiB</span><svg class="e2sg-sparkline" viewBox="0 0 120 28" preserveAspectRatio="none" role="img" aria-label="gpu memory mb over time"><path d="M0 26H120" class="e2sg-spark-grid"/><polyline points="0.00,26.00 2.35,26.00 4.71,26.00 7.06,26.00 9.41,26.00 11.76,26.00 14.12,26.00 16.47,26.00 18.82,26.00 21.18,26.00 23.53,26.00 25.88,26.00 28.24,26.00 30.59,26.00 32.94,26.00 35.29,26.00 37.65,26.00 40.00,26.00 42.35,26.00 44.71,26.00 47.06,26.00 49.41,26.00 51.76,26.00 54.12,26.00 56.47,26.00 58.82,26.00 61.18,26.00 63.53,26.00 65.88,26.00 68.24,26.00 70.59,26.00 72.94,26.00 75.29,26.00 77.65,26.00 80.00,26.00 82.35,26.00 84.71,26.00 87.06,26.00 89.41,26.00 91.76,26.00 94.12,26.00 96.47,26.00 98.82,26.00 101.18,26.00 103.53,26.00 105.88,26.00 108.24,26.00 110.59,26.00 112.94,26.00 115.29,26.00 117.65,26.00 120.00,26.00"/></svg></div><div class="e2sg-metric"><span class="e2sg-metric-label">GPU power</span><strong>69 W</strong><span class="e2sg-metric-context">Peak draw</span><svg class="e2sg-sparkline" viewBox="0 0 120 28" preserveAspectRatio="none" role="img" aria-label="gpu power watts over time"><path d="M0 26H120" class="e2sg-spark-grid"/><polyline points="0.00,4.00 2.35,10.56 4.71,10.58 7.06,10.58 9.41,10.59 11.76,10.57 14.12,10.59 16.47,10.59 18.82,10.59 21.18,10.60 23.53,10.60 25.88,10.61 28.24,10.60 30.59,10.61 32.94,10.61 35.29,10.61 37.65,10.60 40.00,10.61 42.35,10.61 44.71,10.61 47.06,10.61 49.41,10.62 51.76,10.62 54.12,10.62 56.47,10.61 58.82,10.62 61.18,10.62 63.53,10.62 65.88,10.64 68.24,10.64 70.59,10.64 72.94,10.64 75.29,10.63 77.65,10.64 80.00,10.64 82.35,10.65 84.71,10.66 87.06,10.65 89.41,10.66 91.76,10.64 94.12,10.66 96.47,10.66 98.82,10.67 101.18,10.66 103.53,10.67 105.88,10.67 108.24,10.66 110.59,10.65 112.94,10.67 115.29,10.65 117.65,10.68 120.00,10.67"/></svg></div></div></details><details class="e2sg-telemetry-region" open><summary><span class="e2sg-region-name">Inference</span><span class="e2sg-region-meta">2.3 s · 2 samples</span></summary><div class="e2sg-metric-grid"><div class="e2sg-metric"><span class="e2sg-metric-label">Duration</span><strong>2.3 s</strong><span class="e2sg-metric-context">Tagged cells</span><div class="e2sg-spark-empty"></div></div><div class="e2sg-metric"><span class="e2sg-metric-label">CPU load</span><strong>8%</strong><span class="e2sg-metric-context">Average · Peak 9%</span><svg class="e2sg-sparkline" viewBox="0 0 120 28" preserveAspectRatio="none" role="img" aria-label="CPU load over time"><path d="M0 26H120" class="e2sg-spark-grid"/><polyline points="0.00,15.00 120.00,15.00"/></svg></div><div class="e2sg-metric"><span class="e2sg-metric-label">Process memory</span><strong>2.5 GiB</strong><span class="e2sg-metric-context">Peak resident set</span><svg class="e2sg-sparkline" viewBox="0 0 120 28" preserveAspectRatio="none" role="img" aria-label="rss bytes over time"><path d="M0 26H120" class="e2sg-spark-grid"/><polyline points="0.00,15.00 120.00,15.00"/></svg></div><div class="e2sg-metric"><span class="e2sg-metric-label">Network received</span><strong>109.0 KiB</strong><span class="e2sg-metric-context">Host-wide estimate</span><svg class="e2sg-sparkline" viewBox="0 0 120 28" preserveAspectRatio="none" role="img" aria-label="network received bytes over time"><path d="M0 26H120" class="e2sg-spark-grid"/><polyline points="0.00,15.00 120.00,15.00"/></svg></div><div class="e2sg-metric"><span class="e2sg-metric-label">Network sent</span><strong>1.9 KiB</strong><span class="e2sg-metric-context">Host-wide estimate</span><svg class="e2sg-sparkline" viewBox="0 0 120 28" preserveAspectRatio="none" role="img" aria-label="network sent bytes over time"><path d="M0 26H120" class="e2sg-spark-grid"/><polyline points="0.00,15.00 120.00,15.00"/></svg></div><div class="e2sg-metric"><span class="e2sg-metric-label">GPU utilization</span><strong>0%</strong><span class="e2sg-metric-context">Peak 0%</span><svg class="e2sg-sparkline" viewBox="0 0 120 28" preserveAspectRatio="none" role="img" aria-label="gpu percent over time"><path d="M0 26H120" class="e2sg-spark-grid"/><polyline points="0.00,15.00 120.00,15.00"/></svg></div><div class="e2sg-metric"><span class="e2sg-metric-label">GPU memory</span><strong>1.1 GiB</strong><span class="e2sg-metric-context">of 79.6 GiB</span><svg class="e2sg-sparkline" viewBox="0 0 120 28" preserveAspectRatio="none" role="img" aria-label="gpu memory mb over time"><path d="M0 26H120" class="e2sg-spark-grid"/><polyline points="0.00,15.00 120.00,15.00"/></svg></div><div class="e2sg-metric"><span class="e2sg-metric-label">GPU power</span><strong>76 W</strong><span class="e2sg-metric-context">Peak draw</span><svg class="e2sg-sparkline" viewBox="0 0 120 28" preserveAspectRatio="none" role="img" aria-label="gpu power watts over time"><path d="M0 26H120" class="e2sg-spark-grid"/><polyline points="0.00,15.00 120.00,15.00"/></svg></div></div></details><details class="e2sg-telemetry-region"><summary><span class="e2sg-region-name">Plotting</span><span class="e2sg-region-meta">7.0 s · 7 samples</span></summary><div class="e2sg-metric-grid"><div class="e2sg-metric"><span class="e2sg-metric-label">Duration</span><strong>7.0 s</strong><span class="e2sg-metric-context">Tagged cells</span><div class="e2sg-spark-empty"></div></div><div class="e2sg-metric"><span class="e2sg-metric-label">CPU load</span><strong>9%</strong><span class="e2sg-metric-context">Average · Peak 10%</span><svg class="e2sg-sparkline" viewBox="0 0 120 28" preserveAspectRatio="none" role="img" aria-label="CPU load over time"><path d="M0 26H120" class="e2sg-spark-grid"/><polyline points="0.00,23.87 20.00,23.90 40.00,23.99 60.00,24.29 80.00,23.97 100.00,24.00 120.00,24.11"/></svg></div><div class="e2sg-metric"><span class="e2sg-metric-label">Process memory</span><strong>2.2 GiB</strong><span class="e2sg-metric-context">Peak resident set</span><svg class="e2sg-sparkline" viewBox="0 0 120 28" preserveAspectRatio="none" role="img" aria-label="rss bytes over time"><path d="M0 26H120" class="e2sg-spark-grid"/><polyline points="0.00,4.12 20.00,4.03 40.00,4.02 60.00,4.02 80.00,4.02 100.00,4.02 120.00,4.00"/></svg></div><div class="e2sg-metric"><span class="e2sg-metric-label">Network received</span><strong>1.8 KiB</strong><span class="e2sg-metric-context">Host-wide estimate</span><svg class="e2sg-sparkline" viewBox="0 0 120 28" preserveAspectRatio="none" role="img" aria-label="network received bytes over time"><path d="M0 26H120" class="e2sg-spark-grid"/><polyline points="0.00,4.00 20.00,4.00 40.00,4.00 60.00,4.00 80.00,4.00 100.00,4.00 120.00,4.00"/></svg></div><div class="e2sg-metric"><span class="e2sg-metric-label">Network sent</span><strong>1.7 KiB</strong><span class="e2sg-metric-context">Host-wide estimate</span><svg class="e2sg-sparkline" viewBox="0 0 120 28" preserveAspectRatio="none" role="img" aria-label="network sent bytes over time"><path d="M0 26H120" class="e2sg-spark-grid"/><polyline points="0.00,4.01 20.00,4.00 40.00,4.00 60.00,4.00 80.00,4.00 100.00,4.00 120.00,4.00"/></svg></div><div class="e2sg-metric"><span class="e2sg-metric-label">GPU utilization</span><strong>13%</strong><span class="e2sg-metric-context">Peak 91%</span><svg class="e2sg-sparkline" viewBox="0 0 120 28" preserveAspectRatio="none" role="img" aria-label="gpu percent over time"><path d="M0 26H120" class="e2sg-spark-grid"/><polyline points="0.00,5.98 20.00,26.00 40.00,26.00 60.00,26.00 80.00,26.00 100.00,26.00 120.00,26.00"/></svg></div><div class="e2sg-metric"><span class="e2sg-metric-label">GPU memory</span><strong>2.6 GiB</strong><span class="e2sg-metric-context">of 79.6 GiB</span><svg class="e2sg-sparkline" viewBox="0 0 120 28" preserveAspectRatio="none" role="img" aria-label="gpu memory mb over time"><path d="M0 26H120" class="e2sg-spark-grid"/><polyline points="0.00,15.00 20.00,15.00 40.00,15.00 60.00,15.00 80.00,15.00 100.00,15.00 120.00,15.00"/></svg></div><div class="e2sg-metric"><span class="e2sg-metric-label">GPU power</span><strong>234 W</strong><span class="e2sg-metric-context">Peak draw</span><svg class="e2sg-sparkline" viewBox="0 0 120 28" preserveAspectRatio="none" role="img" aria-label="gpu power watts over time"><path d="M0 26H120" class="e2sg-spark-grid"/><polyline points="0.00,4.00 20.00,18.51 40.00,18.54 60.00,18.55 80.00,18.54 100.00,18.54 120.00,18.54"/></svg></div></div></details></div><h3 class="e2sg-telemetry-subtitle">Execution environment</h3><div class="e2sg-hardware-grid"><div class="e2sg-hardware-item"><span>CPU</span><strong>AMD EPYC 7313P 16-Core Processor</strong></div><div class="e2sg-hardware-item"><span>GPU</span><strong>NVIDIA H100 PCIe · 79.6 GiB</strong></div><div class="e2sg-hardware-item"><span>System RAM</span><strong>58.5 GiB</strong></div><div class="e2sg-hardware-item"><span>Platform</span><strong>Linux 6.8.0-142-generic</strong></div><div class="e2sg-hardware-item"><span>Python</span><strong>3.13.13</strong></div><div class="e2sg-hardware-item"><span>GPU driver / CUDA</span><strong>Driver 595.91.07 · CUDA support 13.2</strong></div></div></section>
+<section class="e2sg-telemetry" aria-labelledby="e2sg-telemetry-title"><div class="e2sg-telemetry-heading"><div><span class="e2sg-eyebrow">Execution profile</span><h2 id="e2sg-telemetry-title">Runtime telemetry</h2></div></div><div class="e2sg-regions"><div class="e2sg-regions-heading"><h3 class="e2sg-telemetry-subtitle">Profiled phases</h3><div class="e2sg-total-runtime"><span>Total runtime</span><strong>43.7 s</strong></div></div><details class="e2sg-telemetry-region"><summary><span class="e2sg-region-name">Setup</span><span class="e2sg-region-meta">32.6 s · 32 samples</span></summary><div class="e2sg-metric-grid"><div class="e2sg-metric"><span class="e2sg-metric-label">Duration</span><strong>32.6 s</strong><span class="e2sg-metric-context">Tagged cells</span><div class="e2sg-spark-empty"></div></div><div class="e2sg-metric"><span class="e2sg-metric-label">CPU load</span><strong>9%</strong><span class="e2sg-metric-context">Average · Peak 62%</span><svg class="e2sg-sparkline" viewBox="0 0 120 28" preserveAspectRatio="none" role="img" aria-label="CPU load over time"><path d="M0 26H120" class="e2sg-spark-grid"/><polyline points="0.00,24.33 3.87,24.11 7.74,24.08 11.61,24.39 15.48,24.03 19.35,24.29 23.23,24.25 27.10,24.24 30.97,24.26 34.84,23.93 38.71,24.25 42.58,23.84 46.45,24.11 50.32,24.24 54.19,23.95 58.06,23.98 61.94,26.00 65.81,24.28 69.68,24.07 73.55,25.70 77.42,23.97 81.29,24.28 85.16,24.42 89.03,25.72 92.90,24.84 96.77,25.33 100.65,25.12 104.52,24.03 108.39,12.44 112.26,23.96 116.13,26.00 120.00,23.57"/></svg></div><div class="e2sg-metric"><span class="e2sg-metric-label">Process memory</span><strong>2.4 GiB</strong><span class="e2sg-metric-context">Peak resident set</span><svg class="e2sg-sparkline" viewBox="0 0 120 28" preserveAspectRatio="none" role="img" aria-label="rss bytes over time"><path d="M0 26H120" class="e2sg-spark-grid"/><polyline points="0.00,21.56 3.87,20.55 7.74,19.60 11.61,17.52 15.48,17.22 19.35,16.81 23.23,14.46 27.10,13.94 30.97,13.70 34.84,13.35 38.71,13.34 42.58,13.33 46.45,13.32 50.32,13.31 54.19,13.30 58.06,13.29 61.94,13.27 65.81,12.92 69.68,12.86 73.55,12.83 77.42,12.83 81.29,13.18 85.16,8.21 89.03,10.53 92.90,10.50 96.77,10.50 100.65,10.49 104.52,10.49 108.39,9.54 112.26,7.89 116.13,5.38 120.00,4.00"/></svg></div><div class="e2sg-metric"><span class="e2sg-metric-label">Network received</span><strong>567.9 MiB</strong><span class="e2sg-metric-context">Host-wide estimate</span><svg class="e2sg-sparkline" viewBox="0 0 120 28" preserveAspectRatio="none" role="img" aria-label="network received bytes over time"><path d="M0 26H120" class="e2sg-spark-grid"/><polyline points="0.00,26.00 3.87,26.00 7.74,26.00 11.61,26.00 15.48,26.00 19.35,26.00 23.23,26.00 27.10,26.00 30.97,26.00 34.84,26.00 38.71,26.00 42.58,26.00 46.45,26.00 50.32,26.00 54.19,26.00 58.06,26.00 61.94,26.00 65.81,24.98 69.68,21.03 73.55,19.61 77.42,16.28 81.29,14.83 85.16,14.83 89.03,14.83 92.90,12.40 96.77,9.05 100.65,5.67 104.52,4.68 108.39,4.68 112.26,4.68 116.13,4.68 120.00,4.00"/></svg></div><div class="e2sg-metric"><span class="e2sg-metric-label">Network sent</span><strong>953.6 KiB</strong><span class="e2sg-metric-context">Host-wide estimate</span><svg class="e2sg-sparkline" viewBox="0 0 120 28" preserveAspectRatio="none" role="img" aria-label="network sent bytes over time"><path d="M0 26H120" class="e2sg-spark-grid"/><polyline points="0.00,26.00 3.87,26.00 7.74,26.00 11.61,26.00 15.48,26.00 19.35,26.00 23.23,26.00 27.10,26.00 30.97,26.00 34.84,26.00 38.71,26.00 42.58,26.00 46.45,26.00 50.32,26.00 54.19,26.00 58.06,26.00 61.94,25.88 65.81,24.95 69.68,22.43 73.55,21.33 77.42,18.93 81.29,17.93 85.16,17.93 89.03,17.71 92.90,15.38 96.77,12.72 100.65,9.99 104.52,9.19 108.39,9.19 112.26,9.19 116.13,7.57 120.00,4.00"/></svg></div><div class="e2sg-metric"><span class="e2sg-metric-label">GPU utilization</span><strong>0%</strong><span class="e2sg-metric-context">Peak 0%</span><svg class="e2sg-sparkline" viewBox="0 0 120 28" preserveAspectRatio="none" role="img" aria-label="gpu percent over time"><path d="M0 26H120" class="e2sg-spark-grid"/><polyline points="0.00,15.00 3.87,15.00 7.74,15.00 11.61,15.00 15.48,15.00 19.35,15.00 23.23,15.00 27.10,15.00 30.97,15.00 34.84,15.00 38.71,15.00 42.58,15.00 46.45,15.00 50.32,15.00 54.19,15.00 58.06,15.00 61.94,15.00 65.81,15.00 69.68,15.00 73.55,15.00 77.42,15.00 81.29,15.00 85.16,15.00 89.03,15.00 92.90,15.00 96.77,15.00 100.65,15.00 104.52,15.00 108.39,15.00 112.26,15.00 116.13,15.00 120.00,15.00"/></svg></div><div class="e2sg-metric"><span class="e2sg-metric-label">GPU memory</span><strong>0.5 GiB</strong><span class="e2sg-metric-context">of 93.6 GiB</span><svg class="e2sg-sparkline" viewBox="0 0 120 28" preserveAspectRatio="none" role="img" aria-label="gpu memory mb over time"><path d="M0 26H120" class="e2sg-spark-grid"/><polyline points="0.00,26.00 3.87,26.00 7.74,26.00 11.61,25.88 15.48,25.88 19.35,25.88 23.23,25.87 27.10,25.87 30.97,25.87 34.84,25.87 38.71,25.87 42.58,25.87 46.45,25.87 50.32,25.87 54.19,25.87 58.06,25.87 61.94,25.87 65.81,25.87 69.68,25.87 73.55,25.87 77.42,25.87 81.29,25.87 85.16,25.87 89.03,25.87 92.90,25.87 96.77,25.87 100.65,25.87 104.52,25.87 108.39,25.87 112.26,25.87 116.13,25.87 120.00,25.87"/></svg></div><div class="e2sg-metric"><span class="e2sg-metric-label">GPU power</span><strong>91 W</strong><span class="e2sg-metric-context">Peak draw</span><svg class="e2sg-sparkline" viewBox="0 0 120 28" preserveAspectRatio="none" role="img" aria-label="gpu power watts over time"><path d="M0 26H120" class="e2sg-spark-grid"/><polyline points="0.00,8.13 3.87,11.36 7.74,11.36 11.61,4.31 15.48,4.07 19.35,4.10 23.23,4.07 27.10,4.04 30.97,4.04 34.84,4.05 38.71,4.07 42.58,4.08 46.45,4.04 50.32,4.06 54.19,4.04 58.06,4.08 61.94,4.10 65.81,4.04 69.68,4.02 73.55,4.05 77.42,4.03 81.29,4.06 85.16,4.09 89.03,4.10 92.90,4.12 96.77,4.07 100.65,4.00 104.52,4.00 108.39,4.04 112.26,4.02 116.13,4.07 120.00,4.05"/></svg></div></div></details><details class="e2sg-telemetry-region" open><summary><span class="e2sg-region-name">Inference</span><span class="e2sg-region-meta">2.7 s · 2 samples</span></summary><div class="e2sg-metric-grid"><div class="e2sg-metric"><span class="e2sg-metric-label">Duration</span><strong>2.7 s</strong><span class="e2sg-metric-context">Tagged cells</span><div class="e2sg-spark-empty"></div></div><div class="e2sg-metric"><span class="e2sg-metric-label">CPU load</span><strong>8%</strong><span class="e2sg-metric-context">Average · Peak 10%</span><svg class="e2sg-sparkline" viewBox="0 0 120 28" preserveAspectRatio="none" role="img" aria-label="CPU load over time"><path d="M0 26H120" class="e2sg-spark-grid"/><polyline points="0.00,15.00 120.00,15.00"/></svg></div><div class="e2sg-metric"><span class="e2sg-metric-label">Process memory</span><strong>2.6 GiB</strong><span class="e2sg-metric-context">Peak resident set</span><svg class="e2sg-sparkline" viewBox="0 0 120 28" preserveAspectRatio="none" role="img" aria-label="rss bytes over time"><path d="M0 26H120" class="e2sg-spark-grid"/><polyline points="0.00,15.00 120.00,15.00"/></svg></div><div class="e2sg-metric"><span class="e2sg-metric-label">Network received</span><strong>0 B</strong><span class="e2sg-metric-context">Host-wide estimate</span><svg class="e2sg-sparkline" viewBox="0 0 120 28" preserveAspectRatio="none" role="img" aria-label="network received bytes over time"><path d="M0 26H120" class="e2sg-spark-grid"/><polyline points="0.00,15.00 120.00,15.00"/></svg></div><div class="e2sg-metric"><span class="e2sg-metric-label">Network sent</span><strong>0 B</strong><span class="e2sg-metric-context">Host-wide estimate</span><svg class="e2sg-sparkline" viewBox="0 0 120 28" preserveAspectRatio="none" role="img" aria-label="network sent bytes over time"><path d="M0 26H120" class="e2sg-spark-grid"/><polyline points="0.00,15.00 120.00,15.00"/></svg></div><div class="e2sg-metric"><span class="e2sg-metric-label">GPU utilization</span><strong>1%</strong><span class="e2sg-metric-context">Peak 2%</span><svg class="e2sg-sparkline" viewBox="0 0 120 28" preserveAspectRatio="none" role="img" aria-label="gpu percent over time"><path d="M0 26H120" class="e2sg-spark-grid"/><polyline points="0.00,15.00 120.00,15.00"/></svg></div><div class="e2sg-metric"><span class="e2sg-metric-label">GPU memory</span><strong>1.8 GiB</strong><span class="e2sg-metric-context">of 93.6 GiB</span><svg class="e2sg-sparkline" viewBox="0 0 120 28" preserveAspectRatio="none" role="img" aria-label="gpu memory mb over time"><path d="M0 26H120" class="e2sg-spark-grid"/><polyline points="0.00,15.00 120.00,15.00"/></svg></div><div class="e2sg-metric"><span class="e2sg-metric-label">GPU power</span><strong>91 W</strong><span class="e2sg-metric-context">Peak draw</span><svg class="e2sg-sparkline" viewBox="0 0 120 28" preserveAspectRatio="none" role="img" aria-label="gpu power watts over time"><path d="M0 26H120" class="e2sg-spark-grid"/><polyline points="0.00,15.00 120.00,15.00"/></svg></div></div></details><details class="e2sg-telemetry-region"><summary><span class="e2sg-region-name">Plotting</span><span class="e2sg-region-meta">5.2 s · 5 samples</span></summary><div class="e2sg-metric-grid"><div class="e2sg-metric"><span class="e2sg-metric-label">Duration</span><strong>5.2 s</strong><span class="e2sg-metric-context">Tagged cells</span><div class="e2sg-spark-empty"></div></div><div class="e2sg-metric"><span class="e2sg-metric-label">CPU load</span><strong>8%</strong><span class="e2sg-metric-context">Average · Peak 9%</span><svg class="e2sg-sparkline" viewBox="0 0 120 28" preserveAspectRatio="none" role="img" aria-label="CPU load over time"><path d="M0 26H120" class="e2sg-spark-grid"/><polyline points="0.00,23.99 30.00,24.02 60.00,24.33 90.00,24.25 120.00,24.37"/></svg></div><div class="e2sg-metric"><span class="e2sg-metric-label">Process memory</span><strong>2.5 GiB</strong><span class="e2sg-metric-context">Peak resident set</span><svg class="e2sg-sparkline" viewBox="0 0 120 28" preserveAspectRatio="none" role="img" aria-label="rss bytes over time"><path d="M0 26H120" class="e2sg-spark-grid"/><polyline points="0.00,4.01 30.00,4.00 60.00,4.00 90.00,4.00 120.00,4.00"/></svg></div><div class="e2sg-metric"><span class="e2sg-metric-label">Network received</span><strong>5.6 KiB</strong><span class="e2sg-metric-context">Host-wide estimate</span><svg class="e2sg-sparkline" viewBox="0 0 120 28" preserveAspectRatio="none" role="img" aria-label="network received bytes over time"><path d="M0 26H120" class="e2sg-spark-grid"/><polyline points="0.00,4.00 30.00,4.00 60.00,4.00 90.00,4.00 120.00,4.00"/></svg></div><div class="e2sg-metric"><span class="e2sg-metric-label">Network sent</span><strong>4.3 KiB</strong><span class="e2sg-metric-context">Host-wide estimate</span><svg class="e2sg-sparkline" viewBox="0 0 120 28" preserveAspectRatio="none" role="img" aria-label="network sent bytes over time"><path d="M0 26H120" class="e2sg-spark-grid"/><polyline points="0.00,4.10 30.00,4.10 60.00,4.10 90.00,4.00 120.00,4.00"/></svg></div><div class="e2sg-metric"><span class="e2sg-metric-label">GPU utilization</span><strong>0%</strong><span class="e2sg-metric-context">Peak 0%</span><svg class="e2sg-sparkline" viewBox="0 0 120 28" preserveAspectRatio="none" role="img" aria-label="gpu percent over time"><path d="M0 26H120" class="e2sg-spark-grid"/><polyline points="0.00,15.00 30.00,15.00 60.00,15.00 90.00,15.00 120.00,15.00"/></svg></div><div class="e2sg-metric"><span class="e2sg-metric-label">GPU memory</span><strong>3.1 GiB</strong><span class="e2sg-metric-context">of 93.6 GiB</span><svg class="e2sg-sparkline" viewBox="0 0 120 28" preserveAspectRatio="none" role="img" aria-label="gpu memory mb over time"><path d="M0 26H120" class="e2sg-spark-grid"/><polyline points="0.00,15.00 30.00,15.00 60.00,15.00 90.00,15.00 120.00,15.00"/></svg></div><div class="e2sg-metric"><span class="e2sg-metric-label">GPU power</span><strong>264 W</strong><span class="e2sg-metric-context">Peak draw</span><svg class="e2sg-sparkline" viewBox="0 0 120 28" preserveAspectRatio="none" role="img" aria-label="gpu power watts over time"><path d="M0 26H120" class="e2sg-spark-grid"/><polyline points="0.00,4.00 30.00,18.45 60.00,18.46 90.00,18.46 120.00,18.45"/></svg></div></div></details></div><h3 class="e2sg-telemetry-subtitle">Execution environment</h3><div class="e2sg-hardware-grid"><div class="e2sg-hardware-item"><span>CPU</span><strong>AMD EPYC 9554 64-Core Processor</strong></div><div class="e2sg-hardware-item"><span>GPU</span><strong>NVIDIA H100 NVL · 93.6 GiB</strong></div><div class="e2sg-hardware-item"><span>System RAM</span><strong>58.4 GiB</strong></div><div class="e2sg-hardware-item"><span>Platform</span><strong>Linux 6.8.0-147-generic</strong></div><div class="e2sg-hardware-item"><span>Python</span><strong>3.13.13</strong></div><div class="e2sg-hardware-item"><span>GPU driver / CUDA</span><strong>Driver 595.99.02 · CUDA support 13.2</strong></div></div></section>
 
 
 

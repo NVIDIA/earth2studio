@@ -3718,18 +3718,18 @@ time on a 720x1440 grid (pole-padded onto ERA5's 721x1440 for verification).</p>
      depth — fork preview, versioned deploy, or local serve — and there is
      no static URL for the site build to rewrite. -->
 <iframe id="skill-plot" title="Aurora skill"
-        style="width:100%;height:560px;border:1px solid rgba(128,128,128,.35);border-radius:10px;"
+        style="width:100%;height:600px;border:1px solid rgba(128,128,128,.35);border-radius:10px;"
         loading="lazy"></iframe>
 <script>
 document.getElementById("skill-plot").src = new URL(
-  "../../../_static/scorecard/plot.html?model=aurora&label=Aurora&domain=Global&v=60ce8024",
+  "../../../_static/scorecard/plot.html?model=aurora&label=Aurora&domain=Global&inits=&v=06f2be60",
   window.location.href);
 </script>
 
 <h2 id="evaluation">Evaluation<a class="headerlink" href="#evaluation" title="Permanent link">&para;</a></h2>
 <p>Deterministic · 48 initial conditions · 14-day horizon · 69 variables</p>
 <p>Scores are latitude-weighted (cos φ) and aggregated over the initial
-conditions. Evaluation is done against ARCO.
+conditions. Evaluation is done against ERA5 (ARCO).
 Initial conditions rotate through the 00Z/06Z/12Z/18Z hours.</p>
 <table>
 <thead>
@@ -3749,11 +3749,11 @@ Initial conditions rotate through the 00Z/06Z/12Z/18Z hours.</p>
 </tr>
 <tr>
 <td>Initial condition source</td>
-<td>ARCO</td>
+<td>ERA5 (ARCO)</td>
 </tr>
 <tr>
 <td>Verification (ground truth)</td>
-<td>ARCO</td>
+<td>ERA5 (ARCO)</td>
 </tr>
 <tr>
 <td>Lead times</td>
@@ -4205,7 +4205,9 @@ Initial conditions rotate through the 00Z/06Z/12Z/18Z hours.</p>
 </details>
 <p>All of the model's output variables that have ERA5 verification are scored.</p>
 <h2 id="data">Data<a class="headerlink" href="#data" title="Permanent link">&para;</a></h2>
-<p>The numbers behind the plot are in <a href="../../../_static/scorecard/eval_scores_aurora.json"><code>eval_scores_aurora.json</code></a>, exported by
+<p>The numbers behind the plot are published in the Earth2Studio assets dataset
+on Hugging Face: <a href="https://huggingface.co/datasets/nvidia/earth2studio-assets/tree/main/scorecard/aurora"><code>scorecard/aurora/</code></a> holds
+<code>eval_scores_aurora.json</code> and its split files. They are exported by
 the <a href="https://github.com/NVIDIA/earth2studio/tree/main/recipes/eval">eval recipe scorecard</a>
 (<code>scorecard/export_scores.py --docs</code>) -- one value per metric, variable
 and lead time, in the variable's own units.</p>

@@ -3721,10 +3721,16 @@ workflow. We will use the built in workflow <a href="../../../modules/generated/
 <a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a><span class="c1"># Create the IO handler, store in memory</span>
 <a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a><span class="n">io</span> <span class="o">=</span> <span class="n">ZarrBackend</span><span class="p">()</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>4 lines</small></summary><pre class="no-copy"><code>Downloading dlwp_cubesphere.zip: 0%|          | 0.00/67.2M [00:00&lt;?, ?B/s]
-Downloading dlwp_cubesphere.zip: 21%|██        | 13.8M/67.2M [00:00&lt;00:00, 145MB/s]
-Downloading dlwp_cubesphere.zip: 80%|███████▉  | 53.7M/67.2M [00:00&lt;00:00, 301MB/s]
-Downloading dlwp_cubesphere.zip: 100%|██████████| 67.2M/67.2M [00:00&lt;00:00, 285MB/s]</code></pre></details>
+<details class="e2sg-output" open><summary><span>Console output</span><small>10 lines</small></summary><pre class="no-copy"><code>Downloading dlwp_cubesphere.zip: 0%|          | 0.00/67.2M [00:00&lt;?, ?B/s]
+Downloading dlwp_cubesphere.zip: 1%|          | 461k/67.2M [00:00&lt;00:14, 4.72MB/s]
+Downloading dlwp_cubesphere.zip: 9%|▉         | 6.07M/67.2M [00:00&lt;00:01, 36.6MB/s]
+Downloading dlwp_cubesphere.zip: 23%|██▎       | 15.1M/67.2M [00:00&lt;00:00, 63.2MB/s]
+Downloading dlwp_cubesphere.zip: 36%|███▌      | 24.2M/67.2M [00:00&lt;00:00, 75.9MB/s]
+Downloading dlwp_cubesphere.zip: 50%|████▉     | 33.4M/67.2M [00:00&lt;00:00, 82.9MB/s]
+Downloading dlwp_cubesphere.zip: 63%|██████▎   | 42.4M/67.2M [00:00&lt;00:00, 86.9MB/s]
+Downloading dlwp_cubesphere.zip: 77%|███████▋  | 51.5M/67.2M [00:00&lt;00:00, 89.3MB/s]
+Downloading dlwp_cubesphere.zip: 90%|█████████ | 60.7M/67.2M [00:00&lt;00:00, 91.2MB/s]
+Downloading dlwp_cubesphere.zip: 100%|██████████| 67.2M/67.2M [00:00&lt;00:00, 80.4MB/s]</code></pre></details>
 
 <h2 id="execute-the-workflow">Execute the Workflow<a class="headerlink" href="#execute-the-workflow" title="Permanent link">&para;</a></h2>
 <p>Running our workflow with a build in prognostic model and a custom diagnostic is the
@@ -3736,39 +3742,60 @@ same as running a built in diagnostic.</p>
 <a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>
 <a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="nb">print</span><span class="p">(</span><span class="n">io</span><span class="o">.</span><span class="n">root</span><span class="o">.</span><span class="n">tree</span><span class="p">())</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>34 lines</small></summary><pre class="no-copy"><code>2026-08-25 13:39:51.869 | INFO     | earth2studio.run:diagnostic:238 - Running diagnostic workflow!
-2026-08-25 13:39:51.870 | INFO     | earth2studio.run:diagnostic:244 - Inference device: cuda
+<details class="e2sg-output" open><summary><span>Console output</span><small>55 lines</small></summary><pre class="no-copy"><code>2026-11-17 11:04:23.419 | INFO     | earth2studio.run:diagnostic:267 - Running diagnostic workflow!
+2026-11-17 11:04:23.419 | INFO     | earth2studio.run:diagnostic:274 - Inference device: cuda
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
-Fetching GFS data:  14%|█▍        | 1/7 [00:00&lt;00:03,  1.81it/s]
-Fetching GFS data:  29%|██▊       | 2/7 [00:00&lt;00:01,  3.20it/s]
-Fetching GFS data: 100%|██████████| 7/7 [00:00&lt;00:00,  9.09it/s]
+Fetching GFS data:  14%|█▍        | 1/7 [00:01&lt;00:06,  1.02s/it]
+Fetching GFS data:  29%|██▊       | 2/7 [00:01&lt;00:02,  1.97it/s]
+Fetching GFS data:  71%|███████▏  | 5/7 [00:01&lt;00:00,  5.68it/s]
+Fetching GFS data: 100%|██████████| 7/7 [00:01&lt;00:00,  5.17it/s]
+Fetching GFS data: 100%|██████████| 7/7 [00:01&lt;00:00,  4.02it/s]
+
+Fetching GFS statistics: 0it [00:00, ?it/s]
+Fetching GFS statistics: 0it [00:00, ?it/s]
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
-Fetching GFS data:  14%|█▍        | 1/7 [00:00&lt;00:01,  3.63it/s]
-Fetching GFS data: 100%|██████████| 7/7 [00:00&lt;00:00, 21.07it/s]
-Fetching GFS data: 100%|██████████| 7/7 [00:00&lt;00:00, 17.46it/s]
-2026-08-25 13:39:53.719 | SUCCESS  | earth2studio.run:diagnostic:307 - Fetched data from GFS
-2026-08-25 13:39:53.720 | INFO     | earth2studio.run:diagnostic:312 - Inference starting!
+Fetching GFS data:  14%|█▍        | 1/7 [00:00&lt;00:01,  3.94it/s]
+Fetching GFS data:  43%|████▎     | 3/7 [00:00&lt;00:00,  9.35it/s]
+Fetching GFS data: 100%|██████████| 7/7 [00:00&lt;00:00,  8.31it/s]
+Fetching GFS data: 100%|██████████| 7/7 [00:00&lt;00:00,  8.03it/s]
+
+Fetching GFS statistics: 0it [00:00, ?it/s]
+Fetching GFS statistics: 0it [00:00, ?it/s]
+2026-11-17 11:04:26.315 | SUCCESS  | earth2studio.run:diagnostic:317 - Fetched data from GFS
+2026-11-17 11:04:26.316 | INFO     | earth2studio.run:diagnostic:322 - Inference starting!
 
 
 Running inference:   0%|          | 0/21 [00:00&lt;?, ?it/s]
 
-Running inference:  10%|▉         | 2/21 [00:00&lt;00:03,  5.12it/s]
+Running inference:  10%|▉         | 2/21 [00:00&lt;00:06,  2.97it/s]
 
-Running inference:  38%|███▊      | 8/21 [00:00&lt;00:00, 18.94it/s]
+Running inference:  19%|█▉        | 4/21 [00:00&lt;00:02,  5.84it/s]
 
-Running inference:  67%|██████▋   | 14/21 [00:00&lt;00:00, 29.34it/s]
+Running inference:  29%|██▊       | 6/21 [00:00&lt;00:01,  8.55it/s]
 
-Running inference:  95%|█████████▌| 20/21 [00:00&lt;00:00, 36.90it/s]
-Running inference: 100%|██████████| 21/21 [00:00&lt;00:00, 28.60it/s]
-2026-08-25 13:39:54.455 | SUCCESS  | earth2studio.run:diagnostic:340 - 
+Running inference:  38%|███▊      | 8/21 [00:00&lt;00:01, 10.94it/s]
+
+Running inference:  48%|████▊     | 10/21 [00:01&lt;00:00, 11.94it/s]
+
+Running inference:  57%|█████▋    | 12/21 [00:01&lt;00:00, 13.39it/s]
+
+Running inference:  67%|██████▋   | 14/21 [00:01&lt;00:00, 14.58it/s]
+
+Running inference:  76%|███████▌  | 16/21 [00:01&lt;00:00, 15.56it/s]
+
+Running inference:  86%|████████▌ | 18/21 [00:01&lt;00:00, 16.17it/s]
+
+Running inference:  95%|█████████▌| 20/21 [00:01&lt;00:00, 16.74it/s]
+Running inference: 100%|██████████| 21/21 [00:01&lt;00:00, 12.01it/s]
+2026-11-17 11:04:28.065 | SUCCESS  | earth2studio.run:diagnostic:352 - 
 Inference complete
 /
 ├── lat (721,) float64
-├── lead_time (21,) timedelta64[h]
+├── lead_time (41,) timedelta64[ns]
 ├── lon (1440,) float64
-├── t2m_c (1, 21, 721, 1440) float32
+├── t2m_c (1, 41, 721, 1440) float32
 └── time (1,) datetime64[ns]</code></pre></details>
 
 <h2 id="post-processing">Post Processing<a class="headerlink" href="#post-processing" title="Permanent link">&para;</a></h2>
@@ -3822,9 +3849,9 @@ Inference complete
 </code></pre></div>
 <p><img alt="Output from Extending Diagnostic Models" class="e2sg-output-image" loading="lazy" src="../../_assets/08_extend-02_custom_diagnostic/001-cell-11.jpg" /></p>
 <hr />
-<div class="e2sg-downloads"><a class="e2sg-download" href="../../_assets/08_extend-02_custom_diagnostic/02_custom_diagnostic.py" download>Download Python source</a><a class="e2sg-download" href="../../_assets/08_extend-02_custom_diagnostic/02_custom_diagnostic.ipynb" download>Download Jupyter notebook</a><span class="e2sg-download-meta">executed in 62.0s</span></div>
+<div class="e2sg-downloads"><a class="e2sg-download" href="../../_assets/08_extend-02_custom_diagnostic/02_custom_diagnostic.py" download>Download Python source</a><a class="e2sg-download" href="../../_assets/08_extend-02_custom_diagnostic/02_custom_diagnostic.ipynb" download>Download Jupyter notebook</a><span class="e2sg-download-meta">executed in 57.5s</span></div>
 
-<section class="e2sg-telemetry" aria-labelledby="e2sg-telemetry-title"><div class="e2sg-telemetry-heading"><div><span class="e2sg-eyebrow">Execution profile</span><h2 id="e2sg-telemetry-title">Runtime telemetry</h2></div></div><div class="e2sg-total-runtime"><span>Total runtime</span><strong>1m 2s</strong></div><h3 class="e2sg-telemetry-subtitle">Execution environment</h3><div class="e2sg-hardware-grid"><div class="e2sg-hardware-item"><span>CPU</span><strong>AMD EPYC 7313P 16-Core Processor</strong></div><div class="e2sg-hardware-item"><span>GPU</span><strong>NVIDIA H100 PCIe · 79.6 GiB</strong></div><div class="e2sg-hardware-item"><span>System RAM</span><strong>58.5 GiB</strong></div><div class="e2sg-hardware-item"><span>Platform</span><strong>Linux 6.8.0-137-generic</strong></div><div class="e2sg-hardware-item"><span>Python</span><strong>3.13.13</strong></div><div class="e2sg-hardware-item"><span>GPU driver / CUDA</span><strong>Driver 595.84 · CUDA support 13.2</strong></div></div></section>
+<section class="e2sg-telemetry" aria-labelledby="e2sg-telemetry-title"><div class="e2sg-telemetry-heading"><div><span class="e2sg-eyebrow">Execution profile</span><h2 id="e2sg-telemetry-title">Runtime telemetry</h2></div></div><div class="e2sg-total-runtime"><span>Total runtime</span><strong>57.5 s</strong></div><h3 class="e2sg-telemetry-subtitle">Execution environment</h3><div class="e2sg-hardware-grid"><div class="e2sg-hardware-item"><span>CPU</span><strong>AMD EPYC 9554 64-Core Processor</strong></div><div class="e2sg-hardware-item"><span>GPU</span><strong>NVIDIA H100 NVL · 93.6 GiB</strong></div><div class="e2sg-hardware-item"><span>System RAM</span><strong>58.4 GiB</strong></div><div class="e2sg-hardware-item"><span>Platform</span><strong>Linux 6.8.0-147-generic</strong></div><div class="e2sg-hardware-item"><span>Python</span><strong>3.13.13</strong></div><div class="e2sg-hardware-item"><span>GPU driver / CUDA</span><strong>Driver 595.99.02 · CUDA support 13.2</strong></div></div></section>
 
 
 
