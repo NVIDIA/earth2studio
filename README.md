@@ -48,7 +48,7 @@ Include the version, release date, and links to the release notes.
 # Create a forecasting pipeline
 Create me a 10-day AI forecasting pipeline starting from the latest GFS analysis.
 
-# Set up a model environment
+# Set up a Python environment for a specific model
 Set up my environment for FourCastNet3 inference.
 
 # Find a model for your forecast and hardware
