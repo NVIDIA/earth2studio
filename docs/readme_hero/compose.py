@@ -18,7 +18,7 @@ from common import *
 from PIL import Image, ImageDraw
 
 W = 5400
-M, G, BAND = 30, 24, 270
+M, G, BAND = 30, 24, 140
 GL = 1500  # globe edge
 LEG = 120  # legend / colourbar strip under globes
 R1 = BAND + GL + LEG  # row-1 height
@@ -52,12 +52,20 @@ def spaced(draw, xy, text, f, fill, track=0):
     return x
 
 
-def header(x, y, num, title, sub):
+def header(x, y, num, title, sub, width):
     """Draw a numbered panel heading and subtitle on the hero canvas."""
-    spaced(d, (x, y + 24), num, font(mono=True, size=22), CY, 2)
-    for i, line in enumerate(title.splitlines()):
-        spaced(d, (x + 44, y + 2 + i * 100), line, font(bold=True, size=90), WHITE, 3)
-    d.text((x + 44, y + 224), sub, font=font(mono=True, size=21), fill=GREY)
+    size = 90
+    while (
+        sum(d.textlength(c, font=font(bold=True, size=size)) + 3 for c in title)
+        > width - 44
+    ):
+        size -= 1
+    title_font = font(bold=True, size=size)
+    # Align the visible bottoms, keeping every title on one line above its subtitle.
+    title_y = y + 94 - title_font.getbbox(title)[3]
+    spaced(d, (x, y + 68), num, font(mono=True, size=22), CY, 2)
+    spaced(d, (x + 44, title_y), title, title_font, WHITE, 3)
+    d.text((x + 44, y + 104), sub, font=font(mono=True, size=21), fill=GREY)
 
 
 def place(path, box, crop=False, cover=False):
@@ -99,8 +107,9 @@ header(
     x01,
     y1,
     "01",
-    "MEDIUM RANGE, S2S AND\nCLIMATE FORECASTING",
+    "MEDIUM RANGE, S2S AND CLIMATE FORECASTING",
     "SFNO · 0.25° · +144 h · 10 m wind, streamlines, MSLP · init 2026-01-15 00Z",
+    GL,
 )
 place(P("panels/globe_raw.png"), (x01, y1 + BAND, GL, GL), crop=True)
 cm = wind_cmap()
@@ -120,6 +129,7 @@ header(
     "02",
     "NOWCASTING",
     "StormScope · GOES + MRMS (US) · MTG FCI (Europe) · 2 h ahead",
+    w02,
 )
 th = (R1 - BAND - G) // 2
 tw2 = (w02 - G) // 2
@@ -155,6 +165,7 @@ header(
     "03",
     "DATA ASSIMILATION",
     "HealDA · NNJA observations · 2026-01-15 00Z ±3 h",
+    GL,
 )
 place(P("panels/obs_raw.png"), (x03, y1 + BAND, GL, GL), crop=True)
 ly = y1 + BAND + GL + 22
@@ -186,6 +197,7 @@ header(
     "04",
     "AI-READY DATA SOURCES",
     "GOES · Himawari · ERA5 · GFS … analysis, forecast and observation sources behind one Python API",
+    W - 2 * M,
 )
 gap = 12
 xs = M
@@ -203,7 +215,7 @@ for p, lab in srcs:
 tx = xs + 40
 tw = W - M - tx
 d.text((tx, y2 + 6), "NVIDIA", font=font(bold=True, size=60), fill=(118, 185, 0))
-spaced(d, (tx, y2 + 94), "EARTH2STUDIO", font(bold=True, size=92), WHITE, 6)
+spaced(d, (tx, y2 + 60), "EARTH2STUDIO", font(bold=True, size=92), WHITE, 6)
 d.text((tx, y2 + 190), "Next-generation AI weather", font=font(size=34), fill=GREY)
 d.text((tx, y2 + 234), "and climate modeling.", font=font(size=34), fill=GREY)
 import os

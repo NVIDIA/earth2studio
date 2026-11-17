@@ -29,20 +29,20 @@ MPL = os.path.join(os.path.dirname(matplotlib.__file__), "mpl-data", "fonts", "t
 
 
 def wind_cmap():
-    """Return the dark ocean-to-gold wind palette shared by globe and legend."""
-    # Rising lightness encodes speed; cool teal turns to warm gold at high winds.
+    """Return the charcoal-to-coral wind palette shared by globe and legend."""
+    # Rising lightness encodes speed; warm copper contrasts with the teal vapour panel.
     return LinearSegmentedColormap.from_list(
-        "ocean_gold",
+        "copper_coral",
         [
-            "#02070d",
-            "#082631",
-            "#11505b",
-            "#247c80",
-            "#5ca69b",
-            "#a7c7a5",
-            "#dfd49b",
-            "#f5dc98",
-            "#ffe9bd",
+            "#090c10",
+            "#302728",
+            "#603c32",
+            "#94543e",
+            "#c87556",
+            "#e89b7e",
+            "#f5bfa2",
+            "#f9ddc0",
+            "#fff2dc",
         ],
     )
 
