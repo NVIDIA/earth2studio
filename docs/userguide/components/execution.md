@@ -187,7 +187,9 @@ selection, and optional regridding. Each component runs at its own cadence and
 writes its own stream; inputs not fed by a connector are fetched from sources.
 
 Because `CoupledRunner` is a runner, the same `Pipeline` drives it. For example,
-DLESyM's atmosphere and ocean, stepping every 6 and 48 hours:
+DLESyM's atmosphere and ocean each advance in 96-hour cycles, publishing outputs
+every 6 and 48 hours respectively. The final lead time must be a multiple of the
+96-hour cycle:
 
 ```python
 from earth2studio.coupling import Connector, CoupledRunner
@@ -199,8 +201,10 @@ runner = CoupledRunner(
         Connector("atmos", "ocean"),               # Atmospheric means per ocean step
     ],
 )
-print(runner.describe(np.timedelta64(192, "h")))  # Inspect the derived schedule
-Pipeline(runner, output={"atmos": atmos_io, "ocean": ocean_io}).run(items)
+final_lead_time = np.timedelta64(192, "h")  # Two coupled cycles
+print(runner.describe(final_lead_time))  # Inspect the derived schedule
+coupled_items = work_items(times, final_lead_time=final_lead_time)
+Pipeline(runner, output={"atmos": atmos_io, "ocean": ocean_io}).run(coupled_items)
 ```
 
 See [E2S-12: Coupling](../../specs/E2S-12_COUPLING_SPEC.md) for connector and
