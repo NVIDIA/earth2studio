@@ -43,6 +43,7 @@ process.
    - [2.1 Generate Ensemble](#21-generate-ensemble)
    - [2.2 Reproduce Individual Ensemble Members](#22-reproduce-individual-ensemble-members)
    - [2.3 Extract Reference Tracks from ERA5](#23-extract-reference-tracks-from-era5)
+   - [2.4 How the Ensemble Pipeline Is Built](#24-how-the-ensemble-pipeline-is-built)
 3. [Visualisation](#3-visualisation)
 4. [TempestExtremes Integration](#4-tempestextremes-integration)
 5. [Example Workflow](#5-example-workflow)
@@ -220,6 +221,18 @@ settings using Slurm, MPI, or torchrun, e.g.
 torchrun --nproc-per-node=2 main.py --config-name=config.yaml
 ```
 
+The work is split into batches, each of one initial
+condition (IC) and `batch_size` members. Earth2Studio's
+`Pipeline` gives each rank a contiguous block of batches of
+nearly equal size, so the batches of an IC stay on few ranks.
+A batch that becomes unstable (see the stability check below)
+is retried on the same rank. If a rank fails with an error,
+the other ranks finish their current batch, then all ranks
+stop with the error. Rerun with `resume: True` to finish the
+remaining batches. See
+[Section 2.4](#24-how-the-ensemble-pipeline-is-built) for
+the components of the run.
+
 The CPU-bound `extract_baseline` mode does not use
   `torchrun` and does not require a GPU. Instead, individual
   storms are distributed across CPU worker processes via the
@@ -245,9 +258,10 @@ be found at `cfg/helene.yaml`.
 > but require an additional perturbation method to produce
 > meaningful ensemble members. When adding a deterministic
 > model, register it in `load_model` in
-> `src/modes/generate_tc_hunt_ensembles.py` **and** perturb
-> the initial condition `x` in `run_inference` before the
-> rollout.
+> `src/modes/generate_tc_hunt_ensembles.py` **and** pass a
+> perturbation of the initial condition to the runner,
+> `StableRunner(..., perturbation=...)`, see
+> `earth2studio.perturbation`.
 
 **Basics:**
 
@@ -257,9 +271,12 @@ mode: 'generate_ensemble'     # choose mode
 model: 'aifs'                 # 'fcn3', 'aifs' or 'aifs-v2'
 # optional: bitwise reproducible runs, see 2.2 (default: False)
 deterministic: False
-# optional: random seed
-# (does NOT control model-internal random state)
+# optional: random seed, from which the seed of every batch
+# is derived. If not set, rank 0 draws one and logs it.
 random_seed: 7777
+# optional: continue an interrupted or partly failed run,
+# see "Resuming a Run" below (default: False)
+resume: False
 # optional: path to model weights
 # (uses default package if omitted)
 model_package: '/path/to/weights'
@@ -302,10 +319,49 @@ store_type: "netcdf"
 store_dir: "./outputs_${project}"
 # field variables to write to file
 out_vars: ['msl', 'z300', 'z500', 'u10m', 'v10m']
+# optional, Zarr only: one shard per member, IC and variable
+# (default: True), see below
+zarr_shard_per_member: True
 ```
 
 The data source can be any of the Earth-2 Studio data
-sources or a custom data source implementation.
+sources or a custom data source implementation. If the data
+of different years is in different places, e.g. split into
+training, validation and test years, name a source for each
+period:
+
+```yaml
+data_source:
+    train:
+        source:
+            _target_: earth2studio.data.NCAR_ERA5
+        years: "1980-2015"
+    test:
+        source:
+            _target_: earth2studio.data.CDS_ERA5
+        years: "2016-2024"
+```
+
+**Output Files**: Zarr output is one store,
+`<project>.zarr`, written by all ranks: chunks hold one
+member, IC, lead time and variable, so ranks never write to
+the same chunk. NetCDF output is one file per batch,
+`<project>_<ic>_mems<first>-<last>.nc`, as a NetCDF file can
+only be written by one process. Both contain an array
+`random_seed` with the seed each member was run with, `-1`
+for members that stayed unstable in all attempts, whose
+fields are NaN. In the Zarr store, members that have not
+run yet have seed `0`.
+
+With `zarr_shard_per_member: True`, all lead times of a
+member, IC and variable form one shard, i.e. one file. Zarr
+would rewrite a shard on every partial write, so the shard
+is kept in host memory until the member is complete and
+then written at once, in the background. This needs about
+`batch_size x len(out_vars) x (n_steps + 1) x 4 MB` of host
+memory per rank at 0.25 degree. For very long rollouts or
+little host memory, set it to `False`: every step is then
+written as its own files right away.
 
 **Storage Considerations**: Exercise caution when storing
 field variables, as storage requirements grow rapidly
@@ -348,9 +404,11 @@ cyclone_tracking:
     keep_raw_data: False
     # scratch directory for intermediate files (null = auto-detect /dev/shm, fall back to disk)
     scratch_dir: null
-    task_timeout_seconds: 120   # timeout for tracking tasks
+    task_timeout_seconds: 120   # time limit of a TE command
     print_te_output: False      # print TE output to terminal
     max_workers_per_rank: 8     # max concurrent TE subprocesses per rank
+    # run DetectNodes every n steps (null = once per rollout)
+    detect_chunk_steps: null
 ```
 
 <!-- markdownlint-enable MD013 -->
@@ -376,6 +434,22 @@ need to specify file paths explicitly (see
 use `--in_data_list` and `--out_file_list` for
 `DetectNodes`, and `--in` and `--out` for `StitchNodes`.
 
+**Variables**: The tracker declares the fields it needs
+through its input coordinates, the variables in `vars` on
+the grid of the orography. The runner selects them from
+every forecast step, independently of `out_vars`.
+
+**Long Rollouts**: By default, the tracking variables of all
+steps are kept in host memory and written to `scratch_dir`
+(in memory as well, if it is `/dev/shm`) before DetectNodes
+runs. With `detect_chunk_steps`, DetectNodes runs on chunks
+of that many steps while the model rolls out, and StitchNodes
+on the nodes of all chunks at the end. DetectNodes works on
+one time step at a time, so the tracks are the same, but
+memory no longer grows with the rollout length. For rollouts
+of months, also set `scratch_dir` to a directory on disk and,
+for Zarr output, consider `zarr_shard_per_member: False`.
+
 **Stability Check** (optional)
 
 FCN3 can perform stable rollouts on subseasonal timescales
@@ -394,19 +468,54 @@ check has been implemented to detect and handle these cases:
 - **Implementation**: Provide a list of variables to monitor
   and a threshold for each. Global averages are computed at
   initialisation and at each time step. If any variable's
-  global average exceeds its threshold, the simulation is
-  interrupted and restarted with a new random seed.
+  global average exceeds its threshold, the rollout of the
+  batch is stopped and started again with the next seed. The
+  steps of the new attempt replace those already written, and
+  the output records the seed of the stable attempt.
+- **Retries**: At most `max_retries` (default 3) per batch.
+  Attempt `n` of a batch is seeded with
+  `member_seed(random_seed + n, ic, first_member)` (see
+  `earth2studio.run.work.member_seed`), so all seeds depend
+  only on `random_seed`. A batch that stays unstable in all
+  attempts is logged as failed, writes no track files, and
+  its fields are NaN with `random_seed = -1`.
 - **Limitation**: This is a basic implementation. More
   advanced detection methods that don't require 10 extra
-  simulation days, and better load-balancing when many
-  ensemble members become unstable, would be beneficial
+  simulation days, and handing retries to idle ranks when
+  many ensemble members become unstable, would be beneficial
   improvements.
 
 ```yaml
 stability_check:
     variables: ['t1000', 'u250', 'v850']
     thresholds: [10, 10, 10]
+    max_retries: 3  # then the batch is logged as failed
 ```
+
+**Resuming a Run** (optional)
+
+A run records every finished batch in
+`<project>_progress/` in `store_dir`. Rerunning the same
+config with `resume: True` skips the batches that are done
+(fields written and track files present), reruns the missing
+ones, and continues failed batches with their next attempt;
+raise `max_retries` for that. Resume raises if a setting that
+defines the batches or their results changed: `random_seed`,
+`model`, `model_package`, `deterministic`, `data_source`,
+`ensemble_size`, `batch_size`, `n_steps`, `out_vars`,
+`store_type`, and `vars`, `detect_cmd`, `stitch_cmd` and
+`orography_path` of `cyclone_tracking`. ICs can be added,
+except with Zarr output, whose store spans the ICs of the
+first run. The number of ranks, `stability_check`,
+`scratch_dir`, `detect_chunk_steps` and the worker settings
+may change. Without `resume`, a run
+starts from scratch and replaces the outputs of an earlier
+run of the project.
+
+To stop a run, send SIGTERM (`kill <pid>` of `torchrun` or
+of the Python process, `scancel` on Slurm). Ctrl-C does not
+work, as a dependency of Earth2Studio replaces Python's
+SIGINT handler.
 
 **Hydra Configuration** (optional)
 
@@ -461,7 +570,12 @@ To reproduce a run, you need:
 
 - Configuration file from the original run (ideally)
 - Ensemble member ID and random seed for all members to be
-  reproduced (both provided in the track CSV filename)
+  reproduced (both provided in the track CSV filename, the
+  seed also in the `random_seed` array of the field output).
+  For a member that was retried after an instability, this is
+  the seed of the retry.
+- The `random_seed` of the original run, from which the seeds
+  of all batches are derived
 - Batch size (also provided in the track CSV filename)
 
 **Configuration Changes:**
@@ -484,11 +598,11 @@ provide the initial condition, member ID, and random seed:
 
 ```yaml
 reproduce_members: [
-                    ['2024-09-24 00:00:00',  5, 2148531792],
-                    ['2024-09-24 00:00:00',  8, 1342799488],
-                    ['2024-09-24 12:00:00',  4, 2528887706],
-                    ['2024-09-24 12:00:00',  5, 2528887706],
-                    ['2024-09-24 12:00:00', 13, 1968734508],
+                    ['2024-09-24 00:00:00',  5, 6271440918520307011],
+                    ['2024-09-24 00:00:00',  8, 1342799488110429576],
+                    ['2024-09-24 12:00:00',  4, 2528887706413770950],
+                    ['2024-09-24 12:00:00',  5, 2528887706413770950],
+                    ['2024-09-24 12:00:00', 13, 7968734508220041399],
                    ]
 ```
 
@@ -504,9 +618,14 @@ full batch must always be reproduced. For example, with a
 batch size of 2 in the example above, the run would reproduce
 members 4, 5, 8, and 9 from the midnight ensemble, and
 members 4, 5, 12, and 13 from the midday ensemble.
-Use the same `batch_size` and `ensemble_size` as in the
-original run: they define the batches, and a member's noise
-depends on the batch it was generated in.
+Use the same `random_seed`, `batch_size` and
+`ensemble_size` as in the original run: they define the
+batches and their seeds, and a member's noise depends on the
+batch it was generated in.
+
+**Output**: Fields are written as in the original run, a
+Zarr store holding only the reproduced members, or a NetCDF
+file per reproduced batch.
 
 ### 2.3 Extract Reference Tracks from ERA5
 
@@ -627,6 +746,47 @@ Serial runs (`num_workers: 1`) skip the pool entirely and use the
 same code path inline. If `num_workers` exceeds the number
 of configured cases, it is silently capped to `len(cases)`
 and a warning is logged.
+
+### 2.4 How the Ensemble Pipeline Is Built
+
+The modes `generate_ensemble` and `reproduce_members` are
+built from Earth2Studio's pipeline components
+(`earth2studio.run`), which you can reuse for your own
+pipelines. `run_ensemble` in
+`src/modes/generate_tc_hunt_ensembles.py` puts them
+together:
+
+- `work_items`: one work item per batch, an IC and
+  `batch_size` members.
+- `StableRunner` (`src/ensemble/runner.py`): Earth2Studio's
+  `PrognosticRunner` with a stability check. Rolls out a
+  batch and starts it again with the next seed if it becomes
+  unstable.
+- `TrackerInputs` (`src/ensemble/tracking.py`): diagnostic of
+  the runner that selects the tracker's input fields into
+  stream `tracking`.
+- `TrackingScorer` (`src/ensemble/tracking.py`): scorer that
+  records stream `tracking` and runs TempestExtremes once a
+  batch is done.
+- `Pipeline`: distributes the batches over the ranks, writes
+  stream `forecast` (only `out_vars`), and records finished
+  batches.
+- `BatchNetCDFBackend`, `zarr_backend` and `SeedRecorder`
+  (`src/ensemble/output.py`): field and seed output.
+- `BatchProgress` (`src/ensemble/progress.py`): Earth2Studio's
+  `ProgressStore`, keeping failed batches open for a resumed
+  run.
+- `YearRoutedSource` and `CachedSource`
+  (`src/data/tc_hunt_data_utils.py`): a data source per
+  period, and initial conditions kept for all batches and
+  retries of an IC.
+
+Each step of a batch flows from the runner through its
+diagnostics to the pipeline, which hands every stream to the
+scorer and writes the streams that have a store. The runner
+tells the scorer, the seed recorder and the progress store
+about every attempt of a batch (`BatchObserver`), so they can
+discard an unstable attempt and record failed batches.
 
 ## 3. Visualisation
 
@@ -830,9 +990,10 @@ both runs need `deterministic: True`.
    ```
 
 4. This should produce a folder `outputs_reproduce_helene`
-   containing both track files and a NetCDF file named
-   `reproduce_helene_2024-09-24T00.00.00_mems0000-0013.nc`
-   with the atmospheric fields.
+   containing both track files and one NetCDF file per
+   reproduced batch with the atmospheric fields, e.g.
+   `reproduce_helene_2024-09-24T00.00.00_mems0008-0009.nc`
+   for members 8 and 9.
 
 **Visualise Tracks and Fields**:
 
@@ -844,7 +1005,7 @@ create animated visualisations:
    ```python
    field_data = (
        '/path/to/outputs_reproduce_helene'
-       '/reproduce_helene_2024-09-24T00.00.00_mems0000-0013.nc'
+       '/reproduce_helene_2024-09-24T00.00.00_mems0008-0009.nc'
    )
    track_dir = (
        '/path/to/outputs_reproduce_helene'

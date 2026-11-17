@@ -25,6 +25,10 @@ os.environ.setdefault("MKL_DYNAMIC", "FALSE")
 # Let PyTorch grow its memory segments instead of fragmenting the GPU memory,
 # must be set before CUDA is initialised
 os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
+# Keep PyTorch's caching allocator instead of the RMM memory pool Earth2Studio
+# shares between PyTorch and CuPy: with the pool, AIFS-ENS runs out of memory
+# on a 48 GB GPU at batch size 1. Must be set before earth2studio is imported
+os.environ.setdefault("EARTH2STUDIO_DISABLE_RMM", "1")
 
 import hydra  # noqa: E402
 from loguru import logger  # noqa: E402

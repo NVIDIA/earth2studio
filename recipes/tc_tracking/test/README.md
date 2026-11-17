@@ -27,7 +27,11 @@ You can find the track files in `outputs_baseline_helene/cyclone_tracks_te`.
 The directory should contain five csv files with naming pattern according to
 `tracks_2024-09-24T00:00:00_mem_000X_seed_YYYYYYYYY_bs_2.csv`
 This pattern provides information about initial condition, ensemble member ID,
-random seed and batch size.
+random seed and batch size. The seed is the one the member was run with: if
+its batch became unstable and was retried (see the stability check in the main
+README), it is the seed of the retry. With field output (`store_type`
+`netcdf` or `zarr`), the same seed is stored in the array `random_seed`;
+NetCDF output is one file per batch.
 
 ## Test 2: Reproducibility of Helene Ensemble Members
 
@@ -41,8 +45,9 @@ python ../main.py --config-path=$(pwd)/cfg --config-name=reproduce_helene.yaml \
     reproduce_members.0.2=<seed of member 3> reproduce_members.1.2=<seed of member 4>
 ```
 
-Note that the baseline run was produced with batch size two. For reproducibility,
-we need to apply the same batch size in the reproduction run and reproduce the full
+Note that the baseline run was produced with batch size two and `random_seed: 7777`,
+from which the seeds of all batches are derived. For reproducibility, we need to
+apply the same batch size and random seed in the reproduction run and reproduce the full
 batch that contained the ensemble member in question. For the present case, this means
 that member two will also be reproduced, as it is in the same batch as member three.
 
@@ -56,8 +61,8 @@ a simple `diff` call:
 <!-- markdownlint-disable MD013 -->
 
 ```bash
-diff outputs_baseline_helene/cyclone_tracks_te/tracks_2024-09-24T00:00:00_mem_0002_seed_4045540270_bs_2.csv \
-     outputs_reproduce_helene/cyclone_tracks_te/tracks_2024-09-24T00:00:00_mem_0002_seed_4045540270_bs_2.csv
+diff outputs_baseline_helene/cyclone_tracks_te/tracks_2024-09-24T00:00:00_mem_0002_seed_<seed>_bs_2.csv \
+     outputs_reproduce_helene/cyclone_tracks_te/tracks_2024-09-24T00:00:00_mem_0002_seed_<seed>_bs_2.csv
 ```
 
 <!-- markdownlint-enable MD013 -->
