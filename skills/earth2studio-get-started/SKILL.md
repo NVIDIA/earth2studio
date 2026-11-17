@@ -11,12 +11,18 @@ metadata:
 # Earth2Studio - Get Started
 
 Keep replies brief. Guide one stage at a time; skip questions already answered.
-Open with: "We'll set up your Python project, initialize UCAST from ARCO ERA5,
-save a five-day forecast to Zarr, then plot a field you choose."
+After each successful stage, explicitly offer the next step rather than ending at setup.
 
-## 1. Choose the version and environment
+## 1. Confirm the version and offer the example
 
-Follow `AGENTS.md` version routing first; retain an existing choice. Read the selected
+Follow `AGENTS.md` version routing first; retain an existing choice. Then ask:
+**"Do you want to get started with a minimal runnable example?"** Explain briefly:
+"We'll initialize UCAST from ARCO ERA5 and save a five-day forecast to Zarr."
+Wait for the answer. If no, stop; if yes, continue with environment setup.
+
+## 2. Set up the environment
+
+Read the selected
 version's install options, `pyproject.toml`, `ucast.py`, and deterministic example.
 Confirm `UCast` and the `ucast` extra exist before giving commands.
 
@@ -40,7 +46,10 @@ Use that version's supported Python. For an existing uv project, omit `mkdir` an
 `uv init`; preserve its Python pin. For pip projects, give the matching pip command.
 The current `ucast` extra is empty; it needs no additional model-specific dependencies.
 
-## 2. Save and run the forecast
+Once the user confirms setup and verification succeeded, continue to the forecast step.
+If the environment is already ready, skip installation and proceed directly.
+
+## 3. Save and run the forecast
 
 UCAST needs `sst`, absent from the current GFS lexicon. Use its recommended ARCO ERA5
 source rather than giving a failing GFS script. If GFS is required, discuss a compatible
@@ -70,13 +79,16 @@ UCAST steps every 12 hours: 10 steps = five days, 20 = ten days. The single-memb
 workflow still uses UCAST's default stochastic dropout. Its inputs include two times;
 the workflow fetches that history. Use a fresh store path for a new run.
 
-Give `uv run python forecast.py` (or their environment's Python). Wait for completion;
+Give `uv run python forecast.py` (or their environment's Python) and ask:
+**"Would you like to run the forecast now?"** If no, stop with the script and command
+ready. If yes, have the user run the command and share the result. Wait for completion;
 do not claim output exists before the user confirms or you verify it. On failure,
-diagnose the error before moving to plotting.
+diagnose the error before moving on. Once successful, offer post-processing immediately.
 
-## 3. Ask what to plot
+## 4. Offer post-processing
 
-After the store is saved, ask **"What would you like to plot from this?"** Offer:
+After the store is saved, ask **"Would you like to do any post-processing, such as plotting?"**
+If no, stop. If yes, ask **"What would you like to plot from this?"** Offer:
 "Plot 2-metre temperature contours at day five." Let the user choose the variable,
 lead time, and region; do not assume their answer. Inspect the store's variables and
 coordinates before selecting. `t2m` is near-surface air temperature, not skin temperature.
