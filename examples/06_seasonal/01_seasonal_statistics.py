@@ -251,7 +251,8 @@ class SOI:
     ):
         # Read in Tahiti and Darwin SLP data
         url = "https://data.longpaddock.qld.gov.au/SeasonalClimateOutlook/SouthernOscillationIndex/SOIDataFiles/DailySOI1933-1992Base.txt"
-        with fsspec.open(url, "r") as f:
+        # Stream the file because the server may not honor HTTP range requests.
+        with fsspec.open(url, "r", block_size=0) as f:
             ds = pd.read_csv(f, sep=r"\s+")
         dates = pd.date_range("1999-01-01", freq="d", periods=len(ds))
         ds["date"] = dates
