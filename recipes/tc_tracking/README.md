@@ -30,9 +30,8 @@ execution time on CPU is typically shorter than the time
 required for the GPU to produce the next prediction. We
 therefore implement an asynchronous mode where the CPU
 executes TempestExtremes on completed time steps while the
-GPU continues producing subsequent predictions, resulting
-in virtually no computational overhead from the tracking
-process.
+GPU continues producing subsequent predictions, so that
+tracking adds little to the runtime.
 
 ## Table of Contents
 
@@ -409,8 +408,9 @@ cyclone_tracking:
     task_timeout_seconds: 120   # time limit of a TE command
     print_te_output: False      # print TE output to terminal
     max_workers_per_rank: 8     # max concurrent TE subprocesses per rank
-    # run DetectNodes every n steps (null = once per rollout)
-    detect_chunk_steps: null
+    # run DetectNodes every n steps while the model rolls out
+    # (null = once at the end of the rollout)
+    detect_chunk_steps: 4
 ```
 
 <!-- markdownlint-enable MD013 -->
@@ -441,15 +441,19 @@ through its input coordinates, the variables in `vars` on
 the grid of the orography. The runner selects them from
 every forecast step, independently of `out_vars`.
 
-**Long Rollouts**: By default, the tracking variables of all
-steps are kept in host memory and written to `scratch_dir`
-(in memory as well, if it is `/dev/shm`) before DetectNodes
-runs. With `detect_chunk_steps`, DetectNodes runs on chunks
-of that many steps while the model rolls out, and StitchNodes
-on the nodes of all chunks at the end. DetectNodes works on
-one time step at a time, so the tracks are the same, but
-memory no longer grows with the rollout length. For rollouts
-of months, also set `scratch_dir` to a directory on disk and,
+**Chunked Detection**: With `detect_chunk_steps`, DetectNodes
+runs on chunks of that many steps while the model rolls out,
+and StitchNodes on the nodes of all chunks at the end of the
+batch. DetectNodes works on one time step at a time, so the
+tracks are the same as with a single DetectNodes run. In
+asynchronous mode, the chunks are detected while the GPU
+produces the next steps (see [asynchronous mode](#async)),
+and host memory and scratch space no longer grow with the
+rollout length. Without it (`null`), the tracking variables
+of all steps are kept in host memory and written to
+`scratch_dir` (in memory as well, if it is `/dev/shm`), and
+DetectNodes runs once the rollout is done. For rollouts of
+months, also set `scratch_dir` to a directory on disk and,
 for Zarr output, consider `zarr_shard_per_member: False`.
 
 **Stability Check** (optional)
@@ -863,26 +867,34 @@ is limited to 64MB unless the container is started with
 
 On many platforms, executing TempestExtremes on the CPU is
 faster than producing the prediction on the GPU. We
-therefore implemented an asynchronous mode where a CPU
-thread executes TempestExtremes on completed time steps
-while the GPU continues producing the next prediction,
-enabling tracking with virtually no overhead.
+therefore implemented an asynchronous mode where CPU
+threads execute TempestExtremes on completed time steps
+while the GPU continues producing the next prediction.
 
 **Implementation Details**:
 
-- In asynchronous mode, each ensemble member in a batch is
-  tracked in its own background thread, allowing parallel
-  tracking across the batch. A failure of TempestExtremes
-  stops the run at the next batch or at the end of the
-  run, with the output of TempestExtremes.
+- In asynchronous mode, DetectNodes runs in background
+  threads on every chunk of `detect_chunk_steps` steps
+  while the model rolls out, the members of a batch in
+  parallel (see `max_workers_per_rank` below).
+- A batch counts as done only once the track files of all
+  its members are written, so that a resumed run never
+  skips a batch without tracks. At the end of each batch,
+  the GPU therefore waits for DetectNodes on the last
+  chunk and for StitchNodes, which is short compared to
+  the rollout. Without `detect_chunk_steps`, it waits for
+  all of DetectNodes as well, and asynchronous mode only
+  tracks the members of a batch in parallel.
+- A failure of TempestExtremes stops the run at the end of
+  the batch, with the output of TempestExtremes.
 - If TempestExtremes execution becomes slower than GPU
   prediction (which might occur with AIFS-ENS on newer GPUs
-  like B200), consider increasing the batch size. GPU
+  like B200), the detection of a chunk is not done when the
+  next one starts, and the GPU waits longer at the end of
+  the batch. Consider increasing the batch size: GPU
   prediction time scales approximately linearly with batch
   size, while the time for a single CPU thread to process
-  one member remains constant. There is no backpressure:
-  members waiting for tracking pile up in `/dev/shm`
-  (about 0.7 GB per member for the Helene setup).
+  one member remains constant.
 - **Concurrency control**: On multi-GPU nodes, multiple
   ranks share the same CPUs. Use `max_workers_per_rank` to
   limit the number of members tracked in parallel per

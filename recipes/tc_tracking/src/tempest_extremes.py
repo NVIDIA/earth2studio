@@ -436,7 +436,8 @@ class TempestExtremes:
                     task.result()
             with open(list_file, "w") as f:
                 f.write("\n".join(node_files) + "\n")
-            # renamed once complete: a resumed run counts any track file as done
+            # written under a temporary name and renamed once complete, so an
+            # interrupted run never leaves a truncated track file
             partial = track_file + ".tmp"
             self._run(self.stitch_cmd + ["--in_list", list_file, "--out", partial])
             os.replace(partial, track_file)

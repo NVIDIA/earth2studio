@@ -186,7 +186,8 @@ class StableRunner(PrognosticRunner):
         self.stability_check = stability_check
         self.attempts = attempts or (lambda item: range(1))
         self.observers = list(observers)
-        # last step yielded, the template of the NaN steps of a failed batch
+        # NaN copy of the last step yielded, the template of the NaN steps of a
+        # failed batch; holds no field data, so no GPU memory between attempts
         self._last_step: Step = {}
 
     def batch_seed(self, item: WorkItem, attempt: int) -> int:
@@ -259,7 +260,7 @@ class StableRunner(PrognosticRunner):
                     step["forecast"]
                 ):
                     return False
-                self._last_step = step
+                self._last_step = {name: _nan_like(x) for name, x in step.items()}
                 yield step
         finally:
             # closes the model's iterator, also when the attempt is stopped
@@ -272,17 +273,25 @@ class StableRunner(PrognosticRunner):
             observer.batch_finished(item, seed, attempts)
 
 
+def _nan_like(x: xr.DataArray) -> xr.DataArray:
+    """``x`` with its data replaced by NaN, keeping dims, coordinates and attrs.
+
+    The data is a broadcast view of a single NaN on the host, so it takes no
+    memory until a backend writes it, and drops the reference to the fields.
+    """
+    nan = np.broadcast_to(np.array(np.nan, dtype=x.dtype), x.shape)
+    return x.copy(deep=False, data=nan)
+
+
 def _nan_steps(template: Step, schemas: Mapping[str, xr.DataArray]) -> Iterator[Step]:
     """NaN steps for every lead time of each stream, shaped like ``template``.
 
-    The fields are broadcast views of a single NaN, so they take no memory
-    until a backend writes the selected variables.
+    ``template`` holds NaN fields, see :func:`_nan_like`.
     """
     leads = {stream: schemas[stream].coords["lead_time"].values for stream in template}
     for lead in np.unique(np.concatenate(list(leads.values()))):
         step = {}
         for stream, x in template.items():
             if lead in leads[stream]:
-                nan = np.broadcast_to(np.array(np.nan, dtype=x.dtype), x.shape)
-                step[stream] = x.copy(data=nan).assign_coords(lead_time=[lead])
+                step[stream] = x.assign_coords(lead_time=[lead])
         yield step

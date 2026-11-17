@@ -29,7 +29,6 @@ The run is built from Earth2Studio's pipeline components:
 """
 
 import os
-import random
 import shutil
 from contextlib import ExitStack
 
@@ -64,16 +63,15 @@ MAX_REPRODUCED_ATTEMPT = 1000
 def initialise(cfg: DictConfig) -> None:
     """Set up the runtime environment for ensemble generation.
 
-    Selects deterministic GPU kernels if ``deterministic`` is ``True``,
-    initialises the distributed manager, and seeds all random number
-    generators if a seed is provided in the config. Note that this does not
-    affect the internal random state of forecast models.
+    Selects deterministic GPU kernels if ``deterministic`` is ``True`` and
+    initialises the distributed manager. Random seeds are not set here: the
+    runner seeds the model of every batch, see
+    :class:`~src.ensemble.runner.StableRunner`.
 
     Parameters
     ----------
     cfg : DictConfig
-        Hydra configuration object. May contain ``deterministic`` and
-        ``random_seed`` keys
+        Hydra configuration object. May contain ``deterministic``
     """
     # Order-preserving GPU kernels make runs bitwise reproducible, which e.g.
     # the scatter operations in AIFS-ENS' graph layers otherwise are not.
@@ -86,14 +84,6 @@ def initialise(cfg: DictConfig) -> None:
 
     # initialise distributed manager
     DistributedManager.initialize()
-
-    # seed global random number generators, which does not affect the
-    # models' own random state
-    if "random_seed" in cfg:
-        torch.manual_seed(cfg.random_seed)
-        np.random.seed(cfg.random_seed)
-        random.seed(cfg.random_seed)
-        torch.cuda.manual_seed(cfg.random_seed)
 
 
 def load_model(cfg: DictConfig) -> PrognosticModel:
