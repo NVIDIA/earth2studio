@@ -150,29 +150,28 @@ meets. Completing some expectations of a higher level does not change its classi
 If its commitments change, the published level and documentation should be reassessed
 and any change explained to users.
 
-Link a README badge to this public guide so readers can understand its meaning.
 Copy the Markdown for the repository's current maturity level below.
 
 ### L0 badge
 
 ```markdown
-[![Maturity: L0 Research](https://img.shields.io/badge/Maturity-L0%20Research-76B900)](https://nvidia.github.io/earth2studio/userguide/developer/software_maturity/)
+![Maturity: L0 Research](https://img.shields.io/badge/Maturity-L0%20Research-76B900)
 ```
 
 ### L1 badge
 
 ```markdown
-[![Maturity: L1 Emerging](https://img.shields.io/badge/Maturity-L1%20Emerging-A4C639)](https://nvidia.github.io/earth2studio/userguide/developer/software_maturity/)
+![Maturity: L1 Emerging](https://img.shields.io/badge/Maturity-L1%20Emerging-A4C639)
 ```
 
 ### L2 badge
 
 ```markdown
-[![Maturity: L2 Hardened](https://img.shields.io/badge/Maturity-L2%20Hardened-5C6BC0)](https://nvidia.github.io/earth2studio/userguide/developer/software_maturity/)
+![Maturity: L2 Hardened](https://img.shields.io/badge/Maturity-L2%20Hardened-5C6BC0)
 ```
 
 ### L3 badge
 
 ```markdown
-[![Maturity: L3 Strategic](https://img.shields.io/badge/Maturity-L3%20Strategic-CB4B16)](https://nvidia.github.io/earth2studio/userguide/developer/software_maturity/)
+![Maturity: L3 Strategic](https://img.shields.io/badge/Maturity-L3%20Strategic-CB4B16)
 ```
