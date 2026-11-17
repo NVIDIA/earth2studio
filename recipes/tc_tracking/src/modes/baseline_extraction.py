@@ -14,7 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import math
 import os
 import urllib.request
 from concurrent.futures import ProcessPoolExecutor
@@ -25,10 +24,9 @@ import pandas as pd
 import tropycal.tracks as tropytracks
 from loguru import logger
 from omegaconf import DictConfig
-from physicsnemo.distributed import DistributedManager
 
 from earth2studio.data import fetch_data
-from src.data.tc_hunt_data_utils import DataSourceManager, load_heights
+from src.data.tc_hunt_data_utils import DataSourceManager
 from src.tc_hunt_utils import great_circle_distance
 from src.tempest_extremes import TempestExtremes
 
@@ -69,6 +67,7 @@ def ensure_ibtracs(path: str) -> str:
 
 def extract_from_historic_data(
     cfg: DictConfig,
+    case: str,
     ic: np.datetime64,
     n_steps: int,
     time_step: np.timedelta64,
@@ -80,6 +79,8 @@ def extract_from_historic_data(
     ----------
     cfg : DictConfig
         Hydra configuration object.
+    case : str
+        Storm name, used to name the intermediate track file.
     ic : np.datetime64
         Initial condition (start time).
     n_steps : int
@@ -98,45 +99,28 @@ def extract_from_historic_data(
     times = np.arange(n_steps) * time_step
     data_source = data_source_mngr.select_data_source(ic + times)
 
-    xx, coords = fetch_data(
+    # all time steps of the storm as a single-member "forecast" from ic
+    x = fetch_data(
         data_source,
         time=[ic],
         lead_time=times,
         variable=variables,
         device="cpu",
-    )
-    xx = xx.unsqueeze(0)
-    coords["ensemble"] = np.array([0])
-    coords.move_to_end("ensemble", last=False)
+    ).expand_dims(ensemble=[0])
 
-    heights, height_coords = (
-        load_heights(cfg.cyclone_tracking.orography_path)
-        if "orography_path" in cfg.cyclone_tracking
-        else (None, None)
+    cyclone_tracking = TempestExtremes.from_config(
+        cfg.cyclone_tracking, cfg.store_dir, asynchronous=False
     )
+    try:
+        cyclone_tracking.record_state(x)
+        (track_file,) = cyclone_tracking(out_file_names=[f"tracks_{case}.csv"])
+    finally:
+        # removes the scratch directory also if tracking fails
+        cyclone_tracking.close()
 
-    cyclone_tracking = TempestExtremes(
-        detect_cmd=cfg.cyclone_tracking.detect_cmd,
-        stitch_cmd=cfg.cyclone_tracking.stitch_cmd,
-        input_vars=variables,
-        batch_size=1,
-        n_steps=n_steps - 1,
-        time_step=time_step,
-        lats=coords["lat"],
-        lons=coords["lon"],
-        static_vars=heights,
-        static_coords=height_coords,
-        store_dir=cfg.store_dir,
-        keep_raw_data=cfg.cyclone_tracking.get("keep_raw_data", False),
-        print_te_output=cfg.cyclone_tracking.get("print_te_output", False),
-        scratch_dir=cfg.cyclone_tracking.get("scratch_dir", None),
-    )
-    cyclone_tracking.record_state(xx, coords)
-    cyclone_tracking()
-
-    hist_tracks = pd.read_csv(cyclone_tracking.track_files[0])
+    hist_tracks = pd.read_csv(track_file)
     hist_tracks.columns = hist_tracks.columns.str.strip()
-    os.remove(cyclone_tracking.track_files[0])
+    os.remove(track_file)
 
     return hist_tracks
 
@@ -175,13 +159,14 @@ def extract_from_ibtracs(
     storm = ibtracs.get_storm((case, cfg.cases[case].year))
     storm.time = storm.time.astype(np.datetime64)
 
+    times = pd.DatetimeIndex(storm.time)
     ib_storm = pd.DataFrame(
         {
             "time": storm.time,
-            "year": storm.time.astype("datetime64[Y]").astype(int) + 1970,
-            "month": storm.time.astype("datetime64[M]").astype(int) % 12 + 1,
-            "day": np.array([int(pd.Timestamp(tt).day) for tt in storm.time]),
-            "hour": storm.time.astype("datetime64[h]").astype(int) % 24,
+            "year": times.year,
+            "month": times.month,
+            "day": times.day,
+            "hour": times.hour,
             "lat": storm.lat,
             "lon": storm.lon,
             "wind_speed": storm.vmax,
@@ -190,14 +175,12 @@ def extract_from_ibtracs(
         }
     )
 
-    ic = storm.time[0]
+    # round the first observation down to 00h, 06h, 12h or 18h
+    ic = storm.time[0].astype("datetime64[h]")
+    ic -= np.timedelta64(pd.Timestamp(ic).hour % 6, "h")
 
-    # Ensure ic is at 00h, 06h, 12h, or 18h
-    hours = pd.Timestamp(ic).hour % 6
-    if hours:
-        ic = (ic - np.timedelta64(hours, "h")).astype("datetime64[h]")
-
-    n_steps = math.ceil((storm.time[-1] - ic) / time_step)
+    # all time steps from ic up to and including the last observation
+    n_steps = (storm.time[-1] - ic) // time_step + 1
 
     ib_storm = ib_storm[
         ib_storm["time"].isin(np.arange(ic, ic + n_steps * time_step, time_step))
@@ -214,10 +197,9 @@ def match_tracks(
 ) -> pd.DataFrame:
     """Match extracted tracks against IBTrACS to identify the target storm.
 
-    Iterates over IBTrACS observation times (in chronological order) and
-    compares against each detected track. A match is declared at the first
-    time step for which the extracted track's position lies within
-    ``max_dist`` metres of the corresponding IBTrACS reference position.
+    A match is the track closest to the IBTrACS position at the first
+    IBTrACS time at which any extracted track lies within ``max_dist``
+    metres of it.
 
     Parameters
     ----------
@@ -241,31 +223,28 @@ def match_tracks(
         0, "time", pd.to_datetime(hist_tracks[["year", "month", "day", "hour"]])
     )
 
-    unique_track_ids = hist_tracks["track_id"].unique()
+    # all (track point, IBTrACS position) pairs at the same time
+    pairs = hist_tracks[["track_id", "time", "lat", "lon"]].merge(
+        ib_storm[["time", "lat", "lon"]], on="time", suffixes=("", "_ib")
+    )
+    pairs["dist"] = great_circle_distance(
+        pairs["lat_ib"].to_numpy(),
+        pairs["lon_ib"].to_numpy(),
+        pairs["lat"].to_numpy(),
+        pairs["lon"].to_numpy(),
+    )
+    pairs = pairs[pairs["dist"] < max_dist]
+    if pairs.empty:
+        return hist_tracks.iloc[0:0].reset_index(drop=True)
 
-    matched_track = None
-    for time in ib_storm["time"]:
-        lat_ib = ib_storm.loc[ib_storm["time"] == time, "lat"].item()
-        lon_ib = ib_storm.loc[ib_storm["time"] == time, "lon"].item()
-
-        for track_id in unique_track_ids:
-            track = hist_tracks[hist_tracks["track_id"] == track_id]
-            if (track["time"] == time).any():
-                lat_track = track.loc[track["time"] == time, "lat"].item()
-                lon_track = track.loc[track["time"] == time, "lon"].item()
-                dist = great_circle_distance(lat_ib, lon_ib, lat_track, lon_track)
-                if dist < max_dist:
-                    matched_track = track_id
-                    logger.info(
-                        f"matched track {matched_track} for storm {case} "
-                        f"with distance {dist / 1000:.2f} km"
-                    )
-                    break
-
-        if matched_track is not None:
-            break
-
-    return hist_tracks[hist_tracks["track_id"] == matched_track].reset_index(drop=True)
+    best = pairs.sort_values(["time", "dist"]).iloc[0]
+    logger.info(
+        f"matched track {best['track_id']} for storm {case} "
+        f"with distance {best['dist'] / 1000:.2f} km"
+    )
+    return hist_tracks[hist_tracks["track_id"] == best["track_id"]].reset_index(
+        drop=True
+    )
 
 
 def add_ibtracs_data(
@@ -364,6 +343,7 @@ def process_case(
     ibtracs: tropytracks.TrackDataset,
     data_source_mngr: DataSourceManager,
     time_step: np.timedelta64,
+    max_dist: float,
 ) -> pd.DataFrame | None:
     """Run the full baseline pipeline for one storm.
 
@@ -379,25 +359,27 @@ def process_case(
         Manager providing the correct data source for the time range.
     time_step : np.timedelta64
         Time step for the reanalysis extraction.
+    max_dist : float
+        Maximum distance (in metres) between the extracted track and the
+        IBTrACS reference position, see :func:`match_tracks`.
 
     Returns
     -------
     pd.DataFrame | None
         The merged matched track ready for :func:`write_track_to_csv`, or
-        ``None`` if no reanalysis track matched within the configured
-        ``max_dist`` threshold (defaults to 300 km).
+        ``None`` if no reanalysis track matched within ``max_dist``.
     """
     ib_storm, ic, n_steps = extract_from_ibtracs(cfg, ibtracs, case, time_step)
 
     hist_tracks = extract_from_historic_data(
         cfg=cfg,
+        case=case,
         ic=ic,
         n_steps=n_steps,
         time_step=time_step,
         data_source_mngr=data_source_mngr,
     )
 
-    max_dist = cfg.get("max_dist", 300000)
     matched_track = match_tracks(ib_storm, hist_tracks, case, max_dist)
     if matched_track.empty:
         return None
@@ -414,20 +396,7 @@ def _init_worker(cfg: DictConfig, ibtracs_path: str) -> None:
     Used as the ``initializer`` of :class:`ProcessPoolExecutor` so each worker
     process pays the IBTrACS load cost a single time, regardless of how many
     storms it ends up handling. Also called directly in the serial fast path.
-
-    The :class:`DistributedManager` singleton is also marked as initialised
-    here: the ``TempestExtremes`` diagnostic queries ``DistributedManager()``
-    for its rank, and a fresh worker process starts with the singleton
-    uninitialised. Baseline extraction parallelises via
-    :class:`ProcessPoolExecutor` and does not need a real torch process
-    group, so we skip straight to physicsnemo's no-launcher fallback (rank
-    0, single process, CPU device) instead of calling
-    :meth:`DistributedManager.initialize` — the latter would try to bind a
-    CUDA device whenever stale ``RANK`` / ``WORLD_SIZE`` env vars from a
-    previous torchrun invocation are present, crashing on CPU-only systems.
     """
-    if not DistributedManager.is_initialized():
-        DistributedManager._shared_state["_is_initialized"] = True
     _WORKER["cfg"] = cfg
     _WORKER["ibtracs"] = tropytracks.TrackDataset(
         basin="all",
@@ -439,13 +408,19 @@ def _init_worker(cfg: DictConfig, ibtracs_path: str) -> None:
 
 
 def _run_case(case: str, time_step: np.timedelta64) -> None:
-    """Per-worker entry point: process one storm and write its CSV."""
+    """Per-worker entry point: process one storm and write its CSV.
+
+    The matching distance is ``max_dist`` from the config (metres, default 300 km).
+    """
     cfg = _WORKER["cfg"]
-    matched = process_case(case, cfg, _WORKER["ibtracs"], _WORKER["dsm"], time_step)
+    max_dist = cfg.get("max_dist", 300_000)
+    matched = process_case(
+        case, cfg, _WORKER["ibtracs"], _WORKER["dsm"], time_step, max_dist
+    )
     if matched is None:
         logger.warning(
-            f"no reanalysis track matched storm {case} within the 300 km "
-            f"threshold — skipping CSV output"
+            f"no reanalysis track matched storm {case} within the "
+            f"{max_dist / 1000:.0f} km threshold — skipping CSV output"
         )
         return
     write_track_to_csv(matched, case, cfg.store_dir, cfg.cases[case].basin)

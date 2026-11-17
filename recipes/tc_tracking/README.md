@@ -61,14 +61,72 @@ torch-harmonics and TempestExtremes all require compilation,
 
 ### 1.1 Container (Recommended)
 
-A Dockerfile is provided in the top-level directory of the
-repository.
-[Building an image from this Dockerfile][docker-build]
-is highly recommended as it avoids the need to compile
-flash-attention (which otherwise can take hours) and installs
-TempestExtremes. Note that compiling torch-harmonics and
-therefore building the container might still take around
-20min.
+The [Dockerfile](./Dockerfile) in this directory builds an image
+on top of the PhysicsNeMo container, which already ships PyTorch,
+flash-attention and NATTEN. It adds TempestExtremes and installs
+the recipe's dependencies with uv, including all supported models
+(FCN3, SFNO, AIFS-ENS, the hourly interpolation models and
+WeatherNext 2). The recipe code itself is not part of the image,
+it is mounted at runtime.
+
+```bash
+cd recipes/tc_tracking
+docker build -t tc_tracking:1.0 .
+```
+
+The image installs Earth2Studio from the latest commit of the
+`1.0.0-rc` branch; rebuild with `docker build --no-cache` to pick
+up newer commits. Building takes a few minutes, most of it for
+compiling torch-harmonics. The build can be adjusted with build arguments:
+
+| Argument | Default | Purpose |
+| --- | --- | --- |
+| `AIFS_VERSION` | `1` | AIFS-ENS version, `1` or `2`; both cannot be installed together |
+| `MAX_JOBS` | from free RAM | Source files compiled in parallel |
+| `NVCC_THREADS` | `5` | GPU architectures compiled in parallel per file |
+
+Every parallel compile process needs up to 3 GB of RAM. By
+default, `MAX_JOBS` is therefore derived from the memory available
+at build time (at most one job per core). If the build fails with
+`Killed` or `signal 9` in the log, or the machine becomes
+unresponsive while compiling, compiling ran out of memory. In that
+case, reduce the parallelism, for example for an image with
+AIFS-ENS v2:
+
+```bash
+docker build --build-arg AIFS_VERSION=2 \
+    --build-arg MAX_JOBS=1 --build-arg NVCC_THREADS=1 \
+    -t tc_tracking:1.0-aifs2 .
+```
+
+The image builds on x86 and ARM machines (e.g. DGX Spark); on ARM,
+build it on the machine itself.
+
+[launch_tc_tracking.sh](./launch_tc_tracking.sh) starts the
+container with the repository mounted at `/workspace` and the
+shell in the recipe directory:
+
+```bash
+./launch_tc_tracking.sh                                    # interactive shell
+./launch_tc_tracking.sh python main.py --config-name=helene.yaml
+GPUS=0,1 IMAGE=tc_tracking:1.0-aifs2 ./launch_tc_tracking.sh
+```
+
+The script
+
+- runs the container as the calling user, so all outputs and
+  cache files are owned by that user on the host,
+- caches model weights and data on the host in
+  `~/.cache/earth2studio` (`E2S_CACHE`) and `~/.cache/huggingface`
+  (`HF_CACHE`), so they are downloaded only once,
+- mounts `~/.cdsapirc` if present, which `CDS_ERA5` needs,
+- uses the host's shared memory (`--ipc=host`), where
+  TempestExtremes stages its input. Docker's default of 64 MB is
+  too small for that.
+
+With `LOCAL_E2S=1`, the container uses the Earth2Studio code of the
+mounted repository instead of the one installed in the image, to
+develop the recipe and Earth2Studio together.
 
 ### 1.2 UV Environment
 
@@ -95,13 +153,16 @@ therefore building the container might still take around
 > so PyTorch must be present in the environment before
 > running `uv sync`.
 
-The project contains a `pyproject.toml` and a `uv.lock` file
-for setting up the environment. First install PyTorch for
-your system, then sync the remaining dependencies:
+The dependencies are defined in `pyproject.toml`, with one extra
+per model. AIFS-ENS v1 (`aifs`) and v2 (`aifs-v2`) depend on
+incompatible versions of `anemoi-models`, so only one of them can
+be installed. `all` installs everything with AIFS-ENS v1,
+`all-aifs-v2` everything with AIFS-ENS v2. First install PyTorch
+for your system, then sync the remaining dependencies:
 
 ```bash
 uv pip install torch
-uv sync
+uv sync --extra all        # or: uv sync --extra all-aifs-v2
 ```
 
 This creates a uv environment in the `.venv` directory.
@@ -118,18 +179,15 @@ in the configs to these executables.
 
 #### Potential Issues with torch-harmonics
 
-If the `--frozen` flag cannot be used (e.g. when updating
-dependencies to their latest versions), torch-harmonics may
-fail during the dependency resolution phase. During this
-phase, uv must build torch-harmonics to resolve dependencies
-before installation, but the build can fail if other
-dependencies are not yet installed. Additionally, a Git LFS
-error occasionally appears. To address these issues, split
-the installation into a two-step process and skip Git LFS:
+uv builds torch-harmonics while resolving the dependencies,
+which can fail if other dependencies are not yet installed.
+Additionally, a Git LFS error occasionally appears. To
+address these issues, split the installation into a two-step
+process and skip Git LFS:
 
 ```bash
-GIT_LFS_SKIP_SMUDGE=1 uv sync --no-install-package torch-harmonics
-GIT_LFS_SKIP_SMUDGE=1 uv sync
+GIT_LFS_SKIP_SMUDGE=1 uv sync --extra all --no-install-package torch-harmonics
+GIT_LFS_SKIP_SMUDGE=1 uv sync --extra all
 ```
 
 ## 2. Configure and Execute Runs
@@ -147,9 +205,7 @@ The pipeline has three operational modes:
   and extract tropical cyclones.
 - **`reproduce_members`**: Reproduce
   individual ensemble members to store atmospheric fields
-  of interesting tracks. Note: Currently only works with
-  FCN3, as AIFS-ENS does not expose a method to set the
-  model's internal random state.
+  of interesting tracks.
 - **`extract_baseline`**: Extract tropical
   cyclone tracks from historical reanalysis data (e.g. ERA5)
   for validation purposes.
@@ -164,19 +220,23 @@ settings using Slurm, MPI, or torchrun, e.g.
 torchrun --nproc-per-node=2 main.py --config-name=config.yaml
 ```
 
-The pipeline has three operational modes:
+The batches (one IC and `batch_size` members each) are split
+into contiguous blocks of nearly equal size, one per rank, so
+the batches of an IC stay on few ranks. A rank without
+batches still runs the setup. A batch that becomes unstable
+(see the stability check below) goes into a queue shared by
+all ranks. Once a rank has finished its own batches, it takes
+batches from this queue until no rank has work left, so ranks
+help each other with retries instead of idling. If a rank
+fails with an error, it logs the error and exits at once, so
+that the launcher stops the other ranks instead of leaving
+them waiting for it. `torchrun` does this by default; with
+`srun`, pass `--kill-on-bad-exit=1` (or set
+`export SLURM_KILL_BAD_EXIT=1` in the batch script, which
+applies to every `srun` in it). Rerun with
+`resume: True` to finish the remaining batches.
 
-- **`generate_ensemble`**: Generate an ensemble prediction
-  and extract tropical cyclones.
-- **`reproduce_members`**: Reproduce
-  individual ensemble members to store atmospheric fields
-  of interesting tracks. Note: Currently only works with
-  FCN3, as AIFS-ENS does not expose a method to set the
-  model's internal random state.
-- **`extract_baseline`**: Extract tropical
-  cyclone tracks from historical reanalysis data (e.g. ERA5)
-  for validation purposes.
-  The CPU-bound `extract_baseline` mode does not use
+The CPU-bound `extract_baseline` mode does not use
   `torchrun` and does not require a GPU. Instead, individual
   storms are distributed across CPU worker processes via the
   ``num_workers`` configuration entry (see
@@ -200,21 +260,26 @@ be found at `cfg/helene.yaml`.
 > internally. Deterministic models can be added as well,
 > but require an additional perturbation method to produce
 > meaningful ensemble members. When adding a deterministic
-> model, register it in `generate_tc_hunt_ensembles.py`
-> alongside the existing model branches **and** add a
-> corresponding perturbation step in the
-> `# set random state or apply perturbation` section of the
-> same file.
+> model, register it in `load_model` in
+> `src/modes/generate_tc_hunt_ensembles.py` **and** perturb
+> the initial condition `x` in `run_inference` before the
+> rollout.
 
 **Basics:**
 
 ```yaml
 project: 'helene'             # project name
 mode: 'generate_ensemble'     # choose mode
-model: 'aifs'                 # 'fcn3' or 'aifs'
-# optional: random seed
-# (does NOT control model-internal random state)
+model: 'aifs'                 # 'fcn3', 'aifs' or 'aifs-v2'
+# optional: bitwise reproducible runs, see 2.2 (default: False)
+deterministic: False
+# optional: random seed, from which the seeds of all batches
+# are drawn (does NOT control model-internal random state).
+# If not set, rank 0 draws one and logs it.
 random_seed: 7777
+# optional: continue an interrupted or partly failed run,
+# see "Resuming a Run" below (default: False)
+resume: False
 # optional: path to model weights
 # (uses default package if omitted)
 model_package: '/path/to/weights'
@@ -235,11 +300,12 @@ batch_size: 2        # batch size for inference
 ```
 
 **GPU Memory Requirements**: For a batch size of 1,
-AIFS-ENS requires approximately 50GB of GPU memory and
-scales nearly linearly with increasing batch size. FCN3
-requires over 60GB for batch size 1, but memory usage
-increases only marginally with larger batch sizes, making
-it more memory-efficient for batched inference.
+AIFS-ENS v1 peaks at about 38GB of GPU memory, which fits
+on a 48GB GPU, and scales nearly linearly with increasing
+batch size. FCN3 requires over 60GB for batch size 1, but
+memory usage increases only marginally with larger batch
+sizes, making it more memory-efficient for batched
+inference.
 
 **IO Configuration:**
 
@@ -256,10 +322,41 @@ store_type: "netcdf"
 store_dir: "./outputs_${project}"
 # field variables to write to file
 out_vars: ['msl', 'z300', 'z500', 'u10m', 'v10m']
+# optional, Zarr only: one shard per member, IC and variable
+# (default: True), see below
+zarr_shard_per_member: True
 ```
 
 The data source can be any of the Earth-2 Studio data
 sources or a custom data source implementation.
+
+**Output Files**: Every batch writes its own store, so that
+any rank can run any batch, including retries. NetCDF output
+is one file per batch,
+`<project>_<ic>_mems<first>-<last>.nc`. Zarr output is
+written into one store per batch under `<project>_batches/`,
+which rank 0 merges into `<project>.zarr` at the end of the
+run (not when reproducing members, see section 2.2). The
+merge copies no data, it moves the batch's chunk files into
+the combined store and deletes the batch store. If a run is
+interrupted, `mode: 'merge_zarr'` with the same config merges
+the batch stores that are complete. Both formats contain a
+variable `random_seed` with the seed each member was run
+with, `-1` for members without valid fields (unstable with
+all seeds, or not run). If no batch of a Zarr run has valid
+fields, `<project>.zarr` is not created and the batch stores
+are kept; resume with a higher `max_retries` to continue.
+
+Zarr chunks hold one member, IC, lead time and variable.
+With `zarr_shard_per_member: True`, all lead times of a
+member, IC and variable form one shard, i.e. one file. Zarr
+would rewrite a shard on every partial write, so the shard
+is kept in host memory until the member is complete and
+then written at once, in the background. This needs about
+`batch_size x len(out_vars) x (n_steps + 1) x 4 MB` of host
+memory per rank at 0.25 degree. For very long rollouts or
+little host memory, set it to `False`: every step is then
+written as its own files right away.
 
 **Storage Considerations**: Exercise caution when storing
 field variables, as storage requirements grow rapidly
@@ -305,6 +402,8 @@ cyclone_tracking:
     task_timeout_seconds: 120   # timeout for tracking tasks
     print_te_output: False      # print TE output to terminal
     max_workers_per_rank: 8     # max concurrent TE subprocesses per rank
+    # run DetectNodes every n steps (null = once per rollout)
+    detect_chunk_steps: null
 ```
 
 <!-- markdownlint-enable MD013 -->
@@ -330,6 +429,17 @@ need to specify file paths explicitly (see
 use `--in_data_list` and `--out_file_list` for
 `DetectNodes`, and `--in` and `--out` for `StitchNodes`.
 
+**Long Rollouts**: By default, the tracking variables of all
+steps are kept in host memory and written to `scratch_dir`
+(in memory as well, if it is `/dev/shm`) before DetectNodes
+runs. With `detect_chunk_steps`, DetectNodes runs on chunks
+of that many steps while the model rolls out, and StitchNodes
+on the nodes of all chunks at the end. DetectNodes works on
+one time step at a time, so the tracks are the same, but
+memory no longer grows with the rollout length. For rollouts
+of months, also set `scratch_dir` to a directory on disk and,
+for Zarr output, consider `zarr_shard_per_member: False`.
+
 **Stability Check** (optional)
 
 FCN3 can perform stable rollouts on subseasonal timescales
@@ -348,19 +458,52 @@ check has been implemented to detect and handle these cases:
 - **Implementation**: Provide a list of variables to monitor
   and a threshold for each. Global averages are computed at
   initialisation and at each time step. If any variable's
-  global average exceeds its threshold, the simulation is
-  interrupted and restarted with a new random seed.
+  global average exceeds its threshold, the simulation of
+  the batch is interrupted and queued for a retry with a new
+  random seed, which any rank can take. A retried batch keeps
+  its member numbers, and its output records the seed it was
+  run with.
+- **Retries**: At most `max_retries` (default 3) per batch.
+  The retry seeds are drawn from the same generator as the
+  original seeds, so all seeds of a run are unique and depend
+  only on `random_seed`. A batch that stays unstable with all
+  its seeds is logged as failed, writes no track files, and
+  its fields are marked with `random_seed = -1`.
 - **Limitation**: This is a basic implementation. More
   advanced detection methods that don't require 10 extra
-  simulation days, and better load-balancing when many
-  ensemble members become unstable, would be beneficial
-  improvements.
+  simulation days would be beneficial improvements.
 
 ```yaml
 stability_check:
     variables: ['t1000', 'u250', 'v850']
     thresholds: [10, 10, 10]
+    max_retries: 3  # then the batch is logged as failed
 ```
+
+**Resuming a Run** (optional)
+
+A run records its settings in `<project>_run.json` and every
+finished batch in `<project>_status/` (both in `store_dir`).
+Rerunning the same config with `resume: True` skips the
+batches that are done (fields written and all track files
+present), reruns the missing ones, and continues failed
+batches with their next retry seed. For the latter, raise
+`max_retries`; the seeds of all other batches stay the same.
+The settings that define the batches, their seeds and their
+results (`random_seed`, `model`, `model_package`,
+`deterministic`, `data_source`, ICs, `ensemble_size`,
+`batch_size`, `n_steps`, `out_vars`, `store_type`, and
+`vars`, `detect_cmd`, `stitch_cmd` and `orography_path` of
+`cyclone_tracking`) must not change; resume raises if they
+do. The number of ranks, `stability_check`, `scratch_dir`,
+`detect_chunk_steps` and the worker settings may change. Without `resume`, a run starts from
+scratch and replaces the outputs of an earlier run of the
+project.
+
+To stop a run, send SIGTERM (`kill <pid>` of `torchrun` or
+of the Python process, `scancel` on Slurm): the run exits
+and removes its scratch files. Ctrl-C does not work, as a
+dependency of Earth2Studio replaces Python's SIGINT handler.
 
 **Hydra Configuration** (optional)
 
@@ -387,12 +530,24 @@ for ensemble members with particularly interesting tracks,
 examining the atmospheric fields can help understand the
 storm's evolution.
 
-FCN3 provides access to its internal random state, enabling
-exact reproduction of individual ensemble members. In theory,
-AIFS-ENS should have this capability as well, but the
-internal random state is not exposed through the Anemoi
-models interface, preventing reproducibility of AIFS-ENS
-runs.
+FCN3 and AIFS-ENS draw their noise from a random state that
+is seeded per batch, enabling exact reproduction of individual
+ensemble members.
+
+For AIFS-ENS, set `deterministic: True` in both the original
+and the reproducing run. Its graph layers otherwise sum in a
+varying order on the GPU, and the resulting round-off
+differences grow to a few hPa within days. Deterministic GPU
+kernels cost roughly 10% runtime; FCN3 is reproducible
+without them.
+
+> [!Warning]
+> AIFS-ENS v2 is not bitwise reproducible, even with
+> `deterministic: True`. Repeated runs with the same seed give
+> one of two slightly different results (a few Pa in `msl`
+> after 18 h, growing to a few hPa), so reproduced tracks may
+> differ slightly from the original ones. The cause is not
+> known yet.
 
 Note that
 [reproducibility is challenging](https://arxiv.org/abs/1605.04339)
@@ -403,7 +558,10 @@ To reproduce a run, you need:
 
 - Configuration file from the original run (ideally)
 - Ensemble member ID and random seed for all members to be
-  reproduced (both provided in the track CSV filename)
+  reproduced (both provided in the track CSV filename, the
+  seed also in the `random_seed` variable of the field
+  output). For a member that was retried after an
+  instability, this is the seed of the retry.
 - Batch size (also provided in the track CSV filename)
 
 **Configuration Changes:**
@@ -446,6 +604,19 @@ full batch must always be reproduced. For example, with a
 batch size of 2 in the example above, the run would reproduce
 members 4, 5, 8, and 9 from the midnight ensemble, and
 members 4, 5, 12, and 13 from the midday ensemble.
+Use the same `batch_size` and `ensemble_size` as in the
+original run: they define the batches, and a member's noise
+depends on the batch it was generated in.
+
+**Output**: Each reproduced batch is written to its own file
+or store, `<project>_<ic>_mems<first>-<last>.nc` or `.zarr`.
+Zarr stores of reproduced batches are not merged. To add them
+to the Zarr store of an ensemble, move them into its
+`<project>_batches/` directory and run `mode: 'merge_zarr'`
+with the ensemble's configuration. This needs the same
+`out_vars`, `n_steps` and `zarr_shard_per_member`. It
+replaces those members in an existing store, or creates the
+store if the ensemble was run without fields.
 
 ### 2.3 Extract Reference Tracks from ERA5
 
@@ -612,12 +783,13 @@ large data volumes involved.
 
 **General Integration Approach:**
 
-TempestExtremes is implemented as a diagnostic model class
-but without returning any data, since results are written
-directly to disk. The diagnostic model class spawns a
-subprocess to execute TempestExtremes command-line tools.
-Track files are produced directly by TempestExtremes and
-written to the specified output directory.
+The `TempestExtremes` class in `src/tempest_extremes.py`
+collects the forecast steps of a batch in memory. Once the
+batch is complete, it writes one input file per ensemble
+member and runs the TempestExtremes command-line tools
+DetectNodes and StitchNodes on it in a subprocess. The track
+files are written by TempestExtremes directly to the output
+directory.
 
 Since TempestExtremes requires file-based input, we must
 provide atmospheric data through files. To avoid the
@@ -625,7 +797,11 @@ overhead of writing and reading large volumes of data
 to/from disk, we write temporary files to `/dev/shm`
 (shared memory filesystem), effectively creating in-memory
 files that TempestExtremes can access while avoiding
-physical disk I/O.
+physical disk I/O. Each tracker uses its own subdirectory,
+so several runs can share a node. In Docker, `/dev/shm`
+is limited to 64MB unless the container is started with
+`--ipc=host` or a larger `--shm-size`, as
+`launch_tc_tracking.sh` does.
 
 <!-- markdownlint-disable MD033 -->
 
@@ -643,18 +819,22 @@ enabling tracking with virtually no overhead.
 **Implementation Details**:
 
 - In asynchronous mode, each ensemble member in a batch is
-  assigned its own processing thread, allowing parallel
-  tracking across the batch.
+  tracked in its own background thread, allowing parallel
+  tracking across the batch. A failure of TempestExtremes
+  stops the run at the next batch or at the end of the
+  run, with the output of TempestExtremes.
 - If TempestExtremes execution becomes slower than GPU
   prediction (which might occur with AIFS-ENS on newer GPUs
   like B200), consider increasing the batch size. GPU
   prediction time scales approximately linearly with batch
   size, while the time for a single CPU thread to process
-  one member remains constant.
+  one member remains constant. There is no backpressure:
+  members waiting for tracking pile up in `/dev/shm`
+  (about 0.7 GB per member for the Helene setup).
 - **Concurrency control**: On multi-GPU nodes, multiple
   ranks share the same CPUs. Use `max_workers_per_rank` to
-  limit the number of concurrent TempestExtremes
-  subprocesses per rank. A good default is
+  limit the number of members tracked in parallel per
+  rank. A good default is
   `cpu_count / gpus_per_node` (e.g. 8 on a 64-core node
   with 8 GPUs). If omitted, the value is derived
   automatically from `cpu_count / gpu_count`.
@@ -722,7 +902,7 @@ case = 'helene_2024_north_atlantic'
 pred_track_dir = '/path/to/outputs_helene/cyclone_tracks_te'
 tru_track_dir = '/path/to/outputs_reference_tracks'
 # If you skipped baseline extraction, use:
-# tru_track_dir = '/path/to/test/aux_data'
+# tru_track_dir = '/path/to/tc_tracking/aux_data'
 ```
 
 **For Hato**, use:
@@ -732,7 +912,7 @@ case = 'hato_2017_west_pacific'
 pred_track_dir = '/path/to/outputs_hato/cyclone_tracks_te'
 tru_track_dir = '/path/to/outputs_reference_tracks'
 # If you skipped baseline extraction, use:
-# tru_track_dir = '/path/to/test/aux_data'
+# tru_track_dir = '/path/to/tc_tracking/aux_data'
 ```
 
 ### 5.4 Reproduce Interesting Members to Extract Fields
@@ -741,7 +921,8 @@ Suppose that after conducting the above analysis you want
 to take a closer look at ensemble members 0, 8, 9, and 12
 of the Helene prediction. Since the forecast was produced
 with FCN3, we can reproduce these members and store the
-atmospheric fields for detailed analysis.
+atmospheric fields for detailed analysis. For AIFS-ENS,
+both runs need `deterministic: True`.
 
 **Reproduce with Field Storage**:
 
@@ -759,9 +940,10 @@ atmospheric fields for detailed analysis.
    ```
 
 4. This should produce a folder `outputs_reproduce_helene`
-   containing both track files and a NetCDF file named
-   `reproduce_helene_2024-09-24T00.00.00_mems0000-0013.nc`
-   with the atmospheric fields.
+   containing both track files and one NetCDF file per
+   reproduced batch with the atmospheric fields, e.g.
+   `reproduce_helene_2024-09-24T00.00.00_mems0008-0009.nc`
+   for members 8 and 9.
 
 **Visualise Tracks and Fields**:
 
@@ -773,7 +955,7 @@ create animated visualisations:
    ```python
    field_data = (
        '/path/to/outputs_reproduce_helene'
-       '/helene_2024-09-24T00.00.00_mems0000-0015.nc'
+       '/reproduce_helene_2024-09-24T00.00.00_mems0008-0009.nc'
    )
    track_dir = (
        '/path/to/outputs_reproduce_helene'
@@ -802,7 +984,6 @@ tracks are identical.
 [te-repo]: https://github.com/ClimateGlobalChange/tempestextremes
 [te-install]: https://github.com/ClimateGlobalChange/tempestextremes?tab=readme-ov-file#installation-via-cmake-recommended
 [flash-attn-help]: https://nvidia.github.io/earth2studio/userguide/support/troubleshooting.html#flash-attention-has-long-build-time-for-aifs-models
-[docker-build]: https://docs.docker.com/get-started/docker-concepts/building-images/build-tag-and-publish-an-image/#build-an-image
 [ppe-docs]: https://docs.python.org/3/library/concurrent.futures.html#processpoolexecutor
 
 <!-- markdownlint-enable MD013 -->

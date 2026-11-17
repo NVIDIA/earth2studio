@@ -15,6 +15,8 @@
 # limitations under the License.
 
 import os
+import signal
+import sys
 
 # Set MKL/OMP threading environment variables BEFORE any other imports
 # This prevents MKL initialization race conditions that can cause
@@ -22,34 +24,73 @@ import os
 os.environ.setdefault("MKL_NUM_THREADS", "1")
 os.environ.setdefault("OMP_NUM_THREADS", "1")
 os.environ.setdefault("MKL_DYNAMIC", "FALSE")
+# Let PyTorch grow its memory segments instead of fragmenting the GPU memory,
+# must be set before CUDA is initialised
+os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
 
 import hydra  # noqa: E402
 from loguru import logger  # noqa: E402
 from omegaconf import DictConfig  # noqa: E402
+from physicsnemo.distributed import DistributedManager  # noqa: E402
+from src.data.zarr_merge import merge_batch_stores  # noqa: E402
 from src.modes.baseline_extraction import extract_baseline  # noqa: E402
-from src.modes.generate_tc_hunt_ensembles import (  # noqa: E402
-    generate_ensemble,
-    reproduce_members,
-)
+from src.modes.generate_tc_hunt_ensembles import run_ensemble  # noqa: E402
+
+
+def _exit_on_sigterm(signum: int, frame: object) -> None:
+    """Turn SIGTERM into a normal exit, so that cleanup code runs."""
+    sys.exit(128 + signum)
+
+
+def _exit_on_error_if_distributed() -> None:
+    """End this rank at once after an error, if other ranks are running.
+
+    Called with the exception being handled, after the finally blocks of the
+    run (stores closed, scratch files removed). A normal exit would shut down
+    the process group, which can block while other ranks wait for this one,
+    and they wait for it at their next barrier or in the retry loop. The job
+    would then hang until its time limit. Exiting here lets torchrun or
+    ``srun --kill-on-bad-exit`` stop the other ranks.
+    """
+    if not (
+        DistributedManager.is_initialized() and DistributedManager().world_size > 1
+    ):
+        return
+    logger.exception(
+        f"rank {DistributedManager().rank} failed, stopping it so the launcher stops "
+        "the other ranks; rerun with resume: True to finish the remaining batches"
+    )
+    sys.stdout.flush()
+    sys.stderr.flush()
+    os._exit(1)
 
 
 @hydra.main(version_base=None, config_path="cfg", config_name="none")
 def tc_hunt(cfg: DictConfig) -> None:
     """main function with initialisation."""
+    # SIGTERM (e.g. kill, or torchrun stopping its workers) would otherwise end
+    # the process without running finally blocks, leaving scratch files in
+    # /dev/shm. Ctrl-C does not work, as intake_esgf replaces the SIGINT handler
+    signal.signal(signal.SIGTERM, _exit_on_sigterm)
 
-    if cfg.mode == "generate_ensemble":
-        generate_ensemble(cfg)
-
-    elif cfg.mode == "reproduce_members":
-        reproduce_members(cfg)
+    if cfg.mode in ("generate_ensemble", "reproduce_members"):
+        try:
+            run_ensemble(cfg)
+        except Exception:
+            _exit_on_error_if_distributed()
+            raise
 
     elif cfg.mode == "extract_baseline":
         extract_baseline(cfg)
 
+    # merge the batch stores of an interrupted Zarr run
+    elif cfg.mode == "merge_zarr":
+        merge_batch_stores(cfg)
+
     else:
         raise ValueError(
             f"invalid mode: {cfg.mode}, choose from "
-            f'"generate_ensemble", "reproduce_members", "extract_baseline"'
+            f'"generate_ensemble", "reproduce_members", "extract_baseline", "merge_zarr"'
         )
 
     logger.success("finished **yaaayyyy**")

@@ -1,6 +1,7 @@
 project: 'helene'
 mode: 'generate_ensemble'
-model: 'fcn3' # 'fcn3' 'aifs'
+model: 'fcn3' # 'fcn3', 'aifs' or 'aifs-v2'
+deterministic: False  # True: bitwise reproducible, needed for AIFS-ENS
 
 ics: ["2024-09-24 00:00:00"]
 n_steps: 28
@@ -29,6 +30,7 @@ cyclone_tracking:
 stability_check:
     variables: ['t1000', 'u250', 'v850']
     thresholds: [10, 10, 10]
+    max_retries: 3  # then the batch is logged as failed
 
 # hydra logs
 hydra:
