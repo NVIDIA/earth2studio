@@ -40,7 +40,7 @@ https://github.com/NVIDIA/earth2studio
 [`AGENTS.md`](./AGENTS.md) routes usage and development tasks to the relevant
 documentation and skills. Then ask for what you want:
 
-```bash
+```text
 # Learn about the latest release
 Summarize new models and features in the latest Earth2Studio release.
 Include the version, release date, and links to the release notes.
