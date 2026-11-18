@@ -4036,6 +4036,15 @@
     {
       "classifiers": [],
       "signature": "",
+      "source": "readme_hero/README.md",
+      "summary": "The wind globe and its legend share Matplotlib's `cubehelix` palette.",
+      "symbol": "",
+      "title": "README hero image",
+      "url": "readme_hero/"
+    },
+    {
+      "classifiers": [],
+      "signature": "",
       "source": "recipes/index.md",
       "summary": "<!-- markdownlint-disable MD033 -->",
       "symbol": "",
@@ -4464,6 +4473,15 @@
       "symbol": "",
       "title": "Diagnostic Models",
       "url": "userguide/components/diagnostic/"
+    },
+    {
+      "classifiers": [],
+      "signature": "",
+      "source": "userguide/components/execution.md",
+      "summary": "Changing *what* a forecast produces means choosing or writing a `Runner`; changing *how and where* forecasts run means configuring the `Pipeline`.",
+      "symbol": "",
+      "title": "Pipelines and Runners",
+      "url": "userguide/components/execution/"
     },
     {
       "classifiers": [],

@@ -631,6 +631,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#gpu-dependency-wheels" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GPU Dependency Wheels
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#verify-installation" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -817,6 +828,8 @@
       
         
           
+        
+      
         
       
         
@@ -1098,6 +1111,34 @@
     
   
     Statistics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../components/execution/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pipelines and Runners
   
 
     
@@ -3681,6 +3722,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#gpu-dependency-wheels" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GPU Dependency Wheels
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#verify-installation" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3835,6 +3887,30 @@ to the PyTorch and CUDA versions in your environment.</p>
 <h2 id="install-command">Install Selector<a class="headerlink" href="#install-command" title="Permanent link">&para;</a></h2>
 <section class="e2s-install-selector" data-e2s-install-selector></section>
 
+<h2 id="gpu-dependency-wheels">GPU Dependency Wheels<a class="headerlink" href="#gpu-dependency-wheels" title="Permanent link">&para;</a></h2>
+<p>FlashAttention and NATTEN can take a long time to build. Before building
+from source, check for prebuilt wheels compatible with the model's requirements,
+Python ABI, OS/architecture, PyTorch build, CUDA build, and GPU capability.
+Use <code>torch.__version__</code> and <code>torch.version.cuda</code> to identify the Torch build;
+the CUDA version shown by <code>nvidia-smi</code> alone is not sufficient.</p>
+<ul>
+<li><strong>FlashAttention:</strong> check the <a href="https://wheels.astral.sh/">Astral GPU indexes</a>
+  and <a href="https://docs.astral.sh/uv/guides/integration/pytorch/#installing-gpu-enabled-pytorch-extensions">uv's extension guide</a>.
+  Select a matching wheel, use a named <code>[[tool.uv.index]]</code> with <code>explicit = true</code>,
+  and map <code>flash-attn</code> to that index in <code>[tool.uv.sources]</code>.</li>
+<li><strong>NATTEN:</strong> check the <a href="https://natten.org/install/">installation guide</a>, including
+  older builds, and <a href="https://whl.natten.org">prebuilt wheels</a>. Pin the compatible
+  build including its <code>+torch...cu...</code> suffix when applicable and use
+  <code>--find-links https://whl.natten.org</code> with <code>uv add</code> or <code>pip install</code>. Persist
+  <code>find-links</code> in <code>[tool.uv]</code> for uv projects. Models requiring <code>libnatten</code> need
+  that backend, not just an importable NATTEN package; check <code>natten.HAS_LIBNATTEN</code>
+  when supported by the installed version.</li>
+</ul>
+<p>Configure these sources in your own project; Earth2Studio's uv settings are not
+inherited when installed as a dependency. Preserve existing Torch pins unless
+you choose a compatible environment change. If no matching wheel exists, follow
+the dependency's source-build requirements. Custom/NGC Torch builds may require
+compilation rather than an official-release wheel.</p>
 <h2 id="verify-installation">Verify Installation<a class="headerlink" href="#verify-installation" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>python<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;import earth2studio; print(earth2studio.__version__)&quot;</span>
 </code></pre></div>

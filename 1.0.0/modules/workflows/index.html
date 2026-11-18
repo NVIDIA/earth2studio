@@ -661,6 +661,8 @@
       
         
       
+        
+      
     
     
     
@@ -924,6 +926,34 @@
     
   
     Statistics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../userguide/components/execution/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pipelines and Runners
   
 
     
@@ -3528,9 +3558,10 @@
 use cases.</p>
 <div class="admonition warning">
 <p class="admonition-title">Warning</p>
-<p>The built in workflows should not be viewed as silver bullets that work for every
-model and use case. Earth2Studio is focused on enabling users to build and extend,
-these are starting points.</p>
+<p><code>deterministic</code>, <code>diagnostic</code>, and <code>ensemble</code> are legacy workflows limited to
+simple cases: a single unforced prognostic model and one output store. For forced
+or coupled models, multiple output streams, distributed runs, or resuming
+interrupted work, use <a href="../../userguide/components/execution/"><code>Pipeline</code> and runners</a>.</p>
 </div>
 <!-- e2s-autosummary
 currentmodule: earth2studio.run
