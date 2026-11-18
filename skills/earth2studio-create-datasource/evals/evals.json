@@ -1,7 +1,24 @@
 [
   {
+    "id": "create-datasource-eval-005-own-project",
+    "question": "Use earth2studio-create-datasource for my separate Python project at /workspace/output/weather_lab. I am not planning a contribution to NVIDIA Earth2Studio. I confirm DataSource (gridded analysis) is the right type. Implement weather_lab/sources/temperature.py and a local lexicon for hourly t2m files at https://weather.example.test/{YYYY}/{MM}/{DD}/{HH}.nc. Each file is a small 3x4 lat/lon field in kelvin. This is a mocked backend, so do not contact the service. Include native hourly temporal statistics for mean, sum, min and max. Follow my project's standard-library logging and pytest conventions, with tests under tests/. Preserve copied licenses without adding NVIDIA copyright to independently authored local code. Run small mocked fetch/contract and temporal-statistics checks and report the actual results.",
+    "expected_skill": "earth2studio-create-datasource",
+    "ground_truth": "Creates the source and lexicon in the user's project with a time/variable gridded DataArray contract and local imports. Uses shared fetch helpers and plan_statistics/reduce_statistics with lexicon TIME_STATISTICS. Validates mocked numerical output, dimensions, coordinates, units, statistics metadata and invalid windows without network access. Step 7b applies locally; Steps 8-14 and repository-specific tests, registration, coverage targets and make commands do not.",
+    "expected_behavior": [
+      "Reads earth2studio-create-datasource and relevant protocol/reference guidance",
+      "Recognizes explicit local-only intent and the already confirmed DataSource type",
+      "Writes source, lexicon and relevant tests only inside /workspace/output/weather_lab",
+      "Keeps native temporal-statistics implementation and validation in the local project",
+      "Runs small mocked fetch and statistics checks with local fixtures, or accurately reports dependency blockers",
+      "Does not contact the mock service or require contributor plots and visual approval",
+      "Does not edit Earth2Studio vocabulary, schema, source exports, extras, catalog or changelog; skips Steps 8-14 and repository-wide make/test checks",
+      "Uses local conventions, preserves copied licenses and routes dependency setup to earth2studio-install",
+      "Does not commit, push, open a PR or read evals/targets/"
+    ]
+  },
+  {
     "id": "create-datasource-eval-001-random-gaussian",
-    "question": "Implement a new Earth2Studio DataSource called `RandomGaussian` that generates random Gaussian data on a 1-degree global lat/lon grid. It should accept time and variable parameters and return an xr.DataArray. Don't connect to any remote store — just generate random data.\n\nWrite the source at `earth2studio/data/random_gaussian.py` and a full test file at `test/data/test_random_gaussian.py`.",
+    "question": "I plan to contribute this wrapper to NVIDIA Earth2Studio. Implement a new Earth2Studio DataSource called `RandomGaussian` that generates random Gaussian data on a 1-degree global lat/lon grid. It should accept time and variable parameters and return an xr.DataArray. Don't connect to any remote store; just generate random data.\n\nWrite the source at `earth2studio/data/random_gaussian.py` and a full test file at `test/data/test_random_gaussian.py`.",
     "expected_skill": "earth2studio-create-datasource",
     "expected_script": "evals/targets/eval_1_target.py",
     "expected_test": "evals/targets/test/eval_1_test_target.py",
@@ -16,7 +33,7 @@
   },
   {
     "id": "create-datasource-eval-002-random-forecast",
-    "question": "Implement a new Earth2Studio ForecastSource called `RandomForecast` that generates random uniform [0, 1] forecast data on a 2.5-degree global grid (73x144). It should accept time, lead_time, and variable parameters. No remote connection — just random data.\n\nWrite the source at `earth2studio/data/random_forecast.py` and a full test file at `test/data/test_random_forecast.py`.",
+    "question": "I plan to contribute this wrapper to NVIDIA Earth2Studio. Implement a new Earth2Studio ForecastSource called `RandomForecast` that generates random uniform [0, 1] forecast data on a 2.5-degree global grid (73x144). It should accept time, lead_time, and variable parameters. No remote connection; just random data.\n\nWrite the source at `earth2studio/data/random_forecast.py` and a full test file at `test/data/test_random_forecast.py`.",
     "expected_skill": "earth2studio-create-datasource",
     "expected_script": "evals/targets/eval_2_target.py",
     "expected_test": "evals/targets/test/eval_2_test_target.py",
@@ -31,7 +48,7 @@
   },
   {
     "id": "create-datasource-eval-003-random-stations",
-    "question": "Implement a new Earth2Studio DataFrameSource called `RandomStations` that generates random weather station observations. It should produce 50 random stations per time/variable combination with columns like time, lat, lon, elevation, observation, variable. No remote connection — just random data.\n\nWrite the source at `earth2studio/data/random_stations.py` and a full test file at `test/data/test_random_stations.py`.",
+    "question": "I plan to contribute this wrapper to NVIDIA Earth2Studio. Implement a new Earth2Studio DataFrameSource called `RandomStations` that generates random weather station observations. It should produce 50 random stations per time/variable combination with columns like time, lat, lon, elevation, observation, variable. No remote connection; just random data.\n\nWrite the source at `earth2studio/data/random_stations.py` and a full test file at `test/data/test_random_stations.py`.",
     "expected_skill": "earth2studio-create-datasource",
     "expected_script": "evals/targets/eval_3_target.py",
     "expected_test": "evals/targets/test/eval_3_test_target.py",
@@ -47,7 +64,7 @@
   },
   {
     "id": "create-datasource-eval-004-phoo-s3-async",
-    "question": "Implement a new Earth2Studio DataSource called `PhooAnalysis` that fetches global analysis data from an S3 bucket `s3://phoo-weather-data`. The bucket stores NetCDF files at path `analysis/{YYYY}/{MM}/{DD}/{HH}z/{variable}.nc` on a 1-degree global grid (181x360). Data is available at 6-hour intervals from 2020-01-01 to present. Create a lexicon with at least t2m, msl, u10m, v10m mappings.\n\nWrite the source, lexicon, and full Step 11 test suite at `test/data/test_phoo.py`.",
+    "question": "I plan to contribute this wrapper to NVIDIA Earth2Studio. Implement a new Earth2Studio DataSource called `PhooAnalysis` that fetches global analysis data from an S3 bucket `s3://phoo-weather-data`. The bucket stores NetCDF files at path `analysis/{YYYY}/{MM}/{DD}/{HH}z/{variable}.nc` on a 1-degree global grid (181x360). Data is available at 6-hour intervals from 2020-01-01 to present. Create a lexicon with at least t2m, msl, u10m, v10m mappings.\n\nWrite the source, lexicon, and full Step 11 test suite at `test/data/test_phoo.py`.",
     "expected_skill": "earth2studio-create-datasource",
     "expected_script": "evals/targets/eval_4_target.py",
     "expected_test": "evals/targets/test/eval_4_test_target.py",

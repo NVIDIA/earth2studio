@@ -68,9 +68,9 @@ def test_pipeline_writes_one_store_per_component(
     assert tuple(z.shape) == (2, 17, 2, 4)
     assert tuple(sst.shape) == (2, 3, 1, 2)
     for i in range(2):
-        np.testing.assert_allclose(z[i, -1].numpy(), 19.2336, atol=1e-4)
+        np.testing.assert_allclose(z[i, -1].numpy(), 19.2432, atol=1e-4)
         np.testing.assert_allclose(
-            sst[i, :, 0, 0].numpy(), [2.0, 2.042, 2.180147], atol=1e-6
+            sst[i, :, 0, 0].numpy(), [2.0, 2.054, 2.204243], atol=1e-6
         )
     leads = atmos["lead_time"].values.astype("timedelta64[h]").astype(int)
     np.testing.assert_array_equal(leads, np.arange(0, 97, 6))

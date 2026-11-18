@@ -77,8 +77,9 @@ class ARCO_ERA5:
 
     Note
     ----
-    This data source supports the following temporal statistics: ``mean``,
-    ``sum``, ``min``, and ``max``. The temporal sampling cadence is one hour.
+    Temporal statistics: ``mean``, ``sum``, ``min`` and ``max`` at hourly cadence
+    (see the time statistics spec). Accumulations such as ``tp`` are stamped at the
+    end of their hour, so ``tp:sum:6h`` equals ``tp06``.
 
     Badges
     ------

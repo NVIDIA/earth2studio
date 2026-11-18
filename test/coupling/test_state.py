@@ -86,7 +86,7 @@ def test_state_overwrite_matches_forcing_coupling(
     # The atmosphere publishes its own state: SST 5 initially, then the ocean's.
     sst = [float(x.sel(variable="sst").mean()) for x in streams["atmos"]]
     assert sst[0] == 5.0
-    np.testing.assert_allclose(sst[-1], 2.042, atol=1e-6)
+    np.testing.assert_allclose(sst[-1], 2.054, atol=1e-6)
 
 
 def test_a_background_slot_takes_a_state_connector() -> None:

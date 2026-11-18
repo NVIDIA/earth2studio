@@ -79,15 +79,16 @@ VARIABLES = [
 # (t2m, sst) channel pairs; sst is combined into t2m over the ocean and then dropped
 T2M_SST_PAIRS = (("t2m", "sst"), ("t2m_max", "sst_max"), ("t2m_min", "sst_min"))
 
-# ``tp`` is accumulated over the hour ending at its stamp, so the 24 hourly samples
-# valid at t-23h, ..., t (window [t-23h, t+1h)) cover the 24 hours ending at t.
-# ``t2m`` and ``sst`` are instantaneous, so their extremes use the past 24 hours
-# [t-24h, t).
-TP24_LABEL = "tp:sum:-23h:1h"
-T2M_MAX_LABEL = "t2m:max:24h"
-T2M_MIN_LABEL = "t2m:min:24h"
-SST_MAX_LABEL = "sst:max:24h"
-SST_MIN_LABEL = "sst:min:24h"
+# Windows are right-closed, (start, end]. ``tp`` is accumulated over the hour
+# ending at its stamp, so the 24 hourly samples valid at t-23h, ..., t (window
+# (t-24h, t]) cover the 24 hours ending at t. ``t2m`` and ``sst`` are
+# instantaneous; their extremes use the samples t-24h, ..., t-1h (window
+# (t-25h, t-1h]), the stamps the model was wrapped with.
+TP24_LABEL = "tp:sum:24h"
+T2M_MAX_LABEL = "t2m:max:-25h:-1h"
+T2M_MIN_LABEL = "t2m:min:-25h:-1h"
+SST_MAX_LABEL = "sst:max:-25h:-1h"
+SST_MIN_LABEL = "sst:min:-25h:-1h"
 _STATISTIC_LABELS = {
     "tp24": TP24_LABEL,
     "t2m_max": T2M_MAX_LABEL,
@@ -152,16 +153,17 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
     ----
     A few details regarding the model's variables:
 
-    - ``t2m:max:24h`` and ``t2m:min:24h`` are the daily maximum and minimum 2m
-      temperature over the window ``[t-24h, t)``.
-    - ``tp:sum:-23h:1h`` is the 24-hour accumulated precipitation over the window
-      ``[t-23h, t+1h)``, the 24 hourly accumulations ending at ``t``.
+    - ``t2m:max:-25h:-1h`` and ``t2m:min:-25h:-1h`` are the daily maximum and
+      minimum 2m temperature over the hourly samples ``t-24h, ..., t-1h`` (window
+      ``(t-25h, t-1h]``).
+    - ``tp:sum:24h`` is the 24-hour accumulated precipitation over the window
+      ``(t-24h, t]``, the 24 hourly accumulations ending at ``t``.
     - ``t2m`` and ``sst`` are combined to represent global surface temperature, with
       ``sst`` replacing ``t2m`` over the ocean. The same is applied to the daily
-      extremes using ``sst:max:24h`` and ``sst:min:24h``. The ``sst`` inputs are
+      extremes using ``sst:max:-25h:-1h`` and ``sst:min:-25h:-1h``. The ``sst`` inputs are
       dropped after combining, leaving 19 model input channels.
     - The model is fine-tuned for IMERG 24-hour accumulated precipitation, which is
-      also the output variable (``tp:sum:-23h:1h``).
+      also the output variable (``tp:sum:24h``).
 
     Parameters
     ----------

@@ -1,7 +1,7 @@
 ---
 name: earth2studio-create-datasource
 metadata:
-  version: 0.17.1
+  version: 1.0.0
   author: NVIDIA Earth-2 Team <agent-skills@nvidia.com>
   tags:
     - earth2studio
@@ -18,7 +18,7 @@ permissions:
 description: >
   Create and validate Earth2Studio data source wrappers (DataSource,
   ForecastSource, DataFrameSource, ForecastFrameSource) from remote stores.
-  May add Python dependencies to pyproject.toml as part of development.
+  Use for local Python projects or contributions to Earth2Studio.
   Do NOT use for fetching data with existing sources, model inference, or
   Earth2Studio installation/setup tasks.
   The user may optionally supply a URL, file path, or description of the
@@ -31,15 +31,29 @@ description: >
 
 End-to-end workflow for implementing a new Earth2Studio data source wrapper
 that connects a remote data store (S3, GCS, Azure, HTTP, HuggingFace) to
-Earth2Studio's async data fetching infrastructure — from analysis through
-implementation, testing, validation, and PR submission.
+Earth2Studio's async data fetching infrastructure, from analysis through
+implementation and validation, with optional contribution steps.
+
+## Scope
+
+Default to a protocol-compatible wrapper in the user's separate Python project.
+Unless intent is already explicit, ask:
+**"Are you planning to contribute this to NVIDIA Earth2Studio?"**
+Only an affirmative answer or explicit contribution intent enables contributor steps.
+For local wrappers, use the project's layout, dependencies, style and test conventions;
+no Earth2Studio repository changes or full repository test suite are required.
+Use `earth2studio-install` for dependency setup, including NATTEN and FlashAttention.
+Repository paths below are source references or contributor destinations, not local output paths.
+If unavailable locally, consult matching-version sources on GitHub or the documentation site.
+Preserve existing licenses in copied code, including reference skeleton SPDX headers.
+These samples do not impose NVIDIA copyright on newly authored local code.
 
 ## Prerequisites
 
-- Earth2Studio dev environment with `uv` (`uv run python` must work)
-- Git configured with fork (`origin`) and upstream (`upstream`) remotes
+- Python project environment with Earth2Studio installed via `earth2studio-install`
+- Contributors only: a development checkout; configure fork/upstream remotes when submitting
 - Access to the target remote data store (credentials if private)
-- Python 3.10+
+- Python 3.11+ (`requires-python = ">=3.11,<3.15"`)
 
 > **⚠️ Credential Safety:** If the remote store requires authentication,
 > credentials must be passed via environment variables only. Never hard-code
@@ -48,7 +62,7 @@ implementation, testing, validation, and PR submission.
 
 ## Workspace
 
-Use the directory containing `pyproject.toml`. For Harbor evals, write to
+Use the user's project root. For contributor Harbor tasks only, write to
 `/workspace/output/` preserving paths. Never read `evals/targets/`.
 
 ## Instructions
@@ -56,34 +70,48 @@ Use the directory containing `pyproject.toml`. For Harbor evals, write to
 > **Python Environment:** Always use `uv run python` or the local `.venv`.
 > Never use the system Python directly.
 
-Follow every step in order.
+Follow Steps 0-7 in order, adapting paths to the user's project. Step 7b applies
+to eligible sources in either scope. Steps 8-14 are contributor only.
 
 > **[CONFIRM] gates:** Step 1 (Source Type), Step 12 (Sanity-Check Plots),
-> and Step 13 (Ready to Submit) require explicit user approval before
-> proceeding. All other `[CONFIRM]` markers are advisory — present
+> and Step 13 (Ready to Submit) require explicit user approval when those steps
+> apply. All other `[CONFIRM]` markers are advisory; present
 > decisions inline and proceed without blocking.
 >
-> **Deliverables first:** Write the source file and test file (Steps 6–7)
+> **Deliverables first:** Write the source file and relevant tests (Steps 6-7)
 > before extended exploration, documentation, registration, CHANGELOG, or PR
-> work. Skip Steps 8–14 when the user asks for implementation only. Step 7b
+> work. Local wrappers stop after Step 7b and lightweight verification. Contributors
+> may skip integration/PR steps when the user asks for implementation only. Step 7b
 > (temporal statistics) is included by default for regular-cadence gridded sources.
 >
-> **Before you finish:** Run verification commands in the repo root so results
-> appear in the session log:
+> **Before you finish:** For local wrappers, run a small mocked fetch and relevant
+> contract checks in the project's environment, including output dimensions, labels,
+> units, grid/schema and invalid inputs. Report failures and skipped coverage.
+> Contributors add and run the new source's test suite, relevant regression tests
+> and these checks in the repo root:
 >
 > ```bash
 > uv run pytest test/data/test_<source>.py -x
-> make format && make lint
+> make format && make lint && make license
 > ```
 >
 > **Be concise:** Avoid long architecture reports; summarize decisions in a
 > few sentences and move on to file writes.
 >
 > **Hangs or User Feedback** If agent becomes stuck or user provides a
-> correction during this skills use, conservatively review relevant part of
-> the skill and improve. Be concise.
+> correction, review the relevant protocol and guidance. Report discrepancies;
+> edit repository guidance only for contributions. Be concise.
 >
 > **One source type per invocation.** Invoke again for companion types.
+>
+> **Source of truth:** use current protocols and sources for the installed version.
+> Read `earth2studio/data/base.py` (protocols), `earth2studio/lexicon/base.py`
+> (vocabulary/schema), `earth2studio/utils/time.py` (time tolerance),
+> `earth2studio/data/utils.py` (`fetch_data`, `plan_statistics`,
+> `reduce_statistics`), `earth2studio/grids/__init__.py` (grids, `infer_grid`,
+> `resolve_grid`) and `MIGRATION.md` (1.0 checklist). Current reference
+> implementations: `gfs.py` (GRIB, analysis + forecast, statistics), `arco.py`
+> (Zarr, statistics), `hrrr.py` (projected grid), `nnja.py` (DataFrame).
 
 ### Reference Files
 
@@ -93,7 +121,7 @@ Load these on demand during the relevant steps:
 |---|---|---|
 | `references/reference-implementation.py` | Obstore-backed source skeleton with FILL comments | Steps 6–10 |
 | `references/reference-lexicon.py` | Lexicon skeleton with FILL comments | Step 4 |
-| `references/testing-guide.py` | Test skeleton with FILL comments | Step 11 |
+| `references/testing-guide.py` | Local smoke checks and contributor test skeleton | Steps 7 and 11 |
 | `references/temporal-statistics.py` | Statistics skeleton, supported methods, mock test sample | Step 7b |
 | `references/validation-guide.md` | Plot templates, PR body template, Greptile handling | Steps 12–14 (optional, for templates) |
 
@@ -103,9 +131,10 @@ Load these on demand during the relevant steps:
 
 ```text
 Step 0: Obtain reference → Step 1: Determine type → Step 2: Dependencies
-→ Step 3: Add deps → Step 4: Create lexicon → Step 5: Update vocab/schema
+→ Step 3: Set up deps → Step 4: Create lexicon → Step 5: Define vocab/schema
 → Step 6: Create skeleton → Step 7: Implement source
-→ Step 7b: temporal statistics → Step 8: Register
+→ Step 7b: eligible temporal statistics → Local: lightweight verification, done
+Contributor only: Step 8: Register
 → Step 9: Documentation → Step 10: CHANGELOG → Step 11: Tests
 → Step 12: Validate & plots (user confirms) → Step 13: PR + sanity comment
 → Step 14: Greptile review
@@ -136,9 +165,26 @@ If empty, ask:
 
 Key factors: gridded vs sparse → DataArray vs DataFrame; analysis vs forecast → Source vs ForecastSource.
 
+Read the selected version's specs before implementing output behavior:
+
+- [E2S-01: Core Metadata](../../docs/specs/E2S-01_CORE_METADATA_SPEC.md)
+  for coordinates, attributes and DataFrame schemas.
+- [E2S-02: Grids](../../docs/specs/E2S-02_GRID_SPEC.md) for grid metadata and inference.
+- [E2S-03: Time Statistics](../../docs/specs/E2S-03_TIME_STATISTICS_SPEC.md)
+  for labels, windows, source responsibilities and reduction metadata.
+- [E2S-05: Fetch Data](../../docs/specs/E2S-05_FETCH_DATA_SPEC.md)
+  for dispatch, source backing/device and output requirements.
+
+Use these as the contract, not a copied checklist in this skill. Consult
+[`data/base.py`](../../earth2studio/data/base.py) for source signatures and device
+conventions, and current sources such as `hrrr.py` for implementation examples.
+Reuse existing grid, time-tolerance, statistics and source-composition helpers.
+If a template differs from the selected version's spec, report the discrepancy.
+
 #### [CONFIRM — Source Type]
 
-Present recommended type with justification. Ask for confirmation.
+Present recommended type with justification. Ask for confirmation unless the user
+has already explicitly confirmed that type.
 
 ---
 
@@ -158,7 +204,7 @@ temporal/spatial resolution, variable inventory.
 
 Only fall back to dedicated libraries when obstore/shared helpers cannot access the store.
 
-Check `pyproject.toml` — only propose packages not already present.
+Check the destination project's dependencies; only propose packages not already present.
 Core deps include: `obstore`, `zarr`, `netCDF4`, `h5py`, `pygrib`,
 `huggingface-hub`, `pandas`, `pyarrow`.
 
@@ -168,7 +214,7 @@ Present: backend, obstore helper/store URL, new packages (with license), auth me
 
 ---
 
-### Step 3 — Add Dependencies
+### Step 3 - Set Up Dependencies
 
 > **Load `references/reference-implementation.py` from Step 6 through Step 10.**
 > Load `references/reference-lexicon.py` during Step 4.
@@ -177,15 +223,18 @@ If new packages needed:
 
 1. Present the package name(s), version constraints, and licenses to the user
 2. Confirm the user approves adding them before proceeding
-3. `uv add --extra data <package>`
-4. `uv lock`
-5. Add optional dependency imports using `OptionalDependencyFailure` pattern
+3. Use `earth2studio-install` for setup and the local project's dependency conventions
+4. For contributions only, register approved dependencies in the repository's
+   `data` extra and update its lockfile using the developer guide
+5. Guard optional imports; use `OptionalDependencyFailure` for registered
+   Earth2Studio extras, or the local project's error handling for local dependencies
 
 ---
 
 ### Step 4 — Create Lexicon Class
 
-Create `earth2studio/lexicon/<source_name>.py` with:
+Create a lexicon module in the user's project, or for contributions at
+`earth2studio/lexicon/<source_name>.py`, with:
 
 - `metaclass=LexiconType`
 - `VOCAB: dict[str, str]` mapping E2S names → remote keys
@@ -193,7 +242,7 @@ Create `earth2studio/lexicon/<source_name>.py` with:
 - Use `::` separator for structured keys
 - Use `references/reference-lexicon.py` as the starting template
 
-Map remote variables against `E2STUDIO_VOCAB` (282 entries in
+Map remote variables against `E2STUDIO_VOCAB` (in
 `earth2studio/lexicon/base.py`).
 
 #### [CONFIRM — Lexicon & Variable Mapping]
@@ -202,7 +251,10 @@ Present: class name, key format, full mapping table, modifiers, reference URL.
 
 ---
 
-### Step 5 — Update E2STUDIO_VOCAB / SCHEMA (if needed)
+### Step 5 - Define Vocabulary / Schema (if needed)
+
+Local wrappers keep new mappings and schema fields in their own modules. Only
+contributors update `E2STUDIO_VOCAB` / `E2STUDIO_SCHEMA` in Earth2Studio.
 
 - New vocab: surface = descriptive abbrev; pressure = `{name}{level}`
 - New schema fields: DataFrame sources only, check `E2STUDIO_SCHEMA`
@@ -216,8 +268,10 @@ Skip if no updates needed.
 ### Step 6 — Create Skeleton Data Source File
 
 Use `references/reference-implementation.py` as the starting template.
+Write to the user's project; contributors use `earth2studio/data/<source_name>.py`.
 
-Follow canonical method ordering:
+Contributors use this canonical method ordering; local wrappers follow their
+project's organization while retaining the relevant source methods:
 
 1. Class constants
 2. SCHEMA
@@ -243,10 +297,12 @@ Present: class name, file path, skeleton code, task dataclass.
 
 ### Step 7 — Implement the Data Source & Tests
 
-> **The test file is a co-equal deliverable.** Create `test/data/test_<filename>.py`
-> alongside the source. Add `test_<source>_call_mock` for async sources.
+> **Validate alongside the source.** Local wrappers need relevant smoke/contract
+> checks in the project's test layout, with mocked I/O where possible. Contributors
+> create `test/data/test_<filename>.py` and add `test_<source>_call_mock` for async sources.
 
 **Sync sources:** Use `prep_data_inputs`/`prep_forecast_inputs`, direct `__call__`.
+Add the optional `device` keyword only per the device convention above.
 
 **Async sources:** See `references/reference-implementation.py` for required patterns:
 `_sync_async`, `gather_with_concurrency`, `async_retry`, `obstore_fetch_to_cache`,
@@ -261,14 +317,15 @@ paths do not exist, rather than calling `iterdir()` on a removed directory.
 Exercise sync/async cleanup on success and error with mocked downloads.
 Constructor params:
 `cache=True`, `verbose=True`, `async_timeout=600`, `async_workers=None`,
-`retries=3`. DataFrame sources add `time_tolerance`.
+`retries=3` (plus optional `device="cpu"`). DataFrame sources add `time_tolerance`.
 
 ---
 
 ### Step 7b — Temporal Statistics
 
 **Include native temporal statistics by default for regular-cadence gridded
-sources.** Tell the user which methods and cadence the source will support.
+sources in either scope.** Keep implementation and checks in the selected project.
+Tell the user which methods and cadence the source will support.
 Skip if the user opts out or the source is unsuitable (e.g. climatology or
 irregular DataFrame/station/satellite observations). `fetch_data` rejects
 statistic labels for sources without native support.
@@ -302,23 +359,26 @@ Load `references/temporal-statistics.py` and follow it. In short:
    averaged/accumulated/min'd/max'd and the window. Warn about
    fields that are already accumulations (e.g. resetting precipitation buckets).
 
-Label grammar: `var:method:window` (trailing, `[-w, 0)`) or
-`var:method:start:end` (e.g. `tp:sum:+0h:+6h`); windows are left-closed,
-right-open. Regular coordinate helpers require cadence-aligned windows; reduction
+Label grammar: `var:method:window` (trailing, `(-w, 0]`) or
+`var:method:start:end` (e.g. `tp:sum:+0h:+6h`); windows are left-open,
+right-closed. Regular coordinate helpers require cadence-aligned windows; reduction
 itself imposes no cadence and uses sample-weighted means. Parsing is in
 `earth2studio/utils/time_statistics.py`; reuse it, do not re-parse labels.
 
-**Testing:** use exactly one mock test (extend `test_<source>_call_mock` if present,
+**Testing:** locally, exercise supported reductions, metadata and invalid windows
+with a small mocked case. For contributions, use exactly one mock test
+(extend `test_<source>_call_mock` if present,
 otherwise add `test_<source>_time_statistics_mock`),
 covering mean/sum/min/max, the attrs, the planned samples read, and an invalid
 window (forecast sources also lead-time overlap, separate initializations, and
 lead < 0). Mock I/O, not the planner or reducer. The sample is in
-`references/temporal-statistics.py`; fixtures `mock_statistic_zarr` and
-`mock_statistic_grib` are in `test/data/conftest.py`.
+`references/temporal-statistics.py`; contributor fixtures `mock_statistic_zarr` and
+`mock_statistic_grib` are in `test/data/conftest.py`. Local projects may adapt the
+sample with their own fixtures and imports.
 
 ---
 
-### Step 8 — Register the Source
+### Step 8 - Register the Source (contributor only)
 
 - `earth2studio/data/__init__.py` — alphabetical import
 - `earth2studio/lexicon/__init__.py` — alphabetical import
@@ -326,11 +386,11 @@ lead < 0). Mock I/O, not the planner or reducer. The sample is in
 
 ---
 
-### Step 9 — Update Documentation
+### Step 9 - Update Documentation (contributor only)
 
 - Add the class alphabetically to the appropriate autosummary block in
   `docs/modules/datasources_analysis.md`, `datasources_forecast.md`, or
-  `datasources_dataframe.md`
+  `datasources_dataframe.md` (MkDocs; there is no Sphinx `.rst` registration)
 - Class docstring: Parameters, Warning (download size), Note (reference URLs),
   Badges (last)
 - Keep the existing `region`, `dataclass`, and `product` badges accurate. Add
@@ -347,7 +407,7 @@ lead < 0). Mock I/O, not the planner or reducer. The sample is in
 
 ---
 
-### Step 10 — Update CHANGELOG.md
+### Step 10 - Update CHANGELOG.md (contributor only)
 
 Add entry under the current unreleased version. See
 `references/reference-implementation.py` REGISTRATION CHECKLIST for the format.
@@ -356,7 +416,7 @@ One line per source. Do NOT add separate lexicon entries.
 
 ---
 
-### Step 11 — Verify Style & Expand Tests
+### Step 11 - Verify Style & Expand Tests (contributor only)
 
 Run `make format && make lint && make license`. Load `references/testing-guide.py`
 for test skeletons. Required tests: `test_<source>_fetch` (slow), `_cache` (slow),
@@ -369,7 +429,7 @@ Present test file, functions, coverage.
 
 ---
 
-### Step 12 — Validate Variables & Sanity-Check
+### Step 12 - Validate Variables & Sanity-Check (contributor only)
 
 1. Validate all lexicon vars against real data (run script, do NOT commit)
 2. Remove variables with < 10% valid data
@@ -382,7 +442,7 @@ User MUST visually inspect plots. Do not proceed without confirmation.
 
 ---
 
-### Step 13 — Branch, Commit & Open PR
+### Step 13 - Branch, Commit & Open PR (contributor only, when requested)
 
 > **⚠️ WARNING: This step performs irreversible git operations (push, PR
 > creation). Do NOT proceed without explicit user confirmation. Present all
@@ -414,7 +474,7 @@ Do NOT push or create PRs until the user explicitly confirms.
 
 ---
 
-### Step 14 — Automated Code Review
+### Step 14 - Automated Code Review (contributor only)
 
 1. Poll for Greptile review (5 min timeout)
 2. Categorize feedback (bug/style/perf/docs/suggestion/false-positive)
@@ -434,8 +494,10 @@ dismiss code review feedback autonomously.
 ## Examples
 
 ```text
-User: Add a data source for the NOAA GFS analysis on S3
-Agent: [loads skill, proceeds through Steps 0–14]
+User: Add a data source for the NOAA GFS analysis on S3 in my own project, no contribution.
+Agent: [uses Steps 0-7b and local smoke/contract validation]
+User: I want to contribute this data source to NVIDIA Earth2Studio.
+Agent: [uses contributor paths and checks; submission requires an explicit request]
 ```
 
 ---
@@ -444,14 +506,16 @@ Agent: [loads skill, proceeds through Steps 0–14]
 
 - One source type per invocation
 - Requires network access for validation (Step 12)
-- SPDX license headers required in all files
+- Contributors add SPDX headers to newly authored repository code; preserve copied licenses
 
 ---
 
 ## Reminders
 
-**DO:** `uv run python`, `loguru.logger`, alphabetical order in `__init__.py`/RST/CHANGELOG,
-canonical method ordering, obstore helpers, `gather_with_concurrency`, `async_retry`,
+**DO:** use the project environment and conventions; contributors use `loguru.logger`
+and alphabetical order in `__init__.py`/docs autosummary/CHANGELOG. Use
+optional `device` per the protocol guidance, obstore helpers,
+`gather_with_concurrency`, `async_retry`,
 reference URLs in docstrings, `try/finally` cleanup.
 
 **Temporal statistics:** include for regular-cadence gridded sources; reuse `plan_statistics` / `reduce_statistics` from
@@ -461,3 +525,15 @@ reference URLs in docstrings, `try/finally` cleanup.
 xarray for loading, full file downloads.
 
 **NEVER:** `loop.set_default_executor()`, commit secrets, commit sanity-check scripts/images.
+
+## Contributor Checklist
+
+Only for confirmed contributions, follow [CONTRIBUTING.md](../../CONTRIBUTING.md)
+and the [developer guide](../../docs/userguide/developer/overview.md):
+
+- Register approved dependencies, exports, vocabulary/schema, catalog and changelog updates.
+- Apply repository style and SPDX requirements; preserve copied licenses.
+- Add and run source tests and relevant regressions, plus `make format`, `make lint`,
+  `make license`; report unavailable dependencies and skipped coverage.
+- Use Steps 12-14 and the validation guide for contribution review. Commit, push
+  and open a PR only when explicitly requested.

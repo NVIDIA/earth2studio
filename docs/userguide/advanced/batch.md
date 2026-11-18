@@ -1,7 +1,7 @@
 # Batch Dimension { #batch_function_userguide }
 
 This section of the user guide expands on how batching is handled inside Earth2Studio.
-As discussed in the [data movement](../about/overview.md#data_userguide)
+As discussed in [Data and Metadata](../components/coordinates.md#data_userguide)
 section, there is a dedicated coordinate axis `batch` which is commonly used in
 many of the model implementations.
 `batch` represents a dynamic axis that can be of any size, enabling models to better
@@ -33,7 +33,7 @@ Other coordinates can have a value of `np.empty(0)` to denote an additional
 dynamic axis but imply a required data type.
 In this case, this model supports a batch but the `time` axis must be a
 Numpy array of type `np.datetime64`. See
-[data movement](../about/overview.md#data_userguide) section for expected types.
+[Data and Metadata](../components/coordinates.md#data_userguide) page for expected types.
 
 ```python
 coords = OrderedDict(

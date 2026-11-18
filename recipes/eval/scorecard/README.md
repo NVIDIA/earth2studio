@@ -87,6 +87,10 @@ Launches default to a single node (`torchrun --standalone`, all local
 GPUs). For multi-node runs, set `TORCHRUN_ARGS` with your rendezvous flags,
 or invoke the recipe entry points (`predownload.py`, `main.py`, `score.py`)
 with your own launcher; the driver adds nothing they do not already support.
+Set `SCORECARD_PIN_GPU=1` to start each rank through `utils/rank_entry.sh`,
+which makes only that rank's GPU visible before CUDA starts. Without it,
+library threads that never select a device put their memory on the first
+GPU. In an 8-rank HealDA run, each other rank held about 2.6 GiB there.
 Every stage resumes (`resume: true` in the campaigns), so a large campaign
 can advance incrementally across short queue allocations rather than
 needing one long job.

@@ -60,6 +60,37 @@
     ]
   },
   {
+    "id": "deterministic-eval-005-pipeline-diagnostic-streams",
+    "question": "Write a single-member FCN forecast with PrecipitationAFNO for 48 hours from 2024-01-01 00Z using the 1.0.0-rc Pipeline utilities and FCN's recommended source. Save only t2m, u10m and v10m to forecast.zarr, and precipitation to precipitation.zarr. Explain whether filtering or regridding the saved forecast changes what the diagnostic receives, how to save precipitation alone, and which lead times and precipitation variable to expect. Check the checkout's actual APIs; do not download weights or run GPU inference.",
+    "expected_skill": "earth2studio-deterministic-forecast",
+    "expected_script": null,
+    "ground_truth": "Uses Pipeline.from_model with a diagnostics mapping and separate forecast/precipitation backends, plus work_items with a 48-hour duration and no ensemble members. Checks FCN and PrecipitationAFNO input/output signatures and loading APIs. Filters only the forecast output after diagnosis, keeping all diagnostic inputs. Explains matching grids, single-slot constraints, per-stream output regridding, and leads 0 through 48 hours in 6-hour increments for this compatible pair. Uses the actual diagnostic label tp06 rather than stale example labels.",
+    "expected_behavior": [
+      "Activates earth2studio-deterministic-forecast for a forecast with diagnostic postprocessing",
+      "Reads Pipeline.from_model, work_items, PrognosticRunner, and both model signatures before generating calls",
+      "Loads FCN and PrecipitationAFNO with their documented package APIs and uses FCN's recommended source",
+      "Checks that FCN supplies all 20 diagnostic inputs on the matching grid and that this path uses single-input, single-output models",
+      "Uses diagnostics={precipitation: diagnostic} with separate forecast and precipitation output backends, without inventing DiagnosticHook",
+      "Uses work_items with np.datetime64 initialization, final_lead_time=np.timedelta64(48, h), and no members; does not pass nsteps to Pipeline",
+      "Uses output_variables only for the forecast stream and explains that diagnostics receive full forecast fields before output filtering/regridding",
+      "Explains that an output regridder is keyed by stream, applies after variable filtering, and cannot fix diagnostic input grid incompatibility",
+      "Explains omitting forecast from output saves only precipitation and that Pipeline.run returns None",
+      "Identifies tp06 and leads 0, 6, ..., 48 hours for this pair; explains lead-zero diagnosis and six-hour accumulation rather than a run-total accumulation",
+      "Does not download model weights or launch GPU inference"
+    ]
+  },
+  {
+    "id": "deterministic-eval-negative-003-standalone-diagnostic",
+    "question": "Apply PrecipitationAFNO directly to ERA5 analysis fields for one date. There is no prognostic forecast model in this task.",
+    "expected_skill": null,
+    "expected_script": null,
+    "ground_truth": "Standalone diagnosis of source data is outside the deterministic forecast skill; adding forecast diagnostic postprocessing must not broaden discovery to this task.",
+    "expected_behavior": [
+      "Does NOT activate earth2studio-deterministic-forecast skill",
+      "Recognizes standalone diagnostic inference without adding a prognostic forecast"
+    ]
+  },
+  {
     "id": "deterministic-eval-negative-001-install",
     "question": "How do I install earth2studio with all the model dependencies? I want to use Pangu and GraphCast.",
     "expected_skill": null,

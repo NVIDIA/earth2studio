@@ -23,7 +23,7 @@ import numpy as np
 import pytest
 import xarray as xr
 
-from earth2studio.data import CMIP6
+from earth2studio.data import CMIP6, fetch_data
 from earth2studio.data.cmip6 import CMIP6MultiRealm
 
 
@@ -207,6 +207,61 @@ def test_cmip6_pressure_level_tolerance():
     ds._pressure_level_tolerance = 1
     data_ok = ds(datetime(2000, 1, 1), ["t500"])
     assert data_ok.shape == (1, 1, len(lat), len(lon))
+
+
+def test_cmip6_nearest_time_labels():
+    """Nearest-time matching returns data under the requested time labels."""
+
+    class DummyCatalog:
+        def __init__(self, dataset: xr.Dataset):
+            self._dataset = dataset
+
+        def to_dataset_dict(self, *args, **kwargs):
+            return {"tas": self._dataset}
+
+    time = np.array(["2000-01-01T00", "2000-01-01T06"], dtype="datetime64[ns]")
+    lat = np.array([-10.0, 10.0])
+    lon = np.array([0.0, 90.0])
+    data = np.stack([np.full((2, 2), 1.0), np.full((2, 2), 2.0)]).astype(np.float32)
+    fake_ds = xr.Dataset(
+        {"tas": (("time", "lat", "lon"), data)},
+        coords={"time": time, "lat": lat, "lon": lon},
+    )
+
+    ds = CMIP6.__new__(CMIP6)
+    ds.experiment_id = "test"
+    ds.source_id = "test"
+    ds.table_id = "3hr"
+    ds.variant_label = "r1i1p1f1"
+    ds.file_start = None
+    ds.file_end = None
+    ds._cache = True
+    ds._verbose = False
+    ds._exact_time_match = False
+    ds._pressure_level_tolerance = 0
+    ds.available_variables = {"tas"}
+    ds.catalog = DummyCatalog(fake_ds)
+    ds._search_catalog = lambda *args, **kwargs: None  # type: ignore[assignment]
+
+    request = [datetime(2000, 1, 1, 1), datetime(2000, 1, 1, 5)]
+    with pytest.warns(UserWarning, match="nearest"):
+        out = ds(request, ["t2m"])
+    np.testing.assert_array_equal(
+        out.time.values, np.array(request, dtype="datetime64[ns]")
+    )
+    np.testing.assert_array_equal(
+        out.time_selected.values, np.array(time, dtype="datetime64[ns]")
+    )
+    np.testing.assert_array_equal(out.values[:, 0, 0, 0], [1.0, 2.0])
+
+    with pytest.warns(UserWarning, match="nearest"):
+        fetched = fetch_data(
+            ds,
+            np.array(["2000-01-01T00"], dtype="datetime64[ns]"),
+            np.array(["t2m"]),
+            lead_time=np.array([5], dtype="timedelta64[h]"),
+        )
+    assert float(fetched.values[0, 0, 0, 0, 0]) == 2.0
 
 
 @pytest.mark.live(timeout=10)

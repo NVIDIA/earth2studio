@@ -416,6 +416,15 @@ cache is already warm, set `predownload.observations.enabled=false`.
 Inference reads an existing `<slot>.parquet` whenever one is present, so
 remove it to fetch live again.
 
+Every rank of an ensemble group starts from the same initial condition.
+In online scoring, only the group's root rank fetches the observations and
+runs the DA model, then broadcasts the analysis to the rest of the group.
+Runs without ensemble groups compute the analysis on every rank, and each
+rank fetches its own observations. When two or more ranks need the same
+analysis time, as in an offline ensemble whose members share an initial
+condition, keep `predownload.observations.enabled` on. The ranks then read
+one stored copy instead of each downloading the window.
+
 ### Missing observations and archive coverage
 
 GSI observation archives have gaps — an individual platform or obs type
@@ -484,6 +493,14 @@ The runner's `data` role then carries only the fill variables, so
 store when the DA model covers all inputs. The builder logs the fill set
 prominently. Set `model.fill_missing_variables=false` to error on any gap
 instead (pure-DA initial conditions only).
+
+`model.fill_variables` lists variables to take from that same fill path
+even though the analysis provides them, for a field whose training data
+had another land mask. The Atlas CRPS HealDA scorecard takes `sst` from
+ERA5 this way, because ERA5 has no `sst` over land while HealDA's `sst`
+carries land values. Listed variables join the fill set, so `predownload.py`
+caches them in `data.zarr` as well, and they apply even with
+`model.fill_missing_variables=false`.
 
 ### Stateless assimilation models only
 
@@ -640,8 +657,8 @@ python main.py model=fcn3
 The data source is a Hydra group as well.  `cfg/data_source/arco_era5.yaml`,
 the default, reads hourly ARCO ERA5. Models that need time statistics as
 input, such as FuXi-S2S's UTC calendar-day means, declare them with qualified
-variable labels in their input signature (`t2m:mean:0h:24h`,
-`tp:mean:1h:25h`, and so on). `earth2studio.data.fetch_data` then computes
+variable labels in their input signature (`t2m:mean:-1h:23h`,
+`tp:mean:0h:24h`, and so on). `earth2studio.data.fetch_data` then computes
 the statistic from the hourly source itself, so the recipe needs no daily
 mean source wrapper. `predownload.py` caches the reduced fields under their
 qualified labels, and the cached store answers `fetch_data` for them.
