@@ -164,6 +164,20 @@ class CMIP6Lexicon(metaclass=LexiconType):
                     return x + 273.15
                 return x
 
+        elif val in ["tcc", "sic"]:
+            # CMIP6 stores clt and siconc as percentages (units "%" in the CMOR
+            # tables), while Earth2Studio defines tcc and sic as fractions [0-1].
+            # Some models write clt as 0-1 despite the "%" units, so use the same
+            # heuristic as the native names below.
+            def mod(x: np.ndarray) -> np.ndarray:  # noqa: D401
+                """Convert percentage [0-100] to fraction [0-1] if data is in percentage format.
+
+                Uses heuristic: if mean value >= 1, assumes percentage and divides by 100.
+                """
+                if np.nanmean(x) >= 1:
+                    return x / 100.0
+                return x
+
         elif val in [
             "siconc",
             "clt",
@@ -177,7 +191,7 @@ class CMIP6Lexicon(metaclass=LexiconType):
             # Convert concentration/percentage variables from fraction [0-1] to percentage [0-100]
             # Applies to: cloud cover (clt), relative humidity (r2m/hurs/hursmax/hursmin),
             # sea ice concentration (siconc), snow cover (snc)
-            # Note: E2S variable "tcc" is NOT included - it expects fraction [0-1], not percentage
+            # Note: E2S variables "tcc" and "sic" are converted to fractions above
             def mod(x: np.ndarray) -> np.ndarray:  # noqa: D401
                 """Convert fraction [0-1] to percentage [0-100] if data is in fraction format.
 
