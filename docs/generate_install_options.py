@@ -19,8 +19,6 @@
 from __future__ import annotations
 
 import json
-import os
-import subprocess
 from pathlib import Path
 
 import yaml
@@ -33,17 +31,6 @@ TARGET = DOCS_ROOT / "assets" / "data" / "install-options.json"
 def main() -> None:
     """Write the install selector JSON asset."""
     data = yaml.safe_load(SOURCE.read_text(encoding="utf-8"))
-    ref = os.getenv("GITHUB_REF_NAME")
-    if not ref:
-        ref = subprocess.run(
-            ["git", "branch", "--show-current"],  # noqa: S607 - use the installed git
-            cwd=DOCS_ROOT,
-            capture_output=True,
-            text=True,
-            check=True,
-        ).stdout.strip()
-    if ref.endswith("-rc"):
-        data["package"]["release_ref"] = ref
     TARGET.parent.mkdir(parents=True, exist_ok=True)
     TARGET.write_text(json.dumps(data, separators=(",", ":")) + "\n", encoding="utf-8")
 
