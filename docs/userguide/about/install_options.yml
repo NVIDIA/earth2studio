@@ -89,9 +89,24 @@ categories:
           - &flash_attn_wheels
             text: >-
               FlashAttention (flash-attn) can take a long time to build.
-              Compatible prebuilt wheels are available from the Astral GPU index.
+              Before installing this extra, select a compatible prebuilt wheel
+              from the Astral GPU index. For uv projects, configure the selected
+              CUDA index as a named [[tool.uv.index]] with explicit = true and map
+              flash-attn to it in [tool.uv.sources]. For pip, install the selected
+              wheel URL directly. Pin the selected build and use
+              --only-binary flash-attn to prevent a fallback to source compilation.
             href: https://wheels.astral.sh/
             label: Astral GPU index
+          - &attention_compatibility
+            text: >-
+              Match the wheel to the model's dependency requirements, Python ABI,
+              OS/architecture, PyTorch build, CUDA build, and GPU capability.
+              Check torch.__version__ and torch.version.cuda; the CUDA version
+              reported by nvidia-smi alone is not sufficient. Configure wheel
+              sources in your own project before adding the Earth2Studio extra;
+              Earth2Studio's uv source settings are not inherited by consumers.
+            href: '#gpu-dependency-wheels'
+            label: GPU dependency wheel setup
       - id: aifsens
         label: AIFS Ensemble
         extra: aifsens
@@ -100,6 +115,7 @@ categories:
           - earth2studio.models.px.AIFSENS
         notes:
           - *flash_attn_wheels
+          - *attention_compatibility
       - id: aifs2
         label: AIFS 2.0
         extra: aifs2
@@ -108,6 +124,7 @@ categories:
           - earth2studio.models.px.AIFS2
         notes:
           - *flash_attn_wheels
+          - *attention_compatibility
       - id: aifs2ens
         label: AIFS 2.0 Ensemble
         extra: aifs2ens
@@ -116,6 +133,7 @@ categories:
           - earth2studio.models.px.AIFS2ENS
         notes:
           - *flash_attn_wheels
+          - *attention_compatibility
       - id: atlas
         label: Atlas
         extra: atlas
@@ -127,9 +145,21 @@ categories:
           - &natten_wheels
             text: >-
               NATTEN (required for Python versions before 3.14) can take a long
-              time to build. Compatible prebuilt wheels are available from NATTEN.
+              time to build. Before installing this extra, choose a compatible
+              build from the NATTEN wheel listing and pin its full version,
+              including the +torch...cu... suffix when present. Use
+              --find-links https://whl.natten.org with uv add or pip install,
+              and --only-binary natten to prevent source compilation. For uv
+              projects, persist find-links = ["https://whl.natten.org"] under
+              [tool.uv]. Models requiring libnatten need that compiled backend;
+              check natten.HAS_LIBNATTEN when supported by the installed version.
             href: https://whl.natten.org
             label: NATTEN prebuilt wheels
+          - *attention_compatibility
+          - &natten_install_guide
+            text: Consult NATTEN's installation guide for supported builds and GPU requirements.
+            href: https://natten.org/install/
+            label: NATTEN installation guide
       - id: aurora
         label: Aurora
         extra: aurora
@@ -266,6 +296,10 @@ categories:
         summary: Dependencies for the InterpCRPSDiT CRPS temporal interpolation model. Requires a base prognostic model.
         api_refs:
           - earth2studio.models.px.InterpCRPSDiT
+        notes:
+          - *natten_wheels
+          - *attention_compatibility
+          - *natten_install_guide
       - id: interp-modafno
         label: InterpModAFNO
         extra: interp-modafno
@@ -333,6 +367,8 @@ categories:
               - 'uv add "nvidia-physicsnemo@git+https://github.com/NVIDIA/physicsnemo.git@ff4cad2390e412b136e1739476506064d42eefba"'
         notes:
           - *natten_wheels
+          - *attention_compatibility
+          - *natten_install_guide
       - id: stormscope
         label: StormScope
         extra: stormscope
@@ -343,6 +379,8 @@ categories:
           - earth2studio.models.dx.StormScopeDxNSRDB
         notes:
           - *natten_wheels
+          - *attention_compatibility
+          - *natten_install_guide
       - id: ucast
         label: UCast
         extra: ucast
@@ -404,6 +442,8 @@ categories:
               - 'uv add "nvidia-physicsnemo@git+https://github.com/NVIDIA/physicsnemo.git@426f7552da4b4fa675e404e8a4f437e27681b668"'
         notes:
           - *natten_wheels
+          - *attention_compatibility
+          - *natten_install_guide
       - id: cosmo
         label: CorrDiff COSMO-ERA5
         extra: cosmo
@@ -419,6 +459,8 @@ categories:
               - 'uv add "nvidia-physicsnemo@git+https://github.com/NVIDIA/physicsnemo.git@ff4cad2390e412b136e1739476506064d42eefba"'
         notes:
           - *natten_wheels
+          - *attention_compatibility
+          - *natten_install_guide
       - id: cyclone
         label: Cyclone Trackers
         extra: cyclone
@@ -504,6 +546,8 @@ categories:
               - 'uv add "nvidia-physicsnemo@git+https://github.com/NVIDIA/physicsnemo.git@ff4cad2390e412b136e1739476506064d42eefba"'
         notes:
           - *natten_wheels
+          - *attention_compatibility
+          - *natten_install_guide
       - id: da-healda
         label: HealDA
         extra: da-healda
