@@ -2,14 +2,23 @@
 
 Execution tools in `earth2studio.run` make it easy to run workflows composing
 multiple components (models, data sources, etc.) over many dates and ensemble
-members. A `Runner` executes one forecast, called a work item, and yields its
-outputs. A `Pipeline` drives a runner over a list of work items and handles the
-rest: distribution across ranks, output filtering, regridding, storage, scoring,
-and resuming.
+members. This is done using three core layers, from smallest to largest:
 
-The models themselves can be called directly; see
-[Prognostic Models](prognostic.md). Use `Pipeline` when you want this bookkeeping
-handled for you, or to run at scale.
+- A **`WorkItem`** identifies one forecast to produce: an initialization time, a
+  final lead time, and optional ensemble members. An inference campaign usually
+  spans many different work items.
+- A **`Runner`** defines what is run for each work item. It holds the models and
+  data sources and specifies how an item's inputs are fetched, how models are
+  stepped, and what streams of output data are produced.
+- A **`Pipeline`** executes the `Runner` over many work items. It acts as an
+  orchestrator: distributing items across ranks, selecting and regridding outputs,
+  writing each output stream to storage, and potentially resuming interrupted runs
+  or scoring the outputs as they're produced.
+
+Changing *what* a forecast produces means choosing or writing a `Runner`; changing
+*how and where* forecasts run means configuring the `Pipeline`. Models can also be
+called directly (see [Prognostic Models](prognostic.md)); `Pipeline` execution is
+best suited for more complex workflows and larger inference campaigns run at scale.
 
 ## Interface
 
@@ -73,7 +82,7 @@ stream to its store.
 
 | Argument | Purpose |
 | --- | --- |
-| `runner` | Runner executing each item. |
+| `runner` | `Runner` executing each item. |
 | `output` | IO backend per stream; streams left out are not written. |
 | `output_variables` | Variables kept per stream. |
 | `regridder` | Regridder per stream, applied after variable selection. |
@@ -83,7 +92,7 @@ stream to its store.
 
 At least one of `output` and `scorer` is required.
 
-Construct a `Pipeline` explicitly from a runner and per-stream settings, or use
+Construct a `Pipeline` explicitly from a `Runner` and per-stream settings, or use
 `Pipeline.from_model(model, source, ...)` to build one for a single prognostic
 model, as shown below.
 
@@ -213,7 +222,7 @@ run.
 
 ## Write Your Own Runner
 
-Any object with the four runner members works with `Pipeline`. Wrap a built-in
+Any object with the runner members above works with `Pipeline`. Wrap a built-in
 runner to change its behavior, such as stopping a rollout early, or write one for
 a workflow the built-ins do not cover. Keep stream names stable across items and
 runs, since they key output stores and resume. Declare every stream in
