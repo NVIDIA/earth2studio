@@ -94,7 +94,7 @@
       "classifiers": [],
       "signature": "",
       "source": "examples/index.md",
-      "summary": "<div class=\"e2sg-gallery-grid\"> <a class=\"e2sg-gallery-card\" href=\"01_getting_started/01_deterministic_workflow/\"><img class=\"e2sg-card-image\" src=\"_assets/01_getting_started-01_deterministic_workflow/thumbnail.webp\" alt=\"Preview of Running Deterministic Inference\" loading=\"lazy\"><span class=\"e2sg-card-body\"><strong>Running Deterministic Inference</strong><span class=\"e2sg-card-summary\">Basic deterministic inference workflow.</span><span class=\"e2sg-card-meta e2sg-card-meta--cached\">Cached</span></span></a> <a class=\"e2sg-gallery-card\" href=\"01_getting_started/02_diagnostic_workflow/\"><img class=\"e2sg-card-image\" src=\"_assets/01_getting_started-02_diagnostic_workflow/thumbnail.webp\" alt=\"Preview of Running Diagnostic Inference\" loading=\"lazy\"><span class=\"e2sg-card-body\"><strong>Running Diagnostic Inference</strong><span class=\"e2sg-card-summary\">Basic prognostic + diagnostic inference workflow.</span><span class=\"e2sg-card-meta e2sg-card-meta--cached\">Cached</span></span></a> <a class=\"e2sg-gallery-card\" href=\"01_getting_started/03_ensemble_workflow/\"><img class=\"e2sg-card-image\" src=\"_assets/01_getting_started-03_ensemble_workflow/thumbnail.webp\" alt=\"Preview of Running Ensemble Inference\" loading=\"lazy\"><span class=\"e2sg-card-body\"><strong>Running Ensemble Inference</strong><span class=\"e2sg-card-summary\">Simple ensemble inference workflow.</span><span class=\"e2sg-card-meta e2sg-card-meta--cached\">Cached</span></span></a> <a class=\"e2sg-gallery-card\" href=\"01_getting_started/04_checkpoint_restart/\"><div class=\"e2sg-card-placeholder\" aria-hidden=\"true\"><span class=\"e2sg-card-placeholder-icon\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z\"/><path d=\"M14 2v6h6M10 13l-2 2 2 2M14 13l2 2-2 2\"/></svg></span></div><span class=\"e2sg-card-body\"><strong>Checkpointing a Deterministic Forecast</strong><span class=\"e2sg-card-summary\">Basic inference workflow checkpointing.</span><span class=\"e2sg-card-meta e2sg-card-meta--cached\">Cached</span></span></a> </div>",
+      "summary": "<div class=\"e2sg-gallery-grid\"> <a class=\"e2sg-gallery-card\" href=\"01_getting_started/01_deterministic_workflow/\"><img class=\"e2sg-card-image\" src=\"_assets/01_getting_started-01_deterministic_workflow/thumbnail.webp\" alt=\"Preview of Running Deterministic Inference\" loading=\"lazy\"><span class=\"e2sg-card-body\"><strong>Running Deterministic Inference</strong><span class=\"e2sg-card-summary\">Basic deterministic inference workflow.</span><span class=\"e2sg-card-meta e2sg-card-meta--stale\">Stale</span></span></a> <a class=\"e2sg-gallery-card\" href=\"01_getting_started/02_diagnostic_workflow/\"><img class=\"e2sg-card-image\" src=\"_assets/01_getting_started-02_diagnostic_workflow/thumbnail.webp\" alt=\"Preview of Running Diagnostic Inference\" loading=\"lazy\"><span class=\"e2sg-card-body\"><strong>Running Diagnostic Inference</strong><span class=\"e2sg-card-summary\">Basic prognostic + diagnostic inference workflow.</span><span class=\"e2sg-card-meta e2sg-card-meta--stale\">Stale</span></span></a> <a class=\"e2sg-gallery-card\" href=\"01_getting_started/03_ensemble_workflow/\"><img class=\"e2sg-card-image\" src=\"_assets/01_getting_started-03_ensemble_workflow/thumbnail.webp\" alt=\"Preview of Running Ensemble Inference\" loading=\"lazy\"><span class=\"e2sg-card-body\"><strong>Running Ensemble Inference</strong><span class=\"e2sg-card-summary\">Simple ensemble inference workflow.</span><span class=\"e2sg-card-meta e2sg-card-meta--stale\">Stale</span></span></a> <a class=\"e2sg-gallery-card\" href=\"01_getting_started/04_checkpoint_restart/\"><div class=\"e2sg-card-placeholder\" aria-hidden=\"true\"><span class=\"e2sg-card-placeholder-icon\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z\"/><path d=\"M14 2v6h6M10 13l-2 2 2 2M14 13l2 2-2 2\"/></svg></span></div><span class=\"e2sg-card-body\"><strong>Checkpointing a Deterministic Forecast</strong><span class=\"e2sg-card-summary\">Basic inference workflow checkpointing.</span><span class=\"e2sg-card-meta e2sg-card-meta--stale\">Stale</span></span></a> </div>",
       "symbol": "",
       "title": "Example Gallery",
       "url": "examples/"
@@ -265,7 +265,7 @@
       "classifiers": [],
       "signature": "",
       "source": "examples/05_data_assimilation/01_stormcast_sda.md",
-      "summary": "This example demonstrates how to use the StormCast-CONUS generative model with score-based data assimilation (SDA) over the Continental United States.",
+      "summary": "This example demonstrates how to use the StormCastConusSDA generative model with score-based data assimilation (SDA) over a CONUS subdomain.",
       "symbol": "",
       "title": "StormCast-CONUS Score-Based Data Assimilation",
       "url": "examples/05_data_assimilation/01_stormcast_sda/"
@@ -300,6 +300,15 @@
     {
       "classifiers": [],
       "signature": "",
+      "source": "examples/05_data_assimilation/05_aida_weathermesh.md",
+      "summary": "AIDA is WindBorne's AI data assimilation model: starting from an IFS ensemble background, it applies a sequence of three-hourly updates using public satellite and conventional observations to produce an analysis.",
+      "symbol": "",
+      "title": "AIDA and WeatherMesh-5c",
+      "url": "examples/05_data_assimilation/05_aida_weathermesh/"
+    },
+    {
+      "classifiers": [],
+      "signature": "",
       "source": "examples/06_seasonal/01_seasonal_statistics.md",
       "summary": "This example will demonstrate how to run a simple inference workflow to generate a forecast and then to save a statistic of that data.",
       "symbol": "",
@@ -310,7 +319,7 @@
       "classifiers": [],
       "signature": "",
       "source": "examples/06_seasonal/02_dlesym_example.md",
-      "summary": "This example will demonstrate how to run a simple inference workflow with the DLESyM model, which differs from other prognostic models in earth2studio.",
+      "summary": "DLESyM is a global earth system model with an atmosphere that advances every 6 hours and an ocean that advances every 48 hours, both on a HEALPix nside=64 (approximately 1 degree) grid.",
       "symbol": "",
       "title": "Running DLESyM Inference",
       "url": "examples/06_seasonal/02_dlesym_example/"
@@ -368,6 +377,15 @@
       "symbol": "",
       "title": "CBottle Tropical Cyclone Guidance",
       "url": "examples/07_misc/05_cbottle_tc_guidance/"
+    },
+    {
+      "classifiers": [],
+      "signature": "",
+      "source": "examples/07_misc/06_stac_catalog_access.md",
+      "summary": "Earth observation archives such as Landsat and Sentinel-2 are published as cloud-optimized GeoTIFFs (COGs) indexed by SpatioTemporal Asset Catalogs (STAC).",
+      "symbol": "",
+      "title": "Lazy Access to STAC Catalogs",
+      "url": "examples/07_misc/06_stac_catalog_access/"
     },
     {
       "classifiers": [],
@@ -506,6 +524,33 @@
     },
     {
       "classifiers": [],
+      "signature": "CompositeForecastSource(sources: Mapping[str, DataSource | ForecastSource], variables: Mapping[str, Sequence[str]])",
+      "source": "modules/generated/data/CompositeForecastSource.md",
+      "summary": "Forecast source assembled from components that provide disjoint variables.",
+      "symbol": "earth2studio.data.CompositeForecastSource",
+      "title": "CompositeForecastSource",
+      "url": "modules/generated/data/CompositeForecastSource/"
+    },
+    {
+      "classifiers": [],
+      "signature": "CompositeSource(sources: Mapping[str, DataSource], variables: Mapping[str, Sequence[str]])",
+      "source": "modules/generated/data/CompositeSource.md",
+      "summary": "Data source assembled from analysis sources that provide disjoint variables.",
+      "symbol": "earth2studio.data.CompositeSource",
+      "title": "CompositeSource",
+      "url": "modules/generated/data/CompositeSource/"
+    },
+    {
+      "classifiers": [],
+      "signature": "RegriddedSource(source: DataSource | ForecastSource, regridder: Regridder)",
+      "source": "modules/generated/data/RegriddedSource.md",
+      "summary": "Data or forecast source whose fields are regridded onto a target grid.",
+      "symbol": "earth2studio.data.RegriddedSource",
+      "title": "RegriddedSource",
+      "url": "modules/generated/data/RegriddedSource/"
+    },
+    {
+      "classifiers": [],
       "signature": "datasource_to_file(file_name: str, source: DataSource, time: list[str] | list[datetime] | TimeArray, variable: VariableArray, lead_time: LeadTimeArray = np.array([np.timedelta64(0, 'h')]), backend: Literal['netcdf', 'zarr'] = 'netcdf', chunks: dict[str, int] = {'variable': 1}, dtype: np.dtype | None = None, backend_kwargs: dict[str, Any] = {}) -> None",
       "source": "modules/generated/data/datasource_to_file.md",
       "summary": "Utility function that can be used for building a local data store needed for an inference request. This file can then be used with the [`earth2studio.data.DataArrayFile`][earth2studio.data.DataArrayFile] data source to load data from file. This is useful when multiple runs of the same input data is needed.",
@@ -515,9 +560,9 @@
     },
     {
       "classifiers": [],
-      "signature": "fetch_data(source: DataSource | ForecastSource, time: TimeArray, variable: VariableArray, lead_time: LeadTimeArray = np.array([np.timedelta64(0, 'h')]), device: torch.device = 'cpu', interp_to: CoordSystem | None = None, interp_method: str = 'nearest', legacy: bool = True) -> tuple[torch.Tensor, CoordSystem] | xr.DataArray",
+      "signature": "fetch_data(source: DataSource | ForecastSource, time: TimeArray, variable: VariableArray, lead_time: LeadTimeArray = cast(LeadTimeArray, np.array([np.timedelta64(0, 'h')])), device: torch.device | str = 'cpu', target_grid: GridDefinition | None = None, regridder: Regridder | None = None, member: int | str | Sequence[Any] | MemberArray | None = None) -> xr.DataArray",
       "source": "modules/generated/data/fetch_data.md",
-      "summary": "Utility function to fetch data arrays from particular sources and load data on the target device. If desired, xarray interpolation/regridding in the spatial domain can be used by passing a target coordinate system via the optional `interp_to` argument.",
+      "summary": "Fetch field DataArrays with temporal statistics, optionally regridded.",
       "symbol": "earth2studio.data.fetch_data",
       "title": "fetch_data",
       "url": "modules/generated/data/fetch_data/"
@@ -1029,6 +1074,20 @@
     },
     {
       "classifiers": [
+        "region:global",
+        "dataclass:analysis",
+        "product:ocean",
+        "provider:noaa"
+      ],
+      "signature": "OISST(lag_days: int = 0, lookback_days: int = 1, cache: bool = True, verbose: bool = True, async_timeout: int = 600, async_workers: int | None = None, retries: int = 3, device: torch.device | str = 'cpu')",
+      "source": "modules/generated/data/analysis/OISST.md",
+      "summary": "NOAA daily 0.25° Optimum Interpolation Sea Surface Temperature (OISST v2.1), read directly from NCEI.",
+      "symbol": "earth2studio.data.OISST",
+      "title": "OISST",
+      "url": "modules/generated/data/analysis/OISST/"
+    },
+    {
+      "classifiers": [
         "region:eu",
         "dataclass:observation",
         "product:precip",
@@ -1429,7 +1488,7 @@
         "product:atmos",
         "product:insitu"
       ],
-      "signature": "NNJAObsConv(source: str = 'prepbufr', time_tolerance: TimeTolerance = np.timedelta64(0, 'm'), cache: bool = True, verbose: bool = True, async_timeout: int = 600, async_workers: int = 24, decode_workers: int = 8, retries: int = 3, exclude_message_types: Sequence[str] = (), original_event: bool = False, layout: Literal['long', 'wide'] = _DEFAULT_LAYOUT)",
+      "signature": "NNJAObsConv(source: str = 'prepbufr', time_tolerance: TimeTolerance = np.timedelta64(0, 'm'), cache: bool = True, verbose: bool = True, async_timeout: int = 600, async_workers: int = 24, decode_workers: int = 8, retries: int = 3, exclude_message_types: Sequence[str] = (), original_event: bool = False, layout: Literal['long', 'wide'] = _DEFAULT_LAYOUT, gpsro_profile_metadata: bool = False)",
       "source": "modules/generated/data/dataframe/NNJAObsConv.md",
       "summary": "NNJA conventional (in-situ + GPS RO) observational data source. NOAA-NASA Joint Archive (NNJA) of Observations for Earth System Reanalysis is an archive ideal for developing observation-driven weather forecasting tools, as it includes a wide cross-section of data from a plethora of sensing platforms (satellites, surface stations, weather balloons, and more) and features data from 1979 to the present.",
       "symbol": "earth2studio.data.NNJAObsConv",
@@ -1443,7 +1502,7 @@
         "product:atmos",
         "product:sat"
       ],
-      "signature": "NNJAObsSat(time_tolerance: TimeTolerance = np.timedelta64(10, 'm'), satellites: list[str] | None = None, cache: bool = True, verbose: bool = True, async_timeout: int = 600, async_workers: int = 8, decode_workers: int = 8, retries: int = 3, sensor_indices: dict[str, Sequence[int]] | None = None, layout: Literal['long', 'wide'] = _DEFAULT_LAYOUT)",
+      "signature": "NNJAObsSat(time_tolerance: TimeTolerance = np.timedelta64(10, 'm'), satellites: list[str] | None = None, cache: bool = True, verbose: bool = True, async_timeout: int = 600, async_workers: int = 8, decode_workers: int = 8, retries: int = 3, sensor_indices: dict[str, Sequence[int]] | None = None, layout: Literal['long', 'wide'] = _DEFAULT_LAYOUT, footprint_float64: bool = False)",
       "source": "modules/generated/data/dataframe/NNJAObsSat.md",
       "summary": "NNJA historical NCEP aggregate satellite observations.",
       "symbol": "earth2studio.data.NNJAObsSat",
@@ -1885,6 +1944,114 @@
     },
     {
       "classifiers": [],
+      "signature": "StacProvider()",
+      "source": "modules/generated/data/stac/StacProvider.md",
+      "summary": "A STAC API endpoint and how to turn its asset hrefs into GDAL paths.",
+      "symbol": "earth2studio.data.stac.StacProvider",
+      "title": "StacProvider",
+      "url": "modules/generated/data/stac/StacProvider/"
+    },
+    {
+      "classifiers": [],
+      "signature": "collections(provider: StacProvider = PLANETARY_COMPUTER, *, bbox: Sequence[float] | None = None, text: str | None = None, sample_assets: bool = True) -> list[dict[str, Any]]",
+      "source": "modules/generated/data/stac/collections.md",
+      "summary": "List a catalog's collections with their asset keys and extents.",
+      "symbol": "earth2studio.data.stac.collections",
+      "title": "collections",
+      "url": "modules/generated/data/stac/collections/"
+    },
+    {
+      "classifiers": [],
+      "signature": "open_asset(item: Item, asset: str, *, provider: StacProvider | None = None, chunks: int | Mapping[str, int] | None = 1024, rescale: bool = True, mask_nodata: bool = True) -> xr.DataArray",
+      "source": "modules/generated/data/stac/open_asset.md",
+      "summary": "Open one item asset as a lazy, dask-backed [`xarray.DataArray`][xarray.DataArray].",
+      "symbol": "earth2studio.data.stac.open_asset",
+      "title": "open_asset",
+      "url": "modules/generated/data/stac/open_asset/"
+    },
+    {
+      "classifiers": [],
+      "signature": "search(collection: str, assets: Sequence[str] | None = None, *, provider: StacProvider = PLANETARY_COMPUTER, bbox: Sequence[float] | None = None, intersects: Mapping[str, Any] | None = None, time_range: str | None = None, query: Mapping[str, Any] | None = None, cql2_filter: Mapping[str, Any] | None = None, ids: Sequence[str] | None = None, sortby: Sequence[Mapping[str, str]] | None = None, max_items: int | None = 10, chunks: int | Mapping[str, int] | None = 1024, rescale: bool = True, mask_nodata: bool = True, lazy: bool = True) -> xr.DataArray",
+      "source": "modules/generated/data/stac/search.md",
+      "summary": "Search a STAC catalog and open the results as one lazy array.",
+      "symbol": "earth2studio.data.stac.search",
+      "title": "search",
+      "url": "modules/generated/data/stac/search/"
+    },
+    {
+      "classifiers": [],
+      "signature": "search_items(collection: str, *, provider: StacProvider = PLANETARY_COMPUTER, bbox: Sequence[float] | None = None, intersects: Mapping[str, Any] | None = None, time_range: str | None = None, query: Mapping[str, Any] | None = None, cql2_filter: Mapping[str, Any] | None = None, ids: Sequence[str] | None = None, sortby: Sequence[Mapping[str, str]] | None = None, max_items: int | None = 100) -> list[Item]",
+      "source": "modules/generated/data/stac/search_items.md",
+      "summary": "Search a STAC API and return the matching items.",
+      "symbol": "earth2studio.data.stac.search_items",
+      "title": "search_items",
+      "url": "modules/generated/data/stac/search_items/"
+    },
+    {
+      "classifiers": [],
+      "signature": "BilinearRegridder(source_grid: str | GridDefinition, target_grid: str | GridDefinition, fill_value: float | None = np.nan)",
+      "source": "modules/generated/grids/BilinearRegridder.md",
+      "summary": "Interpolate between the four source points surrounding each target point.",
+      "symbol": "earth2studio.grids.BilinearRegridder",
+      "title": "BilinearRegridder",
+      "url": "modules/generated/grids/BilinearRegridder/"
+    },
+    {
+      "classifiers": [],
+      "signature": "NearestRegridder(source_grid: str | GridDefinition, target_grid: str | GridDefinition, max_dist_km: float | Literal['auto'] | None = None, fill_value: float | None = np.nan, source_mask: Any | None = None)",
+      "source": "modules/generated/grids/NearestRegridder.md",
+      "summary": "Map each target point to its nearest source point.",
+      "symbol": "earth2studio.grids.NearestRegridder",
+      "title": "NearestRegridder",
+      "url": "modules/generated/grids/NearestRegridder/"
+    },
+    {
+      "classifiers": [],
+      "signature": "list_regridders(...)",
+      "source": "modules/generated/grids/list_regridders.md",
+      "summary": "API reference page.",
+      "symbol": "earth2studio.grids.list_regridders",
+      "title": "list_regridders",
+      "url": "modules/generated/grids/list_regridders/"
+    },
+    {
+      "classifiers": [],
+      "signature": "register_regridder(...)",
+      "source": "modules/generated/grids/register_regridder.md",
+      "summary": "API reference page.",
+      "symbol": "earth2studio.grids.register_regridder",
+      "title": "register_regridder",
+      "url": "modules/generated/grids/register_regridder/"
+    },
+    {
+      "classifiers": [],
+      "signature": "resolve_regridder(...)",
+      "source": "modules/generated/grids/resolve_regridder.md",
+      "summary": "API reference page.",
+      "symbol": "earth2studio.grids.resolve_regridder",
+      "title": "resolve_regridder",
+      "url": "modules/generated/grids/resolve_regridder/"
+    },
+    {
+      "classifiers": [],
+      "signature": "same_geometry(a: GridDefinition, b: GridDefinition) -> bool",
+      "source": "modules/generated/grids/same_geometry.md",
+      "summary": "Whether two grid definitions describe the same points.",
+      "symbol": "earth2studio.grids.same_geometry",
+      "title": "same_geometry",
+      "url": "modules/generated/grids/same_geometry/"
+    },
+    {
+      "classifiers": [],
+      "signature": "select_subset(x: xr.DataArray, source_grid: GridDefinition, target_grid: GridDefinition) -> xr.DataArray | None",
+      "source": "modules/generated/grids/select_subset.md",
+      "summary": "Select `target_grid` from a field on `source_grid`, when it is an exact crop.",
+      "symbol": "earth2studio.grids.select_subset",
+      "title": "select_subset",
+      "url": "modules/generated/grids/select_subset/"
+    },
+    {
+      "classifiers": [],
       "signature": "AsyncZarrBackend(file_name: str | None, parallel_coords: CoordSystem, fs_factory: Callable[..., fsspec.spec.AbstractFileSystem] | None = None, blocking: bool = True, pool_size: int = 8, async_timeout: int = 600, zarr_kwargs: dict[str, Any] = {'mode': 'a'}, zarr_codecs: CompressorsLike = None, chunked_coords: dict[str, int] = {}, shard_coords: dict[str, int] = {}, max_inflight_shards: int = 4, store: 'str | zarr.abc.store.Store | obstore.store.ObjectStore | None' = None, store_kwargs: dict[str, Any] = {})",
       "source": "modules/generated/io/AsyncZarrBackend.md",
       "summary": "Async Zarr v3 IO Backend",
@@ -1905,7 +2072,7 @@
       "classifiers": [],
       "signature": "KVBackend(device: str = 'cpu')",
       "source": "modules/generated/io/KVBackend.md",
-      "summary": "A key-value (dict) backend.",
+      "summary": "A key-value (dict) backend holding Torch tensors.",
       "symbol": "earth2studio.io.KVBackend",
       "title": "KVBackend",
       "url": "modules/generated/io/KVBackend/"
@@ -1921,16 +2088,16 @@
     },
     {
       "classifiers": [],
-      "signature": "XarrayBackend(coords: CoordSystem = OrderedDict({}), **xr_kwargs: Any)",
+      "signature": "XarrayBackend(**xr_kwargs: Any)",
       "source": "modules/generated/io/XarrayBackend.md",
-      "summary": "An xarray backed IO object.",
+      "summary": "An in-memory IO backend holding an [`xarray.Dataset`][xarray.Dataset].",
       "symbol": "earth2studio.io.XarrayBackend",
       "title": "XarrayBackend",
       "url": "modules/generated/io/XarrayBackend/"
     },
     {
       "classifiers": [],
-      "signature": "ZarrBackend(file_name: str = None, chunks: dict[str, int] = {'ensemble': 1, 'time': 1, 'lead_time': 1, 'variable': 1}, backend_kwargs: dict[str, Any] = {'overwrite': False}, zarr_codecs: CompressorsLike = None)",
+      "signature": "ZarrBackend(file_name: str = None, chunks: dict[str, int] = {'ensemble': 1, 'time': 1, 'lead_time': 1}, backend_kwargs: dict[str, Any] = {'overwrite': False}, zarr_codecs: CompressorsLike = None)",
       "source": "modules/generated/io/ZarrBackend.md",
       "summary": "A backend that supports the zarr format.",
       "symbol": "earth2studio.io.ZarrBackend",
@@ -1954,6 +2121,38 @@
       "symbol": "earth2studio.models.batch.batch_func",
       "title": "batch_func",
       "url": "modules/generated/models/batch/batch_func/"
+    },
+    {
+      "classifiers": [
+        "region:global",
+        "class:data-assimilation",
+        "product:atmos",
+        "provider:windborne",
+        "backend:pytorch",
+        "gpu:40gb"
+      ],
+      "signature": "AIDA(core_model: torch.nn.Module, assimilation_steps: int = 3, max_observations: int | None = None, variables: tuple[str, ...] | None = None)",
+      "source": "modules/generated/models/da/AIDA.md",
+      "summary": "WindBorne's AI data assimilation model.",
+      "symbol": "earth2studio.models.da.AIDA",
+      "title": "AIDA",
+      "url": "modules/generated/models/da/AIDA/"
+    },
+    {
+      "classifiers": [
+        "region:global",
+        "class:medium-range",
+        "product:atmos",
+        "provider:windborne",
+        "backend:pytorch",
+        "gpu:40gb"
+      ],
+      "signature": "AIDAWeatherMesh5C(core_model: torch.nn.Module, assimilation_steps: int = 3, max_observations: int | None = None, fork_hour: int | None = 72, variables: tuple[str, ...] | None = None)",
+      "source": "modules/generated/models/da/AIDAWeatherMesh5C.md",
+      "summary": "Global WeatherMesh-5c forecasts initialized by AIDA.",
+      "symbol": "earth2studio.models.da.AIDAWeatherMesh5C",
+      "title": "AIDAWeatherMesh5C",
+      "url": "modules/generated/models/da/AIDAWeatherMesh5C/"
     },
     {
       "classifiers": [
@@ -2008,13 +2207,13 @@
         "product:insitu",
         "product:sat",
         "year:2026",
-        "gpu:80gb",
+        "gpu:40gb",
         "provider:nvidia",
         "backend:pytorch"
       ],
       "signature": "HealDAv2(model: Any)",
       "source": "modules/generated/models/da/HealDAv2.md",
-      "summary": "HealDA v2, a global machine-learning data-assimilation model that maps a 48-hour sequence of satellite and conventional observations to a 104-channel, 0.25 degree atmospheric analysis on a regular latitude-longitude grid.",
+      "summary": "HealDA v2 maps 48 hours of observations to a global, 104-channel atmospheric analysis on a 0.25 degree latitude-longitude grid (721 x 1440).",
       "symbol": "earth2studio.models.da.HealDAv2",
       "title": "HealDAv2",
       "url": "modules/generated/models/da/HealDAv2/"
@@ -2041,6 +2240,24 @@
         "region:na",
         "class:data-assimilation",
         "class:nowcasting",
+        "product:atmos",
+        "product:insitu",
+        "year:2026",
+        "provider:nvidia",
+        "backend:pytorch"
+      ],
+      "signature": "StormCastConusSDA(model: StormCastCONUS)",
+      "source": "modules/generated/models/da/StormCastConusSDA.md",
+      "summary": "StormCast-CONUS with score-based observation guidance and explicit state.",
+      "symbol": "earth2studio.models.da.StormCastConusSDA",
+      "title": "StormCastConusSDA",
+      "url": "modules/generated/models/da/StormCastConusSDA/"
+    },
+    {
+      "classifiers": [
+        "region:na",
+        "class:data-assimilation",
+        "class:nowcasting",
         "product:wind",
         "product:temp",
         "product:atmos",
@@ -2051,7 +2268,7 @@
         "provider:nvidia",
         "backend:pytorch"
       ],
-      "signature": "StormCastSDA(regression_model: torch.nn.Module, diffusion_model: torch.nn.Module, means: torch.Tensor, stds: torch.Tensor, invariants: torch.Tensor, hrrr_lat_lim: tuple[int, int] = (273, 785), hrrr_lon_lim: tuple[int, int] = (579, 1219), variables: np.array = np.array(VARIABLES), conditioning_means: torch.Tensor | None = None, conditioning_stds: torch.Tensor | None = None, conditioning_variables: np.array = np.array(CONDITIONING_VARIABLES), conditioning_data_source: DataSource | ForecastSource | None = None, time_tolerance: TimeTolerance = np.timedelta64(10, 'm'), sampler_steps: int = 36, sampler_args: dict[str, float | int] | None = None, sda_std_obs: float = 0.1, sda_gamma: float = 0.001)",
+      "signature": "StormCastSDA(regression_model: torch.nn.Module, diffusion_model: torch.nn.Module, means: torch.Tensor, stds: torch.Tensor, invariants: torch.Tensor, hrrr_lat_lim: tuple[int, int] = (273, 785), hrrr_lon_lim: tuple[int, int] = (579, 1219), variables: np.ndarray = np.array(VARIABLES), conditioning_means: torch.Tensor | None = None, conditioning_stds: torch.Tensor | None = None, conditioning_variables: np.ndarray = np.array(CONDITIONING_VARIABLES), time_tolerance: TimeTolerance = np.timedelta64(10, 'm'), sampler_steps: int = 36, sampler_args: dict[str, float | int] | None = None, sda_std_obs: float = 0.1, sda_gamma: float = 0.001)",
       "source": "modules/generated/models/da/StormCastSDA.md",
       "summary": "StormCast with score-based data assimilation (SDA) using diffusion posterior sampling for convection-allowing regional forecasts. Combines a regression and diffusion model with DPS guidance to assimilate observations during inference. Model time step size is 1 hour, taking as input:",
       "symbol": "earth2studio.models.da.StormCastSDA",
@@ -2072,7 +2289,7 @@
         "provider:nvidia",
         "backend:pytorch"
       ],
-      "signature": "CBottleInfill(core_model: torch.nn.Module, sst_ds: xr.Dataset, input_variables: list[str] | VariableArray, sampler_steps: int = 18, sigma_max: float = 200, seed: int | None = None)",
+      "signature": "CBottleInfill(core_model: torch.nn.Module, sst_ds: xr.Dataset, input_variables: list[str] | VariableArray, sampler_steps: int = 18, sigma_max: float = 200)",
       "source": "modules/generated/models/dx/CBottleInfill.md",
       "summary": "Climate in a bottle infill diagnostic Climate in a Bottle (cBottle) is an AI model for emulating global km-scale climate simulations and reanalysis on the equal-area HEALPix grid. The cBottle infill diagnostic enables users to generate all variables supported by cBottle from just a subset ontop of existing monthly average sea surface temperatures and solar conditioning. The cBottle infill model uses the a globally-trained coarse-resolution image diffusion model that generates 100km (50k-pixel) fields",
       "symbol": "earth2studio.models.dx.CBottleInfill",
@@ -2092,7 +2309,7 @@
         "provider:nvidia",
         "backend:pytorch"
       ],
-      "signature": "CBottleSR(sr_model: torch.nn.Module, lat_lon: bool = True, output_resolution: tuple[int, int] = (2161, 4320), super_resolution_window: tuple[int, int, int, int] | None = None, sampler_steps: int = 18, sigma_max: int = 800, seed: int | None = None)",
+      "signature": "CBottleSR(sr_model: torch.nn.Module, lat_lon: bool = True, output_resolution: tuple[int, int] = (2161, 4320), region: Region | None = None, sampler_steps: int = 18, sigma_max: int = 800)",
       "source": "modules/generated/models/dx/CBottleSR.md",
       "summary": "Climate in a Bottle Super-Resolution (CBottleSR) model.",
       "symbol": "earth2studio.models.dx.CBottleSR",
@@ -2112,7 +2329,7 @@
         "provider:nvidia",
         "backend:pytorch"
       ],
-      "signature": "CBottleTCGuidance(core_model: torch.nn.Module, classifier_model: torch.nn.Module, sst_ds: xr.Dataset, lat_lon: bool = True, sampler_steps: int = 18, sigma_max: float = 200.0, batch_size: int = 4, seed: int | None = None, dataset_modality: DatasetModality = DatasetModality.ERA5)",
+      "signature": "CBottleTCGuidance(core_model: torch.nn.Module, classifier_model: torch.nn.Module, sst_ds: xr.Dataset, lat_lon: bool = True, sampler_steps: int = 18, sigma_max: float = 200.0, batch_size: int = 4, dataset_modality: DatasetModality = DatasetModality.ERA5)",
       "source": "modules/generated/models/dx/CBottleTCGuidance.md",
       "summary": "Climate in a Bottle tropical cyclone guidance diagnostic. This model for Climate in a Bottle (cBottle) allows users to provide an cyclone guidance map on a lat-lon grid and synthesis global climate realizations at that given time. The tropical cyclone guidance field is regridded to HPX Level 3, which is then used during the sampling process.",
       "symbol": "earth2studio.models.dx.CBottleTCGuidance",
@@ -2150,7 +2367,7 @@
         "provider:nvidia",
         "backend:pytorch"
       ],
-      "signature": "CorrDiffCMIP6(input_variables: Sequence[str], output_variables: Sequence[str], residual_model: torch.nn.Module, regression_model: torch.nn.Module, lat_input_grid: torch.Tensor, lon_input_grid: torch.Tensor, lat_output_grid: torch.Tensor, lon_output_grid: torch.Tensor, in_center: torch.Tensor, in_scale: torch.Tensor, out_center: torch.Tensor, out_scale: torch.Tensor, invariants: OrderedDict | None = None, invariant_center: torch.Tensor | None = None, invariant_scale: torch.Tensor | None = None, number_of_samples: int = 1, number_of_steps: int = 18, solver: Literal['euler', 'heun'] = 'euler', sampler_type: Literal['deterministic', 'stochastic'] = 'stochastic', inference_mode: Literal['regression', 'diffusion', 'both'] = 'both', hr_mean_conditioning: bool = True, seed: int | None = None, grid_spacing_tolerance: float = 1e-05, grid_bounds_margin: float = 0.0, sigma_min: float | None = None, sigma_max: float | None = None, time_feature_center: torch.Tensor | None = None, time_feature_scale: torch.Tensor | None = None, output_lead_times: LeadTimeArray = np.array([np.timedelta64(-12, 'h')]))",
+      "signature": "CorrDiffCMIP6(input_variables: Sequence[str], output_variables: Sequence[str], residual_model: torch.nn.Module, regression_model: torch.nn.Module, lat_input_grid: torch.Tensor, lon_input_grid: torch.Tensor, lat_output_grid: torch.Tensor, lon_output_grid: torch.Tensor, in_center: torch.Tensor, in_scale: torch.Tensor, out_center: torch.Tensor, out_scale: torch.Tensor, invariants: OrderedDict | None = None, invariant_center: torch.Tensor | None = None, invariant_scale: torch.Tensor | None = None, number_of_samples: int = 1, number_of_steps: int = 18, solver: Literal['euler', 'heun'] = 'euler', sampler_type: Literal['deterministic', 'stochastic'] = 'stochastic', inference_mode: Literal['regression', 'diffusion', 'both'] = 'both', hr_mean_conditioning: bool = True, grid_spacing_tolerance: float = 1e-05, grid_bounds_margin: float = 0.0, sigma_min: float | None = None, sigma_max: float | None = None, time_feature_center: torch.Tensor | None = None, time_feature_scale: torch.Tensor | None = None, output_lead_times: LeadTimeArray = np.array([np.timedelta64(-12, 'h')]))",
       "source": "modules/generated/models/dx/CorrDiffCMIP6.md",
       "summary": "CMIP6 to ERA5 downscaling model based on the CorrDiff architecture. This model can be used to downscale both in the spatial and temporal dimensions. This model works with the [`earth2studio.data.CMIP6MultiRealm`][earth2studio.data.CMIP6MultiRealm] data source.",
       "symbol": "earth2studio.models.dx.CorrDiffCMIP6",
@@ -2170,7 +2387,7 @@
         "provider:nvidia",
         "backend:pytorch"
       ],
-      "signature": "CorrDiffCosmoEra5(era5_variables: Sequence[str], output_variables: Sequence[str], regression_model: torch.nn.Module | None, diffusion_model: torch.nn.Module | None, resolution: Literal['rea6', 'rea2'], mode: Literal['mean', 'diffusion'], lat_input_grid: torch.Tensor, lon_input_grid: torch.Tensor, lat_output_grid: torch.Tensor, lon_output_grid: torch.Tensor, era5_center: torch.Tensor, era5_scale: torch.Tensor, out_center: torch.Tensor, out_scale: torch.Tensor, static_invariants: 'OrderedDict[str, torch.Tensor]', pre_invariant_variables: Sequence[str], post_invariant_variables: Sequence[str], channel_transforms: dict | None = None, constraints: dict | None = None, number_of_samples: int = 1, physical_clamp: bool = True, number_of_steps: int = 18, sigma_min: float = 0.002, sigma_max: float = 800.0, rho: float = 7.0, solver: Literal['heun', 'euler'] = 'heun', seed: int | None = None, amp: bool = False, hub_heights: Sequence[float] | None = None, hub_interp: Literal['linear', 'log'] = 'linear', wind_levels: dict | None = None)",
+      "signature": "CorrDiffCosmoEra5(era5_variables: Sequence[str], output_variables: Sequence[str], regression_model: torch.nn.Module | None, diffusion_model: torch.nn.Module | None, resolution: Literal['rea6', 'rea2'], mode: Literal['mean', 'diffusion'], lat_input_grid: torch.Tensor, lon_input_grid: torch.Tensor, lat_output_grid: torch.Tensor, lon_output_grid: torch.Tensor, era5_center: torch.Tensor, era5_scale: torch.Tensor, out_center: torch.Tensor, out_scale: torch.Tensor, static_invariants: 'OrderedDict[str, torch.Tensor]', pre_invariant_variables: Sequence[str], post_invariant_variables: Sequence[str], channel_transforms: dict | None = None, constraints: dict | None = None, number_of_samples: int = 1, physical_clamp: bool = True, number_of_steps: int = 18, sigma_min: float = 0.002, sigma_max: float = 800.0, rho: float = 7.0, solver: Literal['heun', 'euler'] = 'heun', amp: bool = False, hub_heights: Sequence[float] | None = None, hub_interp: Literal['linear', 'log'] = 'linear', wind_levels: dict | None = None)",
       "source": "modules/generated/models/dx/CorrDiffCosmoEra5.md",
       "summary": "COSMO-REA downscaling model: ERA5 -> high-resolution COSMO-REA.",
       "symbol": "earth2studio.models.dx.CorrDiffCosmoEra5",
@@ -2190,7 +2407,7 @@
         "provider:nvidia",
         "backend:pytorch"
       ],
-      "signature": "CorrDiffEra5Hrrr(network: torch.nn.Module, lat_input_grid: torch.Tensor, lon_input_grid: torch.Tensor, lat_output_grid: torch.Tensor, lon_output_grid: torch.Tensor, hrrr_y: torch.Tensor, hrrr_x: torch.Tensor, era5_center: torch.Tensor, era5_scale: torch.Tensor, out_center: torch.Tensor, out_scale: torch.Tensor, invariants: torch.Tensor, network_kind: Literal['rectified_flow', 'edm'] = 'rectified_flow', era5_variables: Sequence[str] = ERA5_VARIABLES, output_variables: Sequence[str] = OUTPUT_VARIABLES, presence_flags: Sequence[str] = (), day_of_year: bool = True, prediction_type: Literal['x0', 'flow'] = 'x0', time_scale: float = 999.0, number_of_samples: int = 1, number_of_steps: int = 50, solver: Literal['heun', 'euler'] = 'heun', shift: float = 32.0, t_max: float = 0.99, x0v_clip: float = 0.05, sigma_min: float = 0.01, sigma_max: float = 200.0, rho: float = 7.0, seed: int | None = None, amp: bool = True)",
+      "signature": "CorrDiffEra5Hrrr(network: torch.nn.Module, lat_input_grid: torch.Tensor, lon_input_grid: torch.Tensor, lat_output_grid: torch.Tensor, lon_output_grid: torch.Tensor, y: torch.Tensor, x: torch.Tensor, era5_center: torch.Tensor, era5_scale: torch.Tensor, out_center: torch.Tensor, out_scale: torch.Tensor, invariants: torch.Tensor, network_kind: Literal['rectified_flow', 'edm'] = 'rectified_flow', era5_variables: Sequence[str] = ERA5_VARIABLES, output_variables: Sequence[str] = OUTPUT_VARIABLES, presence_flags: Sequence[str] = (), day_of_year: bool = True, prediction_type: Literal['x0', 'flow'] = 'x0', time_scale: float = 999.0, number_of_samples: int = 1, number_of_steps: int = 50, solver: Literal['heun', 'euler'] = 'heun', shift: float = 32.0, t_max: float = 0.99, x0v_clip: float = 0.05, sigma_min: float = 0.01, sigma_max: float = 200.0, rho: float = 7.0, amp: bool = True)",
       "source": "modules/generated/models/dx/CorrDiffEra5Hrrr.md",
       "summary": "Generative downscaling from 0.25-degree ERA5 to 3 km HRRR over CONUS.",
       "symbol": "earth2studio.models.dx.CorrDiffEra5Hrrr",
@@ -2210,7 +2427,7 @@
         "provider:nvidia",
         "backend:pytorch"
       ],
-      "signature": "CorrDiffTaiwan(residual_model: torch.nn.Module, regression_model: torch.nn.Module, in_center: torch.Tensor, in_scale: torch.Tensor, out_center: torch.Tensor, out_scale: torch.Tensor, out_lat: torch.Tensor, out_lon: torch.Tensor, number_of_samples: int = 1, number_of_steps: int = 8, solver: Literal['euler', 'heun'] = 'euler', seed: int | None = None)",
+      "signature": "CorrDiffTaiwan(residual_model: torch.nn.Module, regression_model: torch.nn.Module, in_center: torch.Tensor, in_scale: torch.Tensor, out_center: torch.Tensor, out_scale: torch.Tensor, out_lat: torch.Tensor, out_lon: torch.Tensor, number_of_samples: int = 1, number_of_steps: int = 8, solver: Literal['euler', 'heun'] = 'euler')",
       "source": "modules/generated/models/dx/CorrDiffTaiwan.md",
       "summary": "CorrDiff is a Corrector Diffusion model that learns mappings between low- and high-resolution weather data with high fidelity. This particular model was trained over a particular region near Taiwan.",
       "symbol": "earth2studio.models.dx.CorrDiffTaiwan",
@@ -2241,7 +2458,21 @@
         "provider:nvidia",
         "backend:pytorch"
       ],
-      "signature": "DerivedRH(levels: list[int | str] = [100])",
+      "signature": "DerivedPressureLevels(variables: list[str], levels: list[float], input_levels: list[float] | None = None, model_levels: list[int] | None = None, a: Sequence[float] | None = None, b: Sequence[float] | None = None, pressure: str | None = None, level_suffix: str = 'k', grid: str | GridDefinition = 'latlon-0.25deg', fill_value: float | None = None)",
+      "source": "modules/generated/models/dx/DerivedPressureLevels.md",
+      "summary": "Interpolates fields from model or pressure levels onto pressure levels.",
+      "symbol": "earth2studio.models.dx.DerivedPressureLevels",
+      "title": "DerivedPressureLevels",
+      "url": "modules/generated/models/dx/DerivedPressureLevels/"
+    },
+    {
+      "classifiers": [
+        "region:global",
+        "product:atmos",
+        "provider:nvidia",
+        "backend:pytorch"
+      ],
+      "signature": "DerivedRH(levels: list[int | str] = [100], grid: str | GridDefinition = 'latlon-0.25deg')",
       "source": "modules/generated/models/dx/DerivedRH.md",
       "summary": "Calculates the relative humidity (RH) from specific humidity and temperature for specified pressure levels. Based on the calculations ECMWF uses in the IFS numerical simulator which accounts for estimating the water vapor and ice present in the atmosphere.",
       "symbol": "earth2studio.models.dx.DerivedRH",
@@ -2255,7 +2486,7 @@
         "provider:nvidia",
         "backend:pytorch"
       ],
-      "signature": "DerivedRHDewpoint()",
+      "signature": "DerivedRHDewpoint(grid: str | GridDefinition = 'latlon-0.25deg')",
       "source": "modules/generated/models/dx/DerivedRHDewpoint.md",
       "summary": "Calculates the surface relative humidity (RH) from dewpoint temperature and air temperature. This calculation is based on the August-Roche-Magnus approximation.",
       "symbol": "earth2studio.models.dx.DerivedRHDewpoint",
@@ -2283,7 +2514,7 @@
         "provider:nvidia",
         "backend:pytorch"
       ],
-      "signature": "DerivedTCWV(levels: list[int] = [1000, 850, 700, 500, 300, 200, 100])",
+      "signature": "DerivedTCWV(levels: list[int] = [1000, 850, 700, 500, 300, 200, 100], grid: str | GridDefinition = 'latlon-0.25deg')",
       "source": "modules/generated/models/dx/DerivedTCWV.md",
       "summary": "Calculates the Total Column Water Vapor (TCWV) from specific humidity at pressure levels and surface pressure. The calculation is based on the vertical integration of specific humidity using the trapezoidal rule:",
       "symbol": "earth2studio.models.dx.DerivedTCWV",
@@ -2298,7 +2529,7 @@
         "provider:nvidia",
         "backend:pytorch"
       ],
-      "signature": "DerivedVPD(levels: list[int | str] = [100])",
+      "signature": "DerivedVPD(levels: list[int | str] = [100], grid: str | GridDefinition = 'latlon-0.25deg')",
       "source": "modules/generated/models/dx/DerivedVPD.md",
       "summary": "Calculates the Vapor Pressure Deficit (VPD) in hPa from relative humidity and temperature fields. The calculation is based on the formula:",
       "symbol": "earth2studio.models.dx.DerivedVPD",
@@ -2313,7 +2544,7 @@
         "provider:nvidia",
         "backend:pytorch"
       ],
-      "signature": "DerivedWS(levels: list[int | str] = [100])",
+      "signature": "DerivedWS(levels: list[int | str] = [100], grid: str | GridDefinition = 'latlon-0.25deg')",
       "source": "modules/generated/models/dx/DerivedWS.md",
       "summary": "Calculates the Wind Speed (WS) magnitude from eastward and northward wind components for specified levels. The calculation is based on the formula: ws = sqrt(u^2 + v^2)",
       "symbol": "earth2studio.models.dx.DerivedWS",
@@ -2427,7 +2658,7 @@
         "provider:nvidia",
         "backend:pytorch"
       ],
-      "signature": "StormScopeDxNSRDB(diffusion_model: nn.Module, regression_model: nn.Module, sigma_min: float, sigma_max: float, conditioning_means: torch.Tensor, conditioning_stds: torch.Tensor, conditioning_variables: np.ndarray, output_variables: np.ndarray, latitudes: torch.Tensor, longitudes: torch.Tensor, invariants: torch.Tensor | None = None, valid_mask: torch.Tensor | None = None, y_coords: np.ndarray | None = None, x_coords: np.ndarray | None = None, input_interp_max_dist_km: float = 12.0, number_of_samples: int = 1, seed: int | None = None, num_steps: int = 12, amp: bool = True)",
+      "signature": "StormScopeDxNSRDB(diffusion_model: nn.Module, regression_model: nn.Module, sigma_min: float, sigma_max: float, conditioning_means: torch.Tensor, conditioning_stds: torch.Tensor, conditioning_variables: np.ndarray, output_variables: np.ndarray, latitudes: torch.Tensor, longitudes: torch.Tensor, invariants: torch.Tensor | None = None, valid_mask: torch.Tensor | None = None, y_coords: np.ndarray | None = None, x_coords: np.ndarray | None = None, max_dist_km: float = 12.0, number_of_samples: int = 1, num_steps: int = 12, amp: bool = True)",
       "source": "modules/generated/models/dx/StormScopeDxNSRDB.md",
       "summary": "Estimate Global Horizontal Irradiance from GOES imagery.",
       "symbol": "earth2studio.models.dx.StormScopeDxNSRDB",
@@ -2497,7 +2728,7 @@
         "provider:ai2",
         "backend:pytorch"
       ],
-      "signature": "ACE2ERA5(stepper: Stepper, forcing_data_source: DataSource = ACE2ERA5Data(mode='forcing'), dt: np.timedelta64 = np.timedelta64(6, 'h'))",
+      "signature": "ACE2ERA5(stepper: Stepper, dt: np.timedelta64 = np.timedelta64(6, 'h'))",
       "source": "modules/generated/models/px/ACE2ERA5.md",
       "summary": "ACE2-ERA5 prognostic model wrapper.",
       "symbol": "earth2studio.models.px.ACE2ERA5",
@@ -2565,7 +2796,7 @@
         "provider:ecmwf",
         "backend:pytorch"
       ],
-      "signature": "AIFS2ENS(model: torch.nn.Module, latitudes: torch.Tensor, longitudes: torch.Tensor, interpolation_matrix: torch.Tensor, inverse_interpolation_matrix: torch.Tensor, invariants: torch.Tensor, preload_invariants: bool = True, seed: int | None = None)",
+      "signature": "AIFS2ENS(model: torch.nn.Module, latitudes: torch.Tensor, longitudes: torch.Tensor, interpolation_matrix: torch.Tensor, inverse_interpolation_matrix: torch.Tensor, invariants: torch.Tensor, preload_invariants: bool = True)",
       "source": "modules/generated/models/px/AIFS2ENS.md",
       "summary": "Artificial Intelligence Forecasting System Ensemble version 2 (AIFS ENS v2), a data driven ensemble forecast model developed by the European Centre for Medium-Range Weather Forecasts (ECMWF). AIFS ENS v2 is based on a graph neural network (GNN) encoder and decoder, and a sliding window transformer processor. It extends AIFS ENS v1 with wave forecasting capabilities, improved stratospheric representation (10 hPa level), and snow cover. The ensemble model incorporates inherent stochasticity through noise conditioning, producing different forecasts for the same initial conditions.",
       "symbol": "earth2studio.models.px.AIFS2ENS",
@@ -2692,7 +2923,7 @@
         "provider:microsoft",
         "backend:pytorch"
       ],
-      "signature": "Aurora1p5Ensemble(core_model: torch.nn.Module, static_vars: dict[str, torch.Tensor], seed: int | None = None)",
+      "signature": "Aurora1p5Ensemble(core_model: torch.nn.Module, static_vars: dict[str, torch.Tensor])",
       "source": "modules/generated/models/px/Aurora1p5Ensemble.md",
       "summary": "Aurora v1.5 ensemble 0.25 degree global forecast model. Identical to [`Aurora1p5`][Aurora1p5] except it uses the stochastic ensemble checkpoint, where each forward pass injects fresh Gaussian noise into the backbone conditioning context. Calling the model N times (or with a batch of N copies of the same initial condition) therefore produces N statistically independent members.",
       "symbol": "earth2studio.models.px.Aurora1p5Ensemble",
@@ -2715,7 +2946,7 @@
         "provider:microsoft",
         "backend:pytorch"
       ],
-      "signature": "Aurora1p5Ensemble_6h(core_model: torch.nn.Module, static_vars: dict[str, torch.Tensor], seed: int | None = None)",
+      "signature": "Aurora1p5Ensemble_6h(core_model: torch.nn.Module, static_vars: dict[str, torch.Tensor])",
       "source": "modules/generated/models/px/Aurora1p5Ensemble_6h.md",
       "summary": "Aurora v1.5 ensemble global forecast model with six-hourly output.",
       "symbol": "earth2studio.models.px.Aurora1p5Ensemble_6h",
@@ -2779,7 +3010,7 @@
         "provider:nvidia",
         "backend:pytorch"
       ],
-      "signature": "CBottleVideo(core_model: torch.nn.Module, sst_ds: xr.Dataset, lat_lon: bool = True, sampler_steps: int = 18, sigma_max: float = 1000.0, sigma_min: float = 0.02, seed: int | None = None, dataset_modality: DatasetModality = DatasetModality.ERA5, time_stepper: TimeStepperFunction = TimeStepperFunction.HEUN)",
+      "signature": "CBottleVideo(core_model: torch.nn.Module, sst_ds: xr.Dataset, lat_lon: bool = True, sampler_steps: int = 18, sigma_max: float = 1000.0, sigma_min: float = 0.02, dataset_modality: DatasetModality = DatasetModality.ERA5, time_stepper: TimeStepperFunction = TimeStepperFunction.HEUN)",
       "source": "modules/generated/models/px/CBottleVideo.md",
       "summary": "Climate in a bottle video prognostic Climate in a Bottle (cBottle) is an AI model for emulating global km-scale climate simulations and reanalysis on the equal-area HEALPix grid. The cBottle video prognostic model uses the video diffusion checkpoint of CBottle trained to predict 12 frames (initial state including) at a time.",
       "symbol": "earth2studio.models.px.CBottleVideo",
@@ -2813,18 +3044,34 @@
         "product:wind",
         "product:temp",
         "product:atmos",
+        "year:2025",
+        "gpu:40gb",
+        "provider:nvidia",
+        "backend:pytorch"
+      ],
+      "signature": "DLESyMAtmos()",
+      "source": "modules/generated/models/px/DLESyMAtmos.md",
+      "summary": "Atmosphere component of DLESyM, as a standalone prognostic model.",
+      "symbol": "earth2studio.models.px.DLESyMAtmos",
+      "title": "DLESyMAtmos",
+      "url": "modules/generated/models/px/DLESyMAtmos/"
+    },
+    {
+      "classifiers": [
+        "region:global",
+        "class:subseasonal-seasonal",
         "product:ocean",
         "year:2025",
         "gpu:40gb",
         "provider:nvidia",
         "backend:pytorch"
       ],
-      "signature": "DLESyMLatLon(atmos_model: torch.nn.Module, ocean_model: torch.nn.Module, hpx_lat: np.ndarray, hpx_lon: np.ndarray, nside: int, center: np.ndarray, scale: np.ndarray, atmos_constants: np.ndarray, ocean_constants: np.ndarray, atmos_input_times: np.ndarray, ocean_input_times: np.ndarray, atmos_output_times: np.ndarray, ocean_output_times: np.ndarray, atmos_variables: list[str], ocean_variables: list[str], atmos_coupling_variables: list[str], ocean_coupling_variables: list[str], atmos_diagnostic_variables: list[str] | None = None, ocean_diagnostic_variables: list[str] | None = None, use_cln: bool = False, condition_shape: int | None = None)",
-      "source": "modules/generated/models/px/DLESyMLatLon.md",
-      "summary": "DLESyM prognostic model supporting lat/lon input and output coordinates. This model still uses the HEALPix grid internally, but the first input is regridded from lat/lon and the outputs are regridded back to lat/lon upon returning from the model. Regridding is done using the `earth2grid` package. For convenience, we expose regridding methods that are accessible as `.to_hpx` and `.to_ll`.",
-      "symbol": "earth2studio.models.px.DLESyMLatLon",
-      "title": "DLESyMLatLon",
-      "url": "modules/generated/models/px/DLESyMLatLon/"
+      "signature": "DLESyMOcean(core: torch.nn.Module, hpx_lat: np.ndarray, hpx_lon: np.ndarray, nside: int, center: np.ndarray, scale: np.ndarray, coupling_center: np.ndarray, coupling_scale: np.ndarray, constants: np.ndarray, input_times: np.ndarray, output_times: np.ndarray, atmos_output_times: np.ndarray, variables: list[str], coupling_variables: list[str], diagnostic_variables: list[str] | None = None, use_cln: bool = False, condition_shape: int | None = None)",
+      "source": "modules/generated/models/px/DLESyMOcean.md",
+      "summary": "Ocean component of DLESyM, as a standalone prognostic model.",
+      "symbol": "earth2studio.models.px.DLESyMOcean",
+      "title": "DLESyMOcean",
+      "url": "modules/generated/models/px/DLESyMOcean/"
     },
     {
       "classifiers": [
@@ -2853,18 +3100,34 @@
         "product:wind",
         "product:temp",
         "product:atmos",
+        "year:2024",
+        "gpu:40gb",
+        "provider:nvidia",
+        "backend:pytorch"
+      ],
+      "signature": "DLESyMv0_ISCCP_ERA5Atmos(*args: Any, use_ttr: bool = True, ttr_clim_mean: np.ndarray | None = None, ttr_clim_std: np.ndarray | None = None, olr_clim_mean: np.ndarray | None = None, olr_clim_std: np.ndarray | None = None, olr_floor: float = 0.0, **kwargs: Any)",
+      "source": "modules/generated/models/px/DLESyMv0_ISCCP_ERA5Atmos.md",
+      "summary": "Atmosphere component of [`DLESyMv0_ISCCP_ERA5`][earth2studio.models.px.DLESyMv0_ISCCP_ERA5], as a standalone prognostic model.",
+      "symbol": "earth2studio.models.px.DLESyMv0_ISCCP_ERA5Atmos",
+      "title": "DLESyMv0_ISCCP_ERA5Atmos",
+      "url": "modules/generated/models/px/DLESyMv0_ISCCP_ERA5Atmos/"
+    },
+    {
+      "classifiers": [
+        "region:global",
+        "class:climate",
         "product:ocean",
         "year:2024",
         "gpu:40gb",
         "provider:nvidia",
         "backend:pytorch"
       ],
-      "signature": "DLESyMv0_ISCCP_ERA5LatLon()",
-      "source": "modules/generated/models/px/DLESyMv0_ISCCP_ERA5LatLon.md",
-      "summary": "Lat/lon convenience wrapper for [`DLESyMv0_ISCCP_ERA5`][earth2studio.models.px.DLESyMv0_ISCCP_ERA5].",
-      "symbol": "earth2studio.models.px.DLESyMv0_ISCCP_ERA5LatLon",
-      "title": "DLESyMv0_ISCCP_ERA5LatLon",
-      "url": "modules/generated/models/px/DLESyMv0_ISCCP_ERA5LatLon/"
+      "signature": "DLESyMv0_ISCCP_ERA5Ocean()",
+      "source": "modules/generated/models/px/DLESyMv0_ISCCP_ERA5Ocean.md",
+      "summary": "Ocean component of [`DLESyMv0_ISCCP_ERA5`][earth2studio.models.px.DLESyMv0_ISCCP_ERA5], as a standalone prognostic model.",
+      "symbol": "earth2studio.models.px.DLESyMv0_ISCCP_ERA5Ocean",
+      "title": "DLESyMv0_ISCCP_ERA5Ocean",
+      "url": "modules/generated/models/px/DLESyMv0_ISCCP_ERA5Ocean/"
     },
     {
       "classifiers": [
@@ -2890,7 +3153,7 @@
         "provider:nvidia",
         "backend:pytorch"
       ],
-      "signature": "DataReplay(source: DataSource | ForecastSource, variable: str | list[str], domain_coords: CoordSystem, step: np.timedelta64 = np.timedelta64(6, 'h'))",
+      "signature": "DataReplay(source: DataSource | ForecastSource, variable: str | list[str], domain_coords: CoordSystem | GridDefinition | str, step: np.timedelta64 = np.timedelta64(6, 'h'))",
       "source": "modules/generated/models/px/DataReplay.md",
       "summary": "Replay a data source through the prognostic model interface.",
       "symbol": "earth2studio.models.px.DataReplay",
@@ -2898,14 +3161,10 @@
       "url": "modules/generated/models/px/DataReplay/"
     },
     {
-      "classifiers": [
-        "region:global",
-        "provider:nvidia",
-        "backend:pytorch"
-      ],
+      "classifiers": [],
       "signature": "DiagnosticWrapper(px_model: PrognosticModel, dx_model: DiagnosticModel | list[DiagnosticModel], prepare_dx_input_coords: PrepareDxInputCoords | list[PrepareDxInputCoords] | None = None, prepare_dx_input_tensor: PrepareDxInputTensor | list[PrepareDxInputTensor] | None = None, prepare_output_coords: PrepareOutputCoords | None = None, prepare_output_tensor: PrepareOutputTensor | None = None)",
       "source": "modules/generated/models/px/DiagnosticWrapper.md",
-      "summary": "Wraps a prognostic model and one or more diagnostic models into a single prognostic model. The micro-pipeline this wrapper encapsulates has the following four steps:",
+      "summary": "Compose a native DataArray prognostic with one or more diagnostics.",
       "symbol": "earth2studio.models.px.DiagnosticWrapper",
       "title": "DiagnosticWrapper",
       "url": "modules/generated/models/px/DiagnosticWrapper/"
@@ -2941,7 +3200,7 @@
         "provider:nvidia",
         "backend:pytorch"
       ],
-      "signature": "FCN3(core_model: torch.nn.Module, variables: np.array = np.array(VARIABLES), seed: int = 333)",
+      "signature": "FCN3(core_model: torch.nn.Module, variables: np.array = np.array(VARIABLES))",
       "source": "modules/generated/models/px/FCN3.md",
       "summary": "FourCastNet 3 advances global weather modeling by implementing a scalable, geometric machine learning (ML) approach to probabilistic ensemble forecasting. The approach is designed to respect spherical geometry and to accurately model the spatially correlated probabilistic nature of the problem, resulting in stable spectra and realistic dynamics across multiple scales.",
       "symbol": "earth2studio.models.px.FCN3",
@@ -3019,7 +3278,7 @@
         "provider:google",
         "backend:jax"
       ],
-      "signature": "GenCastMini(ckpt: 'gencast.CheckPoint', diffs_stddev_by_level: xr.Dataset, mean_by_level: xr.Dataset, stddev_by_level: xr.Dataset, min_by_level: xr.Dataset, land_sea_mask: np.ndarray, geopotential_at_surface: np.ndarray, sst_nan_mask: np.ndarray, seed: int | None = 0, jit_compile: bool = True)",
+      "signature": "GenCastMini(ckpt: 'gencast.CheckPoint', diffs_stddev_by_level: xr.Dataset, mean_by_level: xr.Dataset, stddev_by_level: xr.Dataset, min_by_level: xr.Dataset, land_sea_mask: np.ndarray, geopotential_at_surface: np.ndarray, sst_nan_mask: np.ndarray, jit_compile: bool = True)",
       "source": "modules/generated/models/px/GenCastMini.md",
       "summary": "GenCast Mini diffusion-based weather prediction model.",
       "symbol": "earth2studio.models.px.GenCastMini",
@@ -3076,7 +3335,7 @@
         "year:2026",
         "gpu:80gb"
       ],
-      "signature": "InterpCRPSDiT(dit: torch.nn.Module, center: torch.Tensor, scale: torch.Tensor, static_inv: torch.Tensor, lat2d: torch.Tensor, lon2d: torch.Tensor, px_model: PrognosticModel, num_interp_steps: int = 6, lon_pad: int = 128, seed: int | None = None, drop_variables: list[OptionalVariable] | None = None, amp_dtype: torch.dtype | None = None)",
+      "signature": "InterpCRPSDiT(dit: torch.nn.Module, center: torch.Tensor, scale: torch.Tensor, static_inv: torch.Tensor, lat2d: torch.Tensor, lon2d: torch.Tensor, px_model: PrognosticModel, num_interp_steps: int = 6, lon_pad: int = 128, drop_variables: list[OptionalVariable] | None = None, amp_dtype: torch.dtype | None = None)",
       "source": "modules/generated/models/px/InterpCRPSDiT.md",
       "summary": "One-shot, endpoint-pinned CRPS temporal interpolation with a DiT backbone (73 variables at 0.25 degree resolution, 721x1440).",
       "symbol": "earth2studio.models.px.InterpCRPSDiT",
@@ -3095,7 +3354,7 @@
         "provider:nvidia",
         "backend:pytorch"
       ],
-      "signature": "InterpModAFNO(interp_model: torch.nn.Module, center: torch.Tensor, scale: torch.Tensor, geop: torch.Tensor, lsm: torch.Tensor, px_model: PrognosticModel | None = None, num_interp_steps: int = 6)",
+      "signature": "InterpModAFNO(interp_model: torch.nn.Module, center: torch.Tensor, scale: torch.Tensor, geop: torch.Tensor, lsm: torch.Tensor, px_model: PrognosticModel | None = None, num_interp_steps: int = 6, prepare_endpoint: Callable[[xr.DataArray], xr.DataArray] | None = None)",
       "source": "modules/generated/models/px/InterpModAFNO.md",
       "summary": "ModAFNO interpolation for global prognostic models. Interpolates a forecast model to a shorter time-step size (by default from 6 to 1 hour). Operates on 0.25 degree lat-lon equirectangular grid with 73 variables.",
       "symbol": "earth2studio.models.px.InterpModAFNO",
@@ -3162,7 +3421,7 @@
         "provider:nvidia",
         "backend:pytorch"
       ],
-      "signature": "Persistence(variable: str | list[str], domain_coords: CoordSystem, history: int = 1, dt: np.timedelta64 = np.timedelta64(6, 'h'))",
+      "signature": "Persistence(variable: str | list[str], domain_coords: CoordSystem | GridDefinition | str, history: int = 1, dt: np.timedelta64 = np.timedelta64(6, 'h'))",
       "source": "modules/generated/models/px/Persistence.md",
       "summary": "Persistence model that generates a forecast by applying the identity operator on the initial condition and indexing the lead time by 6 hours. Primarily used in testing.",
       "symbol": "earth2studio.models.px.Persistence",
@@ -3183,13 +3442,23 @@
       ],
       "signature": "SFNO(core_model: torch.nn.Module, variables: np.array = np.array(VARIABLES))",
       "source": "modules/generated/models/px/SFNO.md",
-      "summary": "Spherical Fourier Operator Network global prognostic model. Consists of a single model with a time-step size of 6 hours. FourCastNet operates on 0.25 degree lat-lon grid (south-pole excluding) equirectangular grid with 73 variables.",
+      "summary": "Spherical Fourier Operator Network global prognostic model. Consists of a single model with a time-step size of 6 hours. FourCastNet operates on 0.25 degree lat-lon grid (south-pole including) equirectangular grid with 73 variables.",
       "symbol": "earth2studio.models.px.SFNO",
       "title": "SFNO",
       "url": "modules/generated/models/px/SFNO/"
     },
     {
-      "classifiers": [],
+      "classifiers": [
+        "region:global",
+        "class:climate",
+        "product:wind",
+        "product:precip",
+        "product:temp",
+        "product:atmos",
+        "product:ocean",
+        "year:2025",
+        "gpu:40gb"
+      ],
       "signature": "SamudrACE(stepper: CoupledStepper, forcing_data_source: DataSource)",
       "source": "modules/generated/models/px/SamudrACE.md",
       "summary": "SamudrACE coupled climate emulator.",
@@ -3210,7 +3479,7 @@
         "provider:nvidia",
         "backend:pytorch"
       ],
-      "signature": "StormCast(regression_model: torch.nn.Module, diffusion_model: torch.nn.Module, means: torch.Tensor, stds: torch.Tensor, invariants: torch.Tensor, hrrr_lat_lim: tuple[int, int] = (273, 785), hrrr_lon_lim: tuple[int, int] = (579, 1219), variables: np.array = np.array(VARIABLES), conditioning_means: torch.Tensor | None = None, conditioning_stds: torch.Tensor | None = None, conditioning_variables: np.array = np.array(CONDITIONING_VARIABLES), conditioning_data_source: DataSource | ForecastSource | None = None, sampler_steps: int = 18, sampler_args: dict[str, float | int] | None = None)",
+      "signature": "StormCast(regression_model: torch.nn.Module, diffusion_model: torch.nn.Module, means: torch.Tensor, stds: torch.Tensor, invariants: torch.Tensor, hrrr_lat_lim: tuple[int, int] = (273, 785), hrrr_lon_lim: tuple[int, int] = (579, 1219), variables: np.array = np.array(VARIABLES), conditioning_means: torch.Tensor | None = None, conditioning_stds: torch.Tensor | None = None, conditioning_variables: np.array = np.array(CONDITIONING_VARIABLES), sampler_steps: int = 18, sampler_args: dict[str, float | int] | None = None)",
       "source": "modules/generated/models/px/StormCast.md",
       "summary": "StormCast generative convection-allowing model for regional forecasts consists of two core models: a regression and diffusion model. Model time step size is 1 hour, taking as input:",
       "symbol": "earth2studio.models.px.StormCast",
@@ -3231,7 +3500,7 @@
         "provider:nvidia",
         "backend:pytorch"
       ],
-      "signature": "StormCastCONUS(diffusion_model: torch.nn.Module, means: torch.Tensor, stds: torch.Tensor, invariants: torch.Tensor, conditioning_means: torch.Tensor, conditioning_stds: torch.Tensor, hrrr_lat_lim: tuple[int, int] = (17, 1041), hrrr_lon_lim: tuple[int, int] = (3, 1795), variables: np.ndarray = np.array(VARIABLES), conditioning_variables: np.ndarray = np.array(CONDITIONING_VARIABLES), conditioning_data_source: DataSource | ForecastSource | None = None, conditioning_init_time: datetime | list[datetime] | TimeArray | None = None, sampler_args: dict[str, float | int] | None = None, num_diffusion_steps: int = 18, num_sda_diffusion_steps: int = 36, batch_size: int = 1, time_tolerance: np.timedelta64 | tuple[np.timedelta64, np.timedelta64] | None = None, sda_std_obs: float | dict[str, float] = 0.1, sda_dps_norm: float = 2, sda_gamma: float = 0.001, use_amp: bool = True, clamp_values: bool = True)",
+      "signature": "StormCastCONUS(diffusion_model: torch.nn.Module, means: torch.Tensor, stds: torch.Tensor, invariants: torch.Tensor, conditioning_means: torch.Tensor, conditioning_stds: torch.Tensor, hrrr_lat_lim: tuple[int, int] = (17, 1041), hrrr_lon_lim: tuple[int, int] = (3, 1795), variables: np.ndarray = np.array(VARIABLES), conditioning_variables: np.ndarray = np.array(CONDITIONING_VARIABLES), sampler_args: dict[str, float | int] | None = None, num_diffusion_steps: int = 18, num_sda_diffusion_steps: int = 36, batch_size: int = 1, time_tolerance: np.timedelta64 | tuple[np.timedelta64, np.timedelta64] | None = None, sda_std_obs: float | dict[str, float] = 0.1, sda_dps_norm: float = 2, sda_gamma: float = 0.001, use_amp: bool = True, clamp_values: bool = True)",
       "source": "modules/generated/models/px/StormCastCONUS.md",
       "summary": "StormCast-CONUS generative convection-allowing model for the full CONUS domain.",
       "symbol": "earth2studio.models.px.StormCastCONUS",
@@ -3248,12 +3517,29 @@
         "provider:nvidia",
         "backend:pytorch"
       ],
-      "signature": "StormScopeGOES(model_spec: list[dict[str, Any]], means: torch.Tensor, stds: torch.Tensor, latitudes: torch.Tensor, longitudes: torch.Tensor, variables: np.ndarray = np.array(['abi01c', 'abi02c', 'abi03c', 'abi07c', 'abi08c', 'abi09c', 'abi10c', 'abi13c']), conditioning_variables: np.ndarray = np.array(['z500']), conditioning_means: torch.Tensor | None = None, conditioning_stds: torch.Tensor | None = None, conditioning_data_source: Any | None = None, glm_mask: torch.Tensor | None = None, conditioning_glm_mask: torch.Tensor | None = None, topo: torch.Tensor | None = None, nexrad_proximity: torch.Tensor | None = None, sampler_args: dict[str, float | int] | None = {'num_steps': 100, 'S_churn': 10}, input_times: np.ndarray = np.array([np.timedelta64(0, 'h')]), output_times: np.ndarray = np.array([np.timedelta64(1, 'h')]), y_coords: np.ndarray | None = None, x_coords: np.ndarray | None = None, input_interp_max_dist_km: float = 12.0, conditioning_interp_max_dist_km: float = 26.0, amp: bool = True, compile: bool = False)",
+      "signature": "StormScopeGOES(model_spec: list[dict[str, Any]], means: torch.Tensor, stds: torch.Tensor, latitudes: torch.Tensor, longitudes: torch.Tensor, variables: np.ndarray = np.array(['abi01c', 'abi02c', 'abi03c', 'abi07c', 'abi08c', 'abi09c', 'abi10c', 'abi13c']), conditioning_variables: np.ndarray | None = None, conditioning_means: torch.Tensor | None = None, conditioning_stds: torch.Tensor | None = None, glm_mask: torch.Tensor | None = None, conditioning_glm_mask: torch.Tensor | None = None, topo: torch.Tensor | None = None, nexrad_proximity: torch.Tensor | None = None, sampler_args: dict[str, float | int] | None = {'num_steps': 100, 'S_churn': 10}, input_times: np.ndarray = np.array([np.timedelta64(0, 'h')]), output_times: np.ndarray = np.array([np.timedelta64(1, 'h')]), y_coords: np.ndarray | None = None, x_coords: np.ndarray | None = None, max_dist_km: float = 6.0, amp: bool = True, compile: bool = False)",
       "source": "modules/generated/models/px/StormScopeGOES.md",
       "summary": "StormScope model forecasting GOES data on the HRRR grid.",
       "symbol": "earth2studio.models.px.StormScopeGOES",
       "title": "StormScopeGOES",
       "url": "modules/generated/models/px/StormScopeGOES/"
+    },
+    {
+      "classifiers": [
+        "region:na",
+        "class:nowcasting",
+        "product:sat",
+        "year:2026",
+        "gpu:80gb",
+        "provider:nvidia",
+        "backend:pytorch"
+      ],
+      "signature": "StormScopeGOESConditioned()",
+      "source": "modules/generated/models/px/StormScopeGOESConditioned.md",
+      "summary": "StormScope GOES forecasts conditioned on numerical weather prediction fields.",
+      "symbol": "earth2studio.models.px.StormScopeGOESConditioned",
+      "title": "StormScopeGOESConditioned",
+      "url": "modules/generated/models/px/StormScopeGOESConditioned/"
     },
     {
       "classifiers": [
@@ -3265,7 +3551,7 @@
         "provider:nvidia",
         "backend:pytorch"
       ],
-      "signature": "StormScopeMRMS(model_spec: list[dict[str, Any]], means: torch.Tensor, stds: torch.Tensor, latitudes: torch.Tensor, longitudes: torch.Tensor, variables: np.ndarray = np.array(['refc']), conditioning_variables: np.ndarray = np.array(['abi01c', 'abi02c', 'abi03c', 'abi07c', 'abi08c', 'abi09c', 'abi10c', 'abi13c']), conditioning_means: torch.Tensor | None = None, conditioning_stds: torch.Tensor | None = None, conditioning_data_source: Any | None = None, glm_mask: torch.Tensor | None = None, conditioning_glm_mask: torch.Tensor | None = None, topo: torch.Tensor | None = None, nexrad_proximity: torch.Tensor | None = None, mrms_coverage_mask: torch.Tensor | None = None, glm_data_source: Any | None = None, sampler_args: dict[str, float | int] | None = {'num_steps': 100, 'S_churn': 10}, y_coords: np.ndarray | None = None, x_coords: np.ndarray | None = None, input_times: np.ndarray = np.array([np.timedelta64(0, 'h')]), output_times: np.ndarray = np.array([np.timedelta64(1, 'h')]), input_interp_max_dist_km: float = 12.0, conditioning_interp_max_dist_km: float = 12.0, glm_interp_max_dist_km: float = 14.0, amp: bool = True, compile: bool = False)",
+      "signature": "StormScopeMRMS(model_spec: list[dict[str, Any]], means: torch.Tensor, stds: torch.Tensor, latitudes: torch.Tensor, longitudes: torch.Tensor, variables: np.ndarray = np.array(['refc']), conditioning_variables: np.ndarray = np.array(['abi01c', 'abi02c', 'abi03c', 'abi07c', 'abi08c', 'abi09c', 'abi10c', 'abi13c']), conditioning_means: torch.Tensor | None = None, conditioning_stds: torch.Tensor | None = None, glm_mask: torch.Tensor | None = None, conditioning_glm_mask: torch.Tensor | None = None, topo: torch.Tensor | None = None, nexrad_proximity: torch.Tensor | None = None, mrms_coverage_mask: torch.Tensor | None = None, sampler_args: dict[str, float | int] | None = {'num_steps': 100, 'S_churn': 10}, y_coords: np.ndarray | None = None, x_coords: np.ndarray | None = None, input_times: np.ndarray = np.array([np.timedelta64(0, 'h')]), output_times: np.ndarray = np.array([np.timedelta64(1, 'h')]), max_dist_km: float = 6.0, amp: bool = True, compile: bool = False)",
       "source": "modules/generated/models/px/StormScopeMRMS.md",
       "summary": "StormScope model forecasting MRMS data on the HRRR grid.",
       "symbol": "earth2studio.models.px.StormScopeMRMS",
@@ -3282,7 +3568,7 @@
         "provider:nvidia",
         "backend:pytorch"
       ],
-      "signature": "StormScopeMeteosatEU(model_spec: list[dict[str, Any]], means: torch.Tensor, stds: torch.Tensor, scale_factor: torch.Tensor, add_offset: torch.Tensor, invariants: torch.Tensor, lat: torch.Tensor, lon: torch.Tensor, earth_mask: torch.Tensor, mtg_y: np.ndarray, mtg_x: np.ndarray, mtg_ylim: tuple[int, int] = Model_FCI_BBox[0], mtg_xlim: tuple[int, int] = Model_FCI_BBox[1], inference_mtg_box: tuple[tuple[int, int], tuple[int, int]] = Model_FCI_BBox, variables: np.ndarray = np.array(VARIABLES), sampler_args: dict[str, float | int] | None = None, input_times: np.ndarray = np.arange(-5, 1) * np.timedelta64(10, 'm'), output_times: np.ndarray = np.array([np.timedelta64(10, 'm')]), ir_38_warm_scale_factor: float = 0.024222141, ir_38_warm_threshold: float = 4095.0, num_diffusion_steps: int = 48, batch_size: int = 1, use_amp: bool = True)",
+      "signature": "StormScopeMeteosatEU(model_spec: list[dict[str, Any]], means: torch.Tensor, stds: torch.Tensor, scale_factor: torch.Tensor, add_offset: torch.Tensor, invariants: torch.Tensor, latitudes: torch.Tensor, longitudes: torch.Tensor, earth_mask: torch.Tensor, y_coords: np.ndarray, x_coords: np.ndarray, variables: np.ndarray = np.array(VARIABLES), sampler_args: dict[str, float | int] | None = None, input_times: np.ndarray = np.arange(-5, 1) * np.timedelta64(10, 'm'), output_times: np.ndarray = np.array([np.timedelta64(10, 'm')]), ir_38_warm_scale_factor: float = 0.024222141, ir_38_warm_threshold: float = 4095.0, batch_size: int = 1, amp: bool = True, compile: bool = False)",
       "source": "modules/generated/models/px/StormScopeMeteosatEU.md",
       "summary": "Generative diffusion nowcasting model for MTG-I1 FCI satellite imagery.",
       "symbol": "earth2studio.models.px.StormScopeMeteosatEU",
@@ -3307,6 +3593,25 @@
       "symbol": "earth2studio.models.px.UCast",
       "title": "UCast",
       "url": "modules/generated/models/px/UCast/"
+    },
+    {
+      "classifiers": [
+        "region:global",
+        "class:medium-range",
+        "product:wind",
+        "product:temp",
+        "product:atmos",
+        "year:2025",
+        "provider:windborne",
+        "backend:pytorch",
+        "gpu:40gb"
+      ],
+      "signature": "WeatherMesh5C(core_model: torch.nn.Module, variables: Sequence[str] | None = None)",
+      "source": "modules/generated/models/px/WeatherMesh5C.md",
+      "summary": "WindBorne's global weather forecast model.",
+      "symbol": "earth2studio.models.px.WeatherMesh5C",
+      "title": "WeatherMesh5C",
+      "url": "modules/generated/models/px/WeatherMesh5C/"
     },
     {
       "classifiers": [
@@ -3352,7 +3657,7 @@
     },
     {
       "classifiers": [],
-      "signature": "BredVector(model: Callable[[torch.Tensor, CoordSystem], tuple[torch.Tensor, CoordSystem]], noise_amplitude: float | torch.Tensor = 0.05, integration_steps: int = 20, ensemble_perturb: bool = False, seeding_perturbation_method: Perturbation = Brown())",
+      "signature": "BredVector(model: Callable[[xr.DataArray], xr.DataArray], noise_amplitude: float | torch.Tensor = 0.05, integration_steps: int = 20, ensemble_perturb: bool = False, seeding_perturbation_method: Perturbation | None = None)",
       "source": "modules/generated/perturbation/BredVector.md",
       "summary": "Bred Vector perturbation method, a classical technique for pertubations in ensemble forecasting.",
       "symbol": "earth2studio.perturbation.BredVector",
@@ -3424,9 +3729,9 @@
     },
     {
       "classifiers": [],
-      "signature": "acc(reduction_dimensions: list[str], climatology: DataSource | None = None, weights: torch.Tensor | None = None)",
+      "signature": "acc(reduction_dimensions: list[str], climatology: DataSource | None = None, weights: torch.Tensor | np.ndarray | None = None)",
       "source": "modules/generated/statistics/acc.md",
-      "summary": "Statistic for calculating the anomaly correlation coefficient of two tensors over a set of given dimensions, with respect to some optional climatology.",
+      "summary": "Statistic for calculating the anomaly correlation coefficient of two arrays over a set of given dimensions, with respect to some optional climatology.",
       "symbol": "earth2studio.statistics.acc",
       "title": "acc",
       "url": "modules/generated/statistics/acc/"
@@ -3435,14 +3740,14 @@
       "classifiers": [],
       "signature": "brier_score(reduction_dimensions: list[str], thresholds: ArrayLike, ensemble_dimension: str | None = None, batch_update: bool = False)",
       "source": "modules/generated/statistics/brier_score.md",
-      "summary": "Statistic for calculating the Brier score (BS) of one tensors with respect to another over a set of given dimensions.",
+      "summary": "Statistic for calculating the Brier score (BS) of one array with respect to another over a set of given dimensions.",
       "symbol": "earth2studio.statistics.brier_score",
       "title": "brier_score",
       "url": "modules/generated/statistics/brier_score/"
     },
     {
       "classifiers": [],
-      "signature": "crps(ensemble_dimension: str, reduction_dimensions: list[str] | None = None, weights: torch.Tensor = None, fair: bool = False)",
+      "signature": "crps(ensemble_dimension: str, reduction_dimensions: list[str] | None = None, weights: torch.Tensor | np.ndarray | None = None, fair: bool = False)",
       "source": "modules/generated/statistics/crps.md",
       "summary": "Compute the Continuous Ranked Probability Score (CRPS).",
       "symbol": "earth2studio.statistics.crps",
@@ -3451,7 +3756,7 @@
     },
     {
       "classifiers": [],
-      "signature": "energy_score(ensemble_dimension: str, multivariate_dimensions: list[str], reduction_dimensions: list[str] | None = None, weights: torch.Tensor = None, fair: bool = False)",
+      "signature": "energy_score(ensemble_dimension: str, multivariate_dimensions: list[str], reduction_dimensions: list[str] | None = None, weights: torch.Tensor | np.ndarray | None = None, fair: bool = False)",
       "source": "modules/generated/statistics/energy_score.md",
       "summary": "Compute the Energy Score for multivariate ensemble forecast verification.",
       "symbol": "earth2studio.statistics.energy_score",
@@ -3462,7 +3767,7 @@
       "classifiers": [],
       "signature": "fss(reduction_dimensions: list[str], window_sizes: ArrayLike, thresholds: ArrayLike, spatial_dimensions: tuple[str, str] | None = None, ensemble_dimension: str | None = None, batch_update: bool = False)",
       "source": "modules/generated/statistics/fss.md",
-      "summary": "Statistic for calculating the fractions skill score (FSS) of one tensors with respect to another over a set of given dimensions.",
+      "summary": "Statistic for calculating the fractions skill score (FSS) of one array with respect to another over a set of given dimensions.",
       "symbol": "earth2studio.statistics.fss",
       "title": "fss",
       "url": "modules/generated/statistics/fss/"
@@ -3471,7 +3776,7 @@
       "classifiers": [],
       "signature": "log_spectral_distance(reduction_dimensions: list[str] = [], spatial_dimensions: tuple[str, str] | None = None, ensemble_dimension: str | None = None, wavenumber_cutoff: int | None = None, batch_update: bool = False)",
       "source": "modules/generated/statistics/log_spectral_distance.md",
-      "summary": "Statistic for calculating the radially averaged 2D log spectral distance (LSD) of one tensor with respect to another over a set of given dimensions. This is given in decibel (dB) as 10 * sqrt( mean( log10( psd(x) / psd(y) )**2 ) ).",
+      "summary": "Statistic for calculating the radially averaged 2D log spectral distance (LSD) of one array with respect to another over a set of given dimensions. This is given in decibel (dB) as 10 * sqrt( mean( log10( psd(x) / psd(y) )**2 ) ).",
       "symbol": "earth2studio.statistics.log_spectral_distance",
       "title": "log_spectral_distance",
       "url": "modules/generated/statistics/log_spectral_distance/"
@@ -3480,14 +3785,14 @@
       "classifiers": [],
       "signature": "mae()",
       "source": "modules/generated/statistics/mae.md",
-      "summary": "Statistic for calculating the mean absolute error of two tensors over a set of given dimensions.",
+      "summary": "Statistic for calculating the mean absolute error of two arrays over a set of given dimensions.",
       "symbol": "earth2studio.statistics.mae",
       "title": "mae",
       "url": "modules/generated/statistics/mae/"
     },
     {
       "classifiers": [],
-      "signature": "mean(reduction_dimensions: list[str], weights: torch.Tensor = None, batch_update: bool = False)",
+      "signature": "mean(reduction_dimensions: list[str], weights: torch.Tensor | np.ndarray | None = None, batch_update: bool = False)",
       "source": "modules/generated/statistics/mean.md",
       "summary": "Statistic for calculating the sample mean over a set of given dimensions.",
       "symbol": "earth2studio.statistics.mean",
@@ -3505,16 +3810,16 @@
     },
     {
       "classifiers": [],
-      "signature": "rmse(reduction_dimensions: list[str], weights: torch.Tensor | None = None, batch_update: bool = False, ensemble_dimension: str | None = None)",
+      "signature": "rmse(reduction_dimensions: list[str], weights: torch.Tensor | np.ndarray | None = None, batch_update: bool = False, ensemble_dimension: str | None = None)",
       "source": "modules/generated/statistics/rmse.md",
-      "summary": "Statistic for calculating the root mean squared error of two tensors over a set of given dimensions.",
+      "summary": "Statistic for calculating the root mean squared error of two arrays over a set of given dimensions.",
       "symbol": "earth2studio.statistics.rmse",
       "title": "rmse",
       "url": "modules/generated/statistics/rmse/"
     },
     {
       "classifiers": [],
-      "signature": "spread_skill_ratio(ensemble_dimension: str, reduction_dimensions: list[str], ensemble_weights: torch.Tensor | None = None, reduction_weights: torch.Tensor = None, ensemble_batch_update: bool = False, reduction_batch_update: bool = False)",
+      "signature": "spread_skill_ratio(ensemble_dimension: str, reduction_dimensions: list[str], ensemble_weights: torch.Tensor | np.ndarray | None = None, reduction_weights: torch.Tensor | np.ndarray | None = None, ensemble_batch_update: bool = False, reduction_batch_update: bool = False)",
       "source": "modules/generated/statistics/spread_skill_ratio.md",
       "summary": "Metric for calculating the spread/skill ratio of an ensemble forecast.",
       "symbol": "earth2studio.statistics.spread_skill_ratio",
@@ -3523,7 +3828,7 @@
     },
     {
       "classifiers": [],
-      "signature": "std(reduction_dimensions: list[str], weights: torch.Tensor = None, batch_update: bool = False)",
+      "signature": "std(reduction_dimensions: list[str], weights: torch.Tensor | np.ndarray | None = None, batch_update: bool = False)",
       "source": "modules/generated/statistics/std.md",
       "summary": "Statistic for calculating the sample standard deviation over a set of given dimensions.",
       "symbol": "earth2studio.statistics.std",
@@ -3532,7 +3837,7 @@
     },
     {
       "classifiers": [],
-      "signature": "variance(reduction_dimensions: list[str], weights: torch.Tensor = None, batch_update: bool = False)",
+      "signature": "variance(reduction_dimensions: list[str], weights: torch.Tensor | np.ndarray | None = None, batch_update: bool = False)",
       "source": "modules/generated/statistics/variance.md",
       "summary": "Statistic for calculating the sample variance over a set of given dimensions.",
       "symbol": "earth2studio.statistics.variance",
@@ -3595,7 +3900,7 @@
     },
     {
       "classifiers": [],
-      "signature": "handshake_coords(input_coords: CoordSystem, target_coords: CoordSystem, required_dim: str | list[str]) -> None",
+      "signature": "handshake_coords(input_coords: CoordSystem | xr.DataArray, target_coords: CoordSystem | xr.DataArray, required_dim: Hashable | Sequence[Hashable], subset: bool = False) -> None",
       "source": "modules/generated/utils/coords/handshake_coords.md",
       "summary": "Simple check to see if the required dimensions have the same coordinate system",
       "symbol": "earth2studio.utils.coords.handshake_coords",
@@ -3604,7 +3909,7 @@
     },
     {
       "classifiers": [],
-      "signature": "handshake_dim(input_coords: CoordSystem, required_dim: str, required_index: int | None = None) -> None",
+      "signature": "handshake_dim(input_coords: CoordSystem | xr.DataArray, required_dim: Hashable | tuple[Hashable, ...], required_index: int | None = None) -> None",
       "source": "modules/generated/utils/coords/handshake_dim.md",
       "summary": "Simple check to see if coordinate system has a dimension in a particular index",
       "symbol": "earth2studio.utils.coords.handshake_dim",
@@ -3613,7 +3918,7 @@
     },
     {
       "classifiers": [],
-      "signature": "handshake_size(input_coords: CoordSystem, required_dim: str, required_size: int) -> None",
+      "signature": "handshake_size(input_coords: CoordSystem | xr.DataArray, required_dim: Hashable, required_size: int) -> None",
       "source": "modules/generated/utils/coords/handshake_size.md",
       "summary": "Simple check to see if a coordinate system of a given dimension is a required size",
       "symbol": "earth2studio.utils.coords.handshake_size",
@@ -3649,6 +3954,24 @@
     },
     {
       "classifiers": [],
+      "signature": "hybrid_pressure(a: ArrayLike, b: ArrayLike, surface_pressure: Tensor, interfaces: bool = False) -> Tensor",
+      "source": "modules/generated/utils/interp/hybrid_pressure.md",
+      "summary": "Pressure on hybrid sigma-pressure levels, `p = a + b * surface_pressure`.",
+      "symbol": "earth2studio.utils.interp.hybrid_pressure",
+      "title": "hybrid_pressure",
+      "url": "modules/generated/utils/interp/hybrid_pressure/"
+    },
+    {
+      "classifiers": [],
+      "signature": "interpolate_vertical(x: Tensor, coordinate: Tensor, target: Tensor, dim: int = -1, log: bool = False, fill_value: float | None = None) -> Tensor",
+      "source": "modules/generated/utils/interp/interpolate_vertical.md",
+      "summary": "Interpolate `x` linearly along a vertical coordinate onto `target` levels.",
+      "symbol": "earth2studio.utils.interp.interpolate_vertical",
+      "title": "interpolate_vertical",
+      "url": "modules/generated/utils/interp/interpolate_vertical/"
+    },
+    {
+      "classifiers": [],
       "signature": "ObsGridMapping(grid_variables: np.ndarray, grid_lat: np.ndarray | torch.Tensor, grid_lon: np.ndarray | torch.Tensor, device: torch.device | str | None = None)",
       "source": "modules/generated/utils/obs/ObsGridMapping.md",
       "summary": "Maps point observations to and from a 2-D model grid.",
@@ -3676,30 +3999,48 @@
     },
     {
       "classifiers": [],
-      "signature": "deterministic(time: list[str] | list[datetime] | list[np.datetime64], nsteps: int, prognostic: PrognosticModel, data: DataSource, io: IOBackend, output_coords: CoordSystem = OrderedDict({}), device: torch.device | None = None, verbose: bool = True, checkpoint: Checkpoint | CheckpointSession | NullCheckpoint = NullCheckpoint()) -> IOBackend",
+      "signature": "deterministic(...)",
       "source": "modules/generated/workflows/deterministic.md",
-      "summary": "Built in deterministic workflow. This workflow creates a determinstic inference pipeline to produce a forecast prediction using a prognostic model.",
+      "summary": "API reference page.",
       "symbol": "earth2studio.run.deterministic",
       "title": "deterministic",
       "url": "modules/generated/workflows/deterministic/"
     },
     {
       "classifiers": [],
-      "signature": "diagnostic(time: list[str] | list[datetime] | list[np.datetime64], nsteps: int, prognostic: PrognosticModel, diagnostic: DiagnosticModel, data: DataSource | ForecastSource, io: IOBackend, output_coords: CoordSystem = OrderedDict({}), device: torch.device | None = None, verbose: bool = True, checkpoint: Checkpoint | CheckpointSession | NullCheckpoint = NullCheckpoint()) -> IOBackend",
+      "signature": "diagnostic(...)",
       "source": "modules/generated/workflows/diagnostic.md",
-      "summary": "Built in diagnostic workflow. This workflow creates a determinstic inference pipeline that couples a prognostic model with a diagnostic model.",
+      "summary": "API reference page.",
       "symbol": "earth2studio.run.diagnostic",
       "title": "diagnostic",
       "url": "modules/generated/workflows/diagnostic/"
     },
     {
       "classifiers": [],
-      "signature": "ensemble(time: list[str] | list[datetime] | list[np.datetime64], nsteps: int, nensemble: int, prognostic: PrognosticModel, data: DataSource, io: IOBackend, perturbation: Perturbation, batch_size: int | None = None, output_coords: CoordSystem = OrderedDict({}), device: torch.device | None = None, verbose: bool = True, checkpoint: Checkpoint | CheckpointSession | NullCheckpoint = NullCheckpoint()) -> IOBackend",
+      "signature": "ensemble(...)",
       "source": "modules/generated/workflows/ensemble.md",
-      "summary": "Built in ensemble workflow.",
+      "summary": "API reference page.",
       "symbol": "earth2studio.run.ensemble",
       "title": "ensemble",
       "url": "modules/generated/workflows/ensemble/"
+    },
+    {
+      "classifiers": [],
+      "signature": "map_field(x: xr.DataArray, target: xr.DataArray | CoordSystem) -> xr.DataArray",
+      "source": "modules/generated/workflows/map_field.md",
+      "summary": "Select the variables and domain of `target` from `x`.",
+      "symbol": "earth2studio.run.map_field",
+      "title": "map_field",
+      "url": "modules/generated/workflows/map_field/"
+    },
+    {
+      "classifiers": [],
+      "signature": "",
+      "source": "readme_hero/README.md",
+      "summary": "The wind globe and its legend share Matplotlib's `cubehelix` palette.",
+      "symbol": "",
+      "title": "README hero image",
+      "url": "readme_hero/"
     },
     {
       "classifiers": [],
@@ -3830,6 +4171,141 @@
     {
       "classifiers": [],
       "signature": "",
+      "source": "specs/README.md",
+      "summary": "1.",
+      "symbol": "",
+      "title": "Specifications",
+      "url": "specs/"
+    },
+    {
+      "classifiers": [],
+      "signature": "",
+      "source": "specs/E2S-01_CORE_METADATA_SPEC.md",
+      "summary": "<!-- markdownlint-configure-file { \"MD013\": { \"tables\": false } } -->",
+      "symbol": "",
+      "title": "E2S 01 CORE METADATA SPEC",
+      "url": "specs/E2S-01_CORE_METADATA_SPEC/"
+    },
+    {
+      "classifiers": [],
+      "signature": "",
+      "source": "specs/E2S-02_GRID_SPEC.md",
+      "summary": "Provide one lightweight contract for describing spatial grids without coupling grid geometry to field data or regridding engines.",
+      "symbol": "",
+      "title": "E2S-02: Earth2Studio Grid Protocol",
+      "url": "specs/E2S-02_GRID_SPEC/"
+    },
+    {
+      "classifiers": [],
+      "signature": "",
+      "source": "specs/E2S-03_TIME_STATISTICS_SPEC.md",
+      "summary": "Declare temporal quantities in variable labels, and have data sources produce them.",
+      "symbol": "",
+      "title": "E2S-03: Earth2Studio Time Statistics",
+      "url": "specs/E2S-03_TIME_STATISTICS_SPEC/"
+    },
+    {
+      "classifiers": [],
+      "signature": "",
+      "source": "specs/E2S-04_REGRID_SPEC.md",
+      "summary": "Provide one contract for mapping a field from one grid onto another, so models can recommend a source on another grid for an input slot and drivers can fetch it without knowing the method.",
+      "symbol": "",
+      "title": "E2S-04: Earth2Studio Regridder Protocol",
+      "url": "specs/E2S-04_REGRID_SPEC/"
+    },
+    {
+      "classifiers": [],
+      "signature": "",
+      "source": "specs/E2S-05_FETCH_DATA_SPEC.md",
+      "summary": "This contract reflects the API in [PR #1170](https://github.com/NVIDIA/earth2studio/pull/1170).",
+      "symbol": "",
+      "title": "E2S-05: Earth2Studio Fetch Data Utility",
+      "url": "specs/E2S-05_FETCH_DATA_SPEC/"
+    },
+    {
+      "classifiers": [],
+      "signature": "",
+      "source": "specs/E2S-06_MODEL_CONTRACT_SPEC.md",
+      "summary": "Define prognostic and diagnostic coordinate, interface, iterator, hook, ownership, RNG and domain-selection semantics for model-independent execution.",
+      "symbol": "",
+      "title": "E2S-06: Earth2Studio Model Contract",
+      "url": "specs/E2S-06_MODEL_CONTRACT_SPEC/"
+    },
+    {
+      "classifiers": [],
+      "signature": "",
+      "source": "specs/E2S-07_DA_MODEL_CONTRACT_SPEC.md",
+      "summary": "<!-- markdownlint-disable MD013 -->",
+      "symbol": "",
+      "title": "E2S 07 DA MODEL CONTRACT SPEC",
+      "url": "specs/E2S-07_DA_MODEL_CONTRACT_SPEC/"
+    },
+    {
+      "classifiers": [],
+      "signature": "",
+      "source": "specs/E2S-08_PERTURBATION_SPEC.md",
+      "summary": "Perturbations generate ensemble initial conditions from a state.",
+      "symbol": "",
+      "title": "E2S-08: Earth2Studio Perturbations",
+      "url": "specs/E2S-08_PERTURBATION_SPEC/"
+    },
+    {
+      "classifiers": [],
+      "signature": "",
+      "source": "specs/E2S-09_STATISTICS_SPEC.md",
+      "summary": "Statistics reduce a single field; metrics compare a forecast against an observation.",
+      "symbol": "",
+      "title": "E2S-09: Earth2Studio Statistics and Metrics",
+      "url": "specs/E2S-09_STATISTICS_SPEC/"
+    },
+    {
+      "classifiers": [],
+      "signature": "",
+      "source": "specs/E2S-10_IO_SPEC.md",
+      "summary": "Write model and data-source DataArrays to storage without converting them to tensors and coordinate dictionaries, preserving the coordinates and metadata that make stored fields self-describing.",
+      "symbol": "",
+      "title": "E2S-10: Earth2Studio IO Backend Protocol",
+      "url": "specs/E2S-10_IO_SPEC/"
+    },
+    {
+      "classifiers": [],
+      "signature": "",
+      "source": "specs/E2S-11_EXECUTION_CONTRACT_SPEC.md",
+      "summary": "One user-facing execution API, `Pipeline`, for single-model and coupled runs, without pulling coupling mechanics into it.",
+      "symbol": "",
+      "title": "E2S-11: Execution Contracts (draft)",
+      "url": "specs/E2S-11_EXECUTION_CONTRACT_SPEC/"
+    },
+    {
+      "classifiers": [],
+      "signature": "",
+      "source": "specs/E2S-12_COUPLING_SPEC.md",
+      "summary": "<!-- markdownlint-disable MD013 -->",
+      "symbol": "",
+      "title": "E2S 12 COUPLING SPEC",
+      "url": "specs/E2S-12_COUPLING_SPEC/"
+    },
+    {
+      "classifiers": [],
+      "signature": "",
+      "source": "specs/E2S-13_STAC_SPEC.md",
+      "summary": "Provide one shared layer for reading rasters indexed by SpatioTemporal Asset Catalogs (STAC): catalog search, asset href signing and lazy, windowed reads of cloud-optimized GeoTIFFs.",
+      "symbol": "",
+      "title": "E2S-13: Earth2Studio STAC Access Layer",
+      "url": "specs/E2S-13_STAC_SPEC/"
+    },
+    {
+      "classifiers": [],
+      "signature": "",
+      "source": "specs/TEMPLATE.md",
+      "summary": "<!-- Replace placeholders.",
+      "symbol": "",
+      "title": "E2S-`<NN>`: `<Topic>`",
+      "url": "specs/TEMPLATE/"
+    },
+    {
+      "classifiers": [],
+      "signature": "",
       "source": "userguide/index.md",
       "summary": "<!-- markdownlint-disable MD033 -->",
       "symbol": "",
@@ -3876,7 +4352,7 @@
       "classifiers": [],
       "signature": "",
       "source": "userguide/about/overview.md",
-      "summary": "<!-- markdownlint-disable MD033 -->",
+      "summary": "Bring your own model at any stage.",
       "symbol": "",
       "title": "Overview",
       "url": "userguide/about/overview/"
@@ -3920,6 +4396,24 @@
     {
       "classifiers": [],
       "signature": "",
+      "source": "userguide/advanced/domains.md",
+      "summary": "The `Region` object describes a geographic request independently of any model grid.",
+      "symbol": "",
+      "title": "Adaptive Model Domains",
+      "url": "userguide/advanced/domains/"
+    },
+    {
+      "classifiers": [],
+      "signature": "",
+      "source": "userguide/advanced/io.md",
+      "summary": "The backend extends `ZarrBackend` with `commit(message)`.",
+      "symbol": "",
+      "title": "Advanced Output Handling",
+      "url": "userguide/advanced/io/"
+    },
+    {
+      "classifiers": [],
+      "signature": "",
       "source": "userguide/advanced/lexicon.md",
       "summary": "Below are a few examples:",
       "symbol": "",
@@ -3929,8 +4423,17 @@
     {
       "classifiers": [],
       "signature": "",
+      "source": "userguide/advanced/serving.md",
+      "summary": "For deployment, containers, server configuration, and the client, see the [physicsnemo-serve repository](https://github.com/NVIDIA/physicsnemo-serve) and its documentation.",
+      "symbol": "",
+      "title": "Deployment and Serving",
+      "url": "userguide/advanced/serving/"
+    },
+    {
+      "classifiers": [],
+      "signature": "",
       "source": "userguide/components/index.md",
-      "summary": "",
+      "summary": "| Component | Role | | --- | --- | | [Data and metadata](coordinates.md) | Describe fields, grids, times, and tabular schemas.",
       "symbol": "",
       "title": "Core Components",
       "url": "userguide/components/"
@@ -3938,8 +4441,17 @@
     {
       "classifiers": [],
       "signature": "",
+      "source": "userguide/components/coordinates.md",
+      "summary": "Earth2Studio uses coordinate systems and metadata structures both to describe existing data and to declare what each component needs and produces.",
+      "symbol": "",
+      "title": "Data and Metadata",
+      "url": "userguide/components/coordinates/"
+    },
+    {
+      "classifiers": [],
+      "signature": "",
       "source": "userguide/components/data_assimilation.md",
-      "summary": "Unlike [Prognostic Models](prognostic.md#prognostic_model_userguide), data assimilation models are not primarily responsible for rolling a forecast forward in time.",
+      "summary": "Use these models to prepare initial conditions, update forecasts with new measurements, or produce observation-space predictions.",
       "symbol": "",
       "title": "Data Assimilation Models",
       "url": "userguide/components/data_assimilation/"
@@ -3948,7 +4460,7 @@
       "classifiers": [],
       "signature": "",
       "source": "userguide/components/datasources.md",
-      "summary": "| Source type | Interface | Return type | | --- | --- | --- | | Data source | `(time, variable)` | `xr.DataArray` | | Forecast source | `(time, lead_time, variable)` | `xr.DataArray` | | DataFrame source | `(time, variable)` | `pd.DataFrame` | | ForecastFrame source | `(time, lead_time, variable)` | `pd.DataFrame` |",
+      "summary": "<!-- markdownlint-disable-next-line MD042 --> [](){ #earth2studio.data.DataSource }",
       "symbol": "",
       "title": "Data Sources",
       "url": "userguide/components/datasources/"
@@ -3957,7 +4469,7 @@
       "classifiers": [],
       "signature": "",
       "source": "userguide/components/diagnostic.md",
-      "summary": "The list of diagnostic models that are already built into Earth2Studio can be found in the API documentation [earth2studio.models.dx](../../modules/models_dx.md).",
+      "summary": "| Method | Purpose | | --- | --- | | `input_coords()` | Declare one input signature or an ordered tuple of signatures.",
       "symbol": "",
       "title": "Diagnostic Models",
       "url": "userguide/components/diagnostic/"
@@ -3965,8 +4477,17 @@
     {
       "classifiers": [],
       "signature": "",
+      "source": "userguide/components/execution.md",
+      "summary": "Changing *what* a forecast produces means choosing or writing a `Runner`; changing *how and where* forecasts run means configuring the `Pipeline`.",
+      "symbol": "",
+      "title": "Pipelines and Runners",
+      "url": "userguide/components/execution/"
+    },
+    {
+      "classifiers": [],
+      "signature": "",
       "source": "userguide/components/io.md",
-      "summary": "The key extension of the typical `(x, coords)` data structure movement throughout the rest of the `earth2studio` code and output store compatibility is the notion of an `array_name`.",
+      "summary": "For Icechunk transactions, asynchronous writes, sharding, and cloud storage, see [Advanced Output Handling](../advanced/io.md).",
       "symbol": "",
       "title": "IO Backends",
       "url": "userguide/components/io/"
@@ -3975,7 +4496,7 @@
       "classifiers": [],
       "signature": "",
       "source": "userguide/components/perturbation.md",
-      "summary": "The list of perturbation methods that are already built into Earth2Studio can be found in the API documentation [earth2studio.perturbation](../../modules/perturbation.md).",
+      "summary": "A perturbation accepts a field and returns the **perturbed field**, not just noise.",
       "symbol": "",
       "title": "Perturbations",
       "url": "userguide/components/perturbation/"
@@ -3984,7 +4505,7 @@
       "classifiers": [],
       "signature": "",
       "source": "userguide/components/prognostic.md",
-      "summary": "The usage of prognostic models falls into two categories, which are commonly achieved through two different APIs:",
+      "summary": "Models exchange labelled `xarray.DataArray` fields in physical units.",
       "symbol": "",
       "title": "Prognostic Models",
       "url": "userguide/components/prognostic/"
@@ -3993,7 +4514,7 @@
       "classifiers": [],
       "signature": "",
       "source": "userguide/components/statistics.md",
-      "summary": "Statistics are distinct from prognostic and diagnostic models in principle because we assume that statistics reduce existing coordinates so that the output tensors have a coordinate system that is a subset of the input coordinate system.",
+      "summary": "| Member | Statistic | Metric | | --- | --- | --- | | `reduction_dimensions` | Names of dimensions to reduce | Names of dimensions to reduce | | `output_coords(x)` | Plan from the input signature | Plan from the forecast signature | | `__call__(...)` | `statistic(x)` | `metric(x, y)` |",
       "symbol": "",
       "title": "Statistics",
       "url": "userguide/components/statistics/"
@@ -4736,6 +5257,17 @@
       "icon": "",
       "label": "NVIDIA",
       "name": "NVIDIA",
+      "text_color": "#fff",
+      "tooltip": ""
+    },
+    "provider:windborne": {
+      "color": "#6c757d",
+      "group": "provider",
+      "hidden": false,
+      "hide_in": [],
+      "icon": "",
+      "label": "Windborne",
+      "name": "Windborne",
       "text_color": "#fff",
       "tooltip": ""
     },

@@ -653,6 +653,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -703,6 +707,34 @@
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
             
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../../userguide/components/coordinates/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data and Metadata
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
               
             
               
@@ -901,6 +933,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../../userguide/components/execution/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pipelines and Runners
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -920,6 +980,12 @@
       
         
           
+        
+      
+        
+      
+        
+      
         
       
         
@@ -999,6 +1065,62 @@
     
   
     Checkpointing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../../userguide/advanced/io/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Advanced Output Handling
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../../userguide/advanced/domains/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Adaptive Model Domains
   
 
     
@@ -1102,6 +1224,34 @@
   
   
   
+    <li class="md-nav__item">
+      <a href="../../../../../userguide/advanced/serving/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment and Serving
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
     
     
       
@@ -1122,7 +1272,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_5_6" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_5_9" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -1144,14 +1294,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_2_5_6" id="__nav_2_5_6_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_2_5_9" id="__nav_2_5_9_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_2_5_6_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_2_5_6">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_2_5_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_5_9">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -3403,7 +3553,7 @@
 <h1 id="handshake_coords"><code>handshake_coords</code><a class="headerlink" href="#handshake_coords" title="Permanent link">&para;</a></h1>
 <p><strong>Import path:</strong> <code>earth2studio.utils.coords.handshake_coords</code></p>
 <p><a href="" id="earth2studio.utils.coords.handshake_coords"></a></p>
-<p><a class="e2s-source-link" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/utils/coords.py#L83-L129" title="earth2studio/utils/coords.py:83">View source on GitHub</a></p>
+<p><a class="e2s-source-link" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/utils/coords.py#L666-L741" title="earth2studio/utils/coords.py:666">View source on GitHub</a></p>
 <h2 id="documentation">Documentation<a class="headerlink" href="#documentation" title="Permanent link">&para;</a></h2>
 
 
@@ -3421,7 +3571,7 @@
     <ul>
         <li class="doc-section-item field-body">
             <b><code>input_coords</code></b>
-              (<code><span title="earth2studio.utils.type.CoordSystem">CoordSystem</span></code>)
+              (<code><span title="earth2studio.utils.type.CoordSystem">CoordSystem</span> or <a class="autorefs autorefs-external" title="xarray.DataArray" href="https://docs.xarray.dev/en/stable/generated/xarray.DataArray.html#xarray.DataArray">DataArray</a></code>)
           –
           <div class="doc-md-description">
             <p>Input coordinate system to validate</p>
@@ -3429,7 +3579,7 @@
         </li>
         <li class="doc-section-item field-body">
             <b><code>target_coords</code></b>
-              (<code><span title="earth2studio.utils.type.CoordSystem">CoordSystem</span></code>)
+              (<code><span title="earth2studio.utils.type.CoordSystem">CoordSystem</span> or <a class="autorefs autorefs-external" title="xarray.DataArray" href="https://docs.xarray.dev/en/stable/generated/xarray.DataArray.html#xarray.DataArray">DataArray</a></code>)
           –
           <div class="doc-md-description">
             <p>Target coordinate system</p>
@@ -3437,10 +3587,21 @@
         </li>
         <li class="doc-section-item field-body">
             <b><code>required_dim</code></b>
-              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a> | <a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#list">list</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a>]</code>)
+              (<code>hashable or sequence of hashable</code>)
           –
           <div class="doc-md-description">
             <p>Required dimension(s) (name of coordinate)</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>subset</code></b>
+              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></code>, default:
+                  <code>False</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>Require target labels to be present in input, by default False.
+Used before explicit model-specific subsetting.</p>
           </div>
         </li>
     </ul>

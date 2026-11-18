@@ -653,6 +653,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -703,6 +707,34 @@
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
             
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../../userguide/components/coordinates/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data and Metadata
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
               
             
               
@@ -901,6 +933,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../../userguide/components/execution/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pipelines and Runners
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -920,6 +980,12 @@
       
         
           
+        
+      
+        
+      
+        
+      
         
       
         
@@ -999,6 +1065,62 @@
     
   
     Checkpointing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../../userguide/advanced/io/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Advanced Output Handling
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../../userguide/advanced/domains/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Adaptive Model Domains
   
 
     
@@ -1102,6 +1224,34 @@
   
   
   
+    <li class="md-nav__item">
+      <a href="../../../../../userguide/advanced/serving/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment and Serving
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
     
     
       
@@ -1122,7 +1272,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_5_6" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_5_9" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -1144,14 +1294,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_2_5_6" id="__nav_2_5_6_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_2_5_9" id="__nav_2_5_9_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_2_5_6_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_2_5_6">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_2_5_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_5_9">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -3403,7 +3553,7 @@
 <h1 id="batch_func"><code>batch_func</code><a class="headerlink" href="#batch_func" title="Permanent link">&para;</a></h1>
 <p><strong>Import path:</strong> <code>earth2studio.models.batch.batch_func</code></p>
 <p><a href="" id="earth2studio.models.batch.batch_func"></a></p>
-<p><a class="e2s-source-link" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/models/batch.py#L33-L274" title="earth2studio/models/batch.py:33">View source on GitHub</a></p>
+<p><a class="e2s-source-link" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/models/batch.py#L43-L519" title="earth2studio/models/batch.py:43">View source on GitHub</a></p>
 <h2 id="documentation">Documentation<a class="headerlink" href="#documentation" title="Permanent link">&para;</a></h2>
 
 
@@ -3420,6 +3570,17 @@
 to help enable support for automatic batching of data. This class contains a
 decorator function which should be added to calls where this functionality is
 desired.</p>
+<p>CoordinateSystem inputs remain allocation-free DataArrays paired with separate
+tensors. Leading dimensions are flattened into <code>batch</code> and restored on each
+output, including auxiliary coordinates. Dictionary coordinates remain supported
+for models whose input signatures are dictionaries.</p>
+<p>DataArray methods take one DataArray followed by optional pass-through arguments
+and return or yield a DataArray. The input signature must start with <code>batch</code>;
+all remaining signature dimensions are fixed trailing dimensions. Leading input
+dimensions are packed with <code>.e2s.batch()</code> and restored with <code>.e2s.unbatch()</code>.
+This preserves leading labels and auxiliary coordinates even if the model drops
+attributes. Output batch size must remain unchanged. Coordinates spanning both
+packed and fixed dimensions are rejected by the accessor.</p>
 
 
 <details class="note" open>
@@ -3430,10 +3591,11 @@ coordinate system of the first dimensions. I.e. first key entry needs to be "bat
 
 <details class="note" open>
   <summary>Note</summary>
-  <p>When decorating a method of a model, such as <code>__call__</code>, the method is required to
-have a signature of <code>(self, *args: Any, **kwargs: Any) -&gt; tuple[torch.Tensor, CoordSystem]</code>.
-All positional arguments must be a sequence of (x, CoordSystem) pairs. All kwargs are
-passed through to the wrapped function without modification.</p>
+  <p>Decorated model methods declare explicit, named parameters. The decorator's
+variadic forwarding is an internal implementation detail and preserves the
+wrapped method's signature. For legacy tensor methods, positional arguments
+are explicit (x, CoordSystem) pairs and the result is a
+tuple[torch.Tensor, CoordSystem]. Keyword arguments pass through unchanged.</p>
 </details>
 
 <details class="example" open>

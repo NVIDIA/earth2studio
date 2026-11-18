@@ -70,6 +70,7 @@ import torch
 import earth2studio.run as run
 from earth2studio.data import Random
 from earth2studio.io import ZarrBackend
+from earth2studio.io.utils import output_template
 from earth2studio.models.px import FCN
 from earth2studio.utils.checkpoint import Checkpoint
 from earth2studio.utils.time import to_time_array
@@ -118,30 +119,39 @@ first_attempt_nsteps = 1
 # %%
 
 
-def deterministic_output_coords(model, time, nsteps, variables):
-    """Full output coords for entire roll out"""
-    input_coords = model.input_coords()
-    output_coords = model.output_coords(input_coords).copy()
-    for key, value in model.output_coords(input_coords).items():
-        if value.shape == (0,):
-            del output_coords[key]
+def deterministic_template(model, time, nsteps, variables):
+    """Concrete IO template for an entire roll out
 
-    output_coords["time"] = to_time_array(time)
-    output_coords["lead_time"] = np.asarray(
-        [model.output_coords(input_coords)["lead_time"] * i for i in range(nsteps + 1)]
-    ).flatten()
-    output_coords["variable"] = variables
-    output_coords.move_to_end("lead_time", last=False)
-    output_coords.move_to_end("time", last=False)
-    return output_coords
+    The model's output signature declares one forecast step and leads with a dynamic
+    `batch` dimension. `output_template` replaces that prefix with the run's times,
+    extends the lead times over the whole roll out and narrows the variables to the
+    ones being stored.
+    """
+    signature = model.output_coords(model.input_coords())
+    leads = signature.coords["lead_time"].values
+    return output_template(
+        signature,
+        leading={"time": to_time_array(time)},
+        coords={
+            "lead_time": np.concatenate(
+                [
+                    np.zeros(1, dtype=leads.dtype),
+                    *(leads + leads[-1] * i for i in range(nsteps)),
+                ]
+            ),
+            "variable": variables,
+        },
+    )
 
 
 def model_domain_coords(model):
     """Small helper"""
-    coords = model.input_coords().copy()
-    for key in ("batch", "lead_time", "variable"):
-        coords.pop(key)
-    return coords
+    signature = model.input_coords()
+    return OrderedDict(
+        (dim, signature.coords[dim].values)
+        for dim in signature.dims
+        if dim not in ("batch", "time", "lead_time", "variable")
+    )
 
 
 # %%
@@ -169,17 +179,24 @@ with checkpoint as ckpt:
     model = FCN.load_model(model_package)
     domain_coords = model_domain_coords(model)
     io = ZarrBackend(str(forecast_store), backend_kwargs={"overwrite": True})
-    coords = deterministic_output_coords(model, time, final_nsteps, output_variables)
-    var_names = coords.pop("variable")
-    io.add_array(coords, var_names)
+    template = deterministic_template(model, time, final_nsteps, output_variables)
+    io.add_array(template)
     data = Random(domain_coords=domain_coords)
+    # A store's extent is fixed when its arrays are created, so this shorter first
+    # attempt declares the full roll out's lead times and writes a subset of them.
+    restart_coords = OrderedDict(
+        {
+            "variable": output_variables,
+            "lead_time": template.coords["lead_time"].values,
+        }
+    )
     run.deterministic(
         time=time,
         nsteps=first_attempt_nsteps,
         prognostic=model,
         data=data,
         io=io,
-        output_coords=OrderedDict({"variable": output_variables}),
+        output_coords=restart_coords,
         device=compute_device,
         verbose=False,
         checkpoint=ckpt,
@@ -222,7 +239,7 @@ with checkpoint.select(-1) as ckpt:
         prognostic=model,
         data=data,
         io=io,
-        output_coords=OrderedDict({"variable": output_variables}),
+        output_coords=restart_coords,
         device=compute_device,
         verbose=False,
         checkpoint=ckpt,

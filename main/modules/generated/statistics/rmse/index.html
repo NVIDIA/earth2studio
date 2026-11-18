@@ -653,6 +653,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -703,6 +707,34 @@
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
             
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../userguide/components/coordinates/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data and Metadata
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
               
             
               
@@ -901,6 +933,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../userguide/components/execution/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pipelines and Runners
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -920,6 +980,12 @@
       
         
           
+        
+      
+        
+      
+        
+      
         
       
         
@@ -999,6 +1065,62 @@
     
   
     Checkpointing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../userguide/advanced/io/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Advanced Output Handling
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../userguide/advanced/domains/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Adaptive Model Domains
   
 
     
@@ -1102,6 +1224,34 @@
   
   
   
+    <li class="md-nav__item">
+      <a href="../../../../userguide/advanced/serving/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment and Serving
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
     
     
       
@@ -1122,7 +1272,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_5_6" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_5_9" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -1144,14 +1294,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_2_5_6" id="__nav_2_5_6_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_2_5_9" id="__nav_2_5_9_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_2_5_6_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_2_5_6">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_2_5_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_5_9">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -3420,7 +3570,7 @@
 <h1 id="rmse"><code>rmse</code><a class="headerlink" href="#rmse" title="Permanent link">&para;</a></h1>
 <p><strong>Import path:</strong> <code>earth2studio.statistics.rmse</code></p>
 <p><a href="" id="earth2studio.statistics.rmse"></a></p>
-<p><a class="e2s-source-link" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/statistics/rmse.py#L26-L139" title="earth2studio/statistics/rmse.py:26">View source on GitHub</a></p>
+<p><a class="e2s-source-link" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/statistics/rmse.py#L32-L142" title="earth2studio/statistics/rmse.py:32">View source on GitHub</a></p>
 <h2 id="documentation">Documentation<a class="headerlink" href="#documentation" title="Permanent link">&para;</a></h2>
 
 
@@ -3433,7 +3583,7 @@
 
 
 
-        <p>Statistic for calculating the root mean squared error of two tensors
+        <p>Statistic for calculating the root mean squared error of two arrays
 over a set of given dimensions.</p>
 
 
@@ -3450,12 +3600,12 @@ statistical reduction over. Example: ['lat', 'lon']</p>
         </li>
         <li class="doc-section-item field-body">
             <b><code>weights</code></b>
-              (<code><a class="autorefs autorefs-external" title="torch.Tensor" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor">Tensor</a> | None</code>, default:
+              (<code><a class="autorefs autorefs-external" title="torch.Tensor" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor">Tensor</a> | <a class="autorefs autorefs-external" title="numpy.ndarray" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray">ndarray</a> | None</code>, default:
                   <code>None</code>
 )
           –
           <div class="doc-md-description">
-            <p>A tensor containing weights to assign to the reduction dimensions.
+            <p>An array containing weights to assign to the reduction dimensions.
 Note that these weights must have the same number of dimensions
 as passed in reduction_dimensions.
 Example: if reduction_dimensions = ['lat', 'lon'] then
@@ -3514,18 +3664,15 @@ no reduction is performed.</p>
 
 
 <a href="#earth2studio.statistics.rmse.rmse.__call__" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">__call__</span><span class="p">(</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">x</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="torch.Tensor" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor">Tensor</a></span><span class="p">,</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">x_coords</span><span class="p">:</span> <span class="n"><span title="earth2studio.utils.type.CoordSystem">CoordSystem</span></span><span class="p">,</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">y</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="torch.Tensor" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor">Tensor</a></span><span class="p">,</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">y_coords</span><span class="p">:</span> <span class="n"><span title="earth2studio.utils.type.CoordSystem">CoordSystem</span></span><span class="p">,</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#tuple">tuple</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" title="torch.Tensor" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor">Tensor</a></span><span class="p">,</span> <span class="n"><span title="earth2studio.utils.type.CoordSystem">CoordSystem</span></span><span class="p">]</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">__call__</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="xarray.DataArray" href="https://docs.xarray.dev/en/stable/generated/xarray.DataArray.html#xarray.DataArray">DataArray</a></span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="xarray.DataArray" href="https://docs.xarray.dev/en/stable/generated/xarray.DataArray.html#xarray.DataArray">DataArray</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" title="xarray.DataArray" href="https://docs.xarray.dev/en/stable/generated/xarray.DataArray.html#xarray.DataArray">DataArray</a></span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
 
-        <p>Apply metric to data <code>x</code> and <code>y</code>, checking that their coordinates
-are broadcastable. While reducing over <code>reduction_dims</code>.</p>
+        <p>Apply metric to data <code>x</code> and <code>y</code>, reducing over <code>reduction_dims</code>.
+<code>y</code> must have every dimension of <code>x</code> except the ensemble dimension, if the
+metric has one, with matching coordinate values; it is transposed to
+<code>x</code>'s order, not broadcast.</p>
 <p>If batch_update was passed True upon metric initialization then this method
 returns the running sample RMSE over all seen batches.</p>
 
@@ -3534,38 +3681,21 @@ returns the running sample RMSE over all seen batches.</p>
     <ul>
         <li class="doc-section-item field-body">
             <b><code>x</code></b>
-              (<code><a class="autorefs autorefs-external" title="torch.Tensor" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor">Tensor</a></code>)
+              (<code><a class="autorefs autorefs-external" title="xarray.DataArray" href="https://docs.xarray.dev/en/stable/generated/xarray.DataArray.html#xarray.DataArray">DataArray</a></code>)
           –
           <div class="doc-md-description">
-            <p>Input tensor, typically the forecast or prediction tensor, but RMSE is
-symmetric with respect to <code>x</code> and <code>y</code>.</p>
-          </div>
-        </li>
-        <li class="doc-section-item field-body">
-            <b><code>x_coords</code></b>
-              (<code><span title="earth2studio.utils.type.CoordSystem">CoordSystem</span></code>)
-          –
-          <div class="doc-md-description">
-            <p>Ordered dict representing coordinate system that describes the <code>x</code> tensor.
-<code>reduction_dimensions</code> must be in coords.</p>
+            <p>Input array, typically the forecast or prediction array, but RMSE is
+symmetric with respect to <code>x</code> and <code>y</code>.
+<code>reduction_dimensions</code> must be in the dimensions of x.</p>
           </div>
         </li>
         <li class="doc-section-item field-body">
             <b><code>y</code></b>
-              (<code><a class="autorefs autorefs-external" title="torch.Tensor" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor">Tensor</a></code>)
+              (<code><a class="autorefs autorefs-external" title="xarray.DataArray" href="https://docs.xarray.dev/en/stable/generated/xarray.DataArray.html#xarray.DataArray">DataArray</a></code>)
           –
           <div class="doc-md-description">
-            <p>Input tensor #2 intended to be used as validation data, but RMSE is symmetric
+            <p>Input array #2 intended to be used as validation data, but RMSE is symmetric
 with respect to <code>x</code> and <code>y</code>.</p>
-          </div>
-        </li>
-        <li class="doc-section-item field-body">
-            <b><code>y_coords</code></b>
-              (<code><span title="earth2studio.utils.type.CoordSystem">CoordSystem</span></code>)
-          –
-          <div class="doc-md-description">
-            <p>Ordered dict representing coordinate system that describes the <code>y</code> tensor.
-<code>reduction_dimensions</code> must be in coords.</p>
           </div>
         </li>
     </ul>
@@ -3574,10 +3704,10 @@ with respect to <code>x</code> and <code>y</code>.</p>
 <p><span class="doc-section-title">Returns:</span></p>
     <ul>
         <li class="doc-section-item field-body">
-              <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#tuple">tuple</a>[<a class="autorefs autorefs-external" title="torch.Tensor" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor">Tensor</a>, <span title="earth2studio.utils.type.CoordSystem">CoordSystem</span>]</code>
+              <code><a class="autorefs autorefs-external" title="xarray.DataArray" href="https://docs.xarray.dev/en/stable/generated/xarray.DataArray.html#xarray.DataArray">DataArray</a></code>
           –
           <div class="doc-md-description">
-            <p>Returns root mean squared error tensor with appropriate reduced coordinates.</p>
+            <p>Returns root mean squared error array with appropriate reduced coordinates.</p>
           </div>
         </li>
     </ul>

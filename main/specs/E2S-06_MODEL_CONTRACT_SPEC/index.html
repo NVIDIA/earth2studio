@@ -1,0 +1,5018 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Open-source deep-learning framework for exploring, building and deploying AI weather and climate workflows.">
+      
+      
+      
+        <link rel="canonical" href="https://nvidia.github.io/earth2studio/main/specs/E2S-06_MODEL_CONTRACT_SPEC/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../_static/favicon.ico">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>E2S-06: Earth2Studio Model Contract - Earth2Studio</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=NVIDIA+Sans:300,300i,400,400i,700,700i%7CJetBrains+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"NVIDIA Sans";--md-code-font:"JetBrains Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
+    
+      <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/nvidia-material.css">
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/earth2studio-gallery.css">
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/mkdocs-badges.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="black" data-md-color-accent="light-green">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#e2s-06-earth2studio-model-contract" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+        <aside class="md-banner">
+          <div class="md-banner__inner md-grid md-typeset">
+            
+              <button class="md-banner__button md-icon" aria-label="Don't show this again">
+                
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+              </button>
+            
+            
+  <div class="e2s-announcement" role="status">
+  <span class="e2s-announcement__icon" aria-hidden="true">🚧</span>
+  <span>
+    <strong>Upcoming breaking release:</strong>
+    The next release after <strong>0.20.0</strong> will be <strong>1.0.0</strong>,
+    which will not be backward compatible. To keep existing workflows operational,
+    pin Earth2Studio to <strong>0.20.0 or earlier</strong> (<code>earth2studio&lt;=0.20.0</code>)
+    until you are ready to migrate.
+    See the <a href="https://github.com/NVIDIA/earth2studio/blob/1.0.0-rc/MIGRATION.md">migration guide</a>.
+  </span>
+</div>
+
+          </div>
+          
+            <script>var el=document.querySelector("[data-md-component=announce]");if(el){var content=el.querySelector(".md-typeset");__md_hash(content.innerHTML)===__md_get("__announce")&&(el.hidden=!0)}</script>
+          
+        </aside>
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Earth2Studio" class="md-header__button md-logo" aria-label="Earth2Studio" data-md-component="logo">
+      
+  <img src="../../_static/nvidia-logo-horiz-rgb-wht-for-screen.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Earth2Studio
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              E2S-06: Earth2Studio Model Contract
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="black" data-md-color-accent="light-green"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="black" data-md-color-accent="light-green"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/NVIDIA/earth2studio" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    NVIDIA/earth2studio
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+    
+      
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../userguide/about/install/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  User Guide
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../modules/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  API
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../examples/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Examples
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../blog/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Blog
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../scorecard/generated/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Scorecards
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Changelog
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+    
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Earth2Studio" class="md-nav__button md-logo" aria-label="Earth2Studio" data-md-component="logo">
+      
+  <img src="../../_static/nvidia-logo-horiz-rgb-wht-for-screen.svg" alt="logo">
+
+    </a>
+    Earth2Studio
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/NVIDIA/earth2studio" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    NVIDIA/earth2studio
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    User Guide
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../userguide/about/install/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Install
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../userguide/about/overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../userguide/about/catalog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Catalog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_4" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../userguide/components/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Core Components
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2_4" id="__nav_2_4_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Core Components
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../userguide/components/coordinates/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data and Metadata
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../userguide/components/prognostic/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prognostic Models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../userguide/components/diagnostic/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Diagnostic Models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../userguide/components/data_assimilation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Assimilation Models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../userguide/components/datasources/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Sources
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../userguide/components/perturbation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Perturbations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../userguide/components/io/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IO Backends
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../userguide/components/statistics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Statistics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../userguide/components/execution/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pipelines and Runners
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_5" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../userguide/advanced/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Advanced Usage
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2_5" id="__nav_2_5_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Advanced Usage
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../userguide/advanced/checkpointing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Checkpointing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../userguide/advanced/io/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Advanced Output Handling
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../userguide/advanced/domains/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Adaptive Model Domains
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../userguide/advanced/batch/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Batch Dimension
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../userguide/advanced/auto/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AutoModels
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../userguide/advanced/lexicon/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Lexicon
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../userguide/advanced/serving/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment and Serving
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_5_9" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../userguide/notes/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Knowledge Base
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2_5_9" id="__nav_2_5_9_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_2_5_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_5_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Knowledge Base
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../userguide/notes/surface_pressure/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Surface Pressure
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_6" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../userguide/developer/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Developer Guide
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2_6" id="__nav_2_6_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Developer Guide
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../userguide/developer/overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../userguide/developer/dependency/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dependencies
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../userguide/developer/style/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Style
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../userguide/developer/documentation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Documentation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../userguide/developer/testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../userguide/developer/build/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Build
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../userguide/developer/recipes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Recipes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../userguide/developer/skills/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Skills
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_7" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../userguide/support/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Support
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2_7" id="__nav_2_7_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Support
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../userguide/support/troubleshooting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Troubleshooting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../userguide/support/faq/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    FAQ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../modules/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../modules/models_px/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prognostic Models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../modules/models_dx/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Diagnostic Models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../modules/models_da/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Assimilation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../modules/datasources_analysis/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Sources
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../modules/datasources_forecast/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Forecast Data Sources
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../modules/datasources_dataframe/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DataFrame Sources
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../modules/io/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IO Backends
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../modules/perturbation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Perturbations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../modules/statistics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Statistics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../modules/utils_all/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Utilities
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../modules/workflows/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Workflows
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../examples/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Examples
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_4" id="__nav_4_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Examples
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../recipes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Recipes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../blog/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Blog
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Blog
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_2" id="__nav_5_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Posts
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Posts
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../blog/2026/10/05/earthmover-marketplace-data/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Access Earthmover Marketplace Data with Earth2Studio
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../blog/2026/08/06/mkdocs-material-migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MkDocs Material Migration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../blog/2026/08/11/earth2-soil-health-prediction/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    A Digital Twin for Soil Health Prediction, Powered by Subseasonal Climate AI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../blog/archive/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Archive
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_4" id="__nav_5_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Categories
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Categories
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../blog/categories/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../blog/categories/data/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../blog/categories/documentation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Documentation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_5" id="__nav_5_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Archive
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Archive
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+    
+  
+  
+    <li class="md-nav__item">
+      <a href="../../blog/archive/2026/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    2026
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_6" id="__nav_5_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Categories
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Categories
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+    
+  
+  
+    <li class="md-nav__item">
+      <a href="../../blog/category/data/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    
+  
+  
+    <li class="md-nav__item">
+      <a href="../../blog/category/documentation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Documentation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    
+  
+  
+    <li class="md-nav__item">
+      <a href="../../blog/category/earth-2/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Earth-2
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../scorecard/generated/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scorecards
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_6" id="__nav_6_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Scorecards
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_6_2" id="__nav_6_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prognostic models
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_6_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Prognostic models
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../scorecard/generated/fcn3/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    FCN3
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../scorecard/generated/aurora/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Aurora
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../scorecard/generated/graphcast/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GraphCast
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../scorecard/generated/atlas_crps/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Atlas CRPS
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../scorecard/generated/aurora1p5ens/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Aurora 1.5 Ensemble
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../scorecard/generated/dlwp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DLWP
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../scorecard/generated/fcn/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    FCN
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../scorecard/generated/fengwu/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    FengWu
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../scorecard/generated/fuxi/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    FuXi
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../scorecard/generated/pangu/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pangu
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../scorecard/generated/sfno/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SFNO
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../scorecard/generated/stormcast/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    StormCast
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#purpose" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Purpose
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#contract" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Contract
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Contract">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#coordinate-systems" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Coordinate Systems
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Coordinate Systems">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#grid-backed-signatures" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Grid-backed signatures
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#execution-boundary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Execution boundary
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#model-interface" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Model Interface
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Model Interface">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#argument-slots" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Argument slots
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#splitting-rules" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Splitting rules
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#lead-times" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Lead times
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#explicit-state" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Explicit state
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#derived-iteration-with-send" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Derived iteration with send
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#default-sources" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Default sources
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#diagnostic-models" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Diagnostic models
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#domain-selection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Domain selection
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Domain selection">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#regions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Regions
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rules" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Rules
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Rules">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#prognostic" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Prognostic
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#diagnostic" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Diagnostic
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#domain" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Domain
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#lead-time" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Lead Time
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#iteration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Iteration
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#hooks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Hooks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ownership-of-tensors" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Ownership of Tensors
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#stochasticity" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Stochasticity
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Stochasticity">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#rng-isolation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        RNG isolation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rng-with-explicit-state" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        RNG with explicit state
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#seeding-is-the-only-entry-point" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Seeding is the only entry point
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#current-wrappers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Current wrappers
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#conformance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Conformance
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Conformance">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#enforcement" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Enforcement
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#migration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Migration
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#open-questions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Open Questions
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="e2s-06-earth2studio-model-contract">E2S-06: Earth2Studio Model Contract<a class="headerlink" href="#e2s-06-earth2studio-model-contract" title="Permanent link">&para;</a></h1>
+<h2 id="purpose">Purpose<a class="headerlink" href="#purpose" title="Permanent link">&para;</a></h2>
+<p>Define prognostic and diagnostic coordinate, interface, iterator, hook, ownership,
+RNG and domain-selection semantics for model-independent execution.</p>
+<p>This document is the source of truth for the model contract. Prognostic models follow
+the explicit-state protocol in Model Interface: wrappers implement <code>initialize</code> and
+<code>step</code>, and may delegate explicit <code>__call__</code>/<code>create_iterator</code> methods to private
+<code>PrognosticMixin</code> helpers. Where
+wrappers or the checker do not match yet, this spec governs and Migration lists the
+gap.</p>
+<p><code>earth2studio.models.conformance</code> checks the rules below and reports their
+identifiers. Model tests cover execution, batching, metadata, hooks, ownership and
+checkpoint continuation. DA's companion interfaces are defined in
+<code>earth2studio/models/da/base.py</code> and the
+<a href="../../userguide/components/data_assimilation/">DA user guide</a>; see Open Questions
+for remaining generic DA planning concerns.</p>
+<h2 id="contract">Contract<a class="headerlink" href="#contract" title="Permanent link">&para;</a></h2>
+<h3 id="coordinate-systems">Coordinate Systems<a class="headerlink" href="#coordinate-systems" title="Permanent link">&para;</a></h3>
+<p><code>CoordinateSystem</code> is an <code>xarray.DataArray</code> created by <code>coord_array()</code> that stores
+only shape and dtype, never field values, even when every dimension is concrete.
+Read labels from <code>.coords</code>, order from <code>.dims</code> and lengths from <code>.sizes</code>; field
+<code>.values</code> are unsupported. Dimension and auxiliary coordinate arrays still occupy
+memory.</p>
+<p><code>input_coords()</code> is a declaration. Dynamic dimensions form an explicitly marked,
+zero-sized leading prefix (<code>earth2studio_dynamic_dims</code>). Any model may declare them,
+under any name (<code>batch</code>, <code>time</code> or model-specific axes); this is not a
+regional/global distinction. All other dimensions, labels, auxiliary coordinates and
+declared grid/CRS/statistics metadata must match. Concrete inputs may have any
+leading batch dimensions, or none. Fixed trailing dimension order is authoritative,
+and a zero-sized fixed dimension is not a wildcard. Resolve multiple dynamic
+dimensions together or right to left: concretizing <code>time</code> in <code>(batch, time, ...)</code>
+keeps <code>batch</code> dynamic, but concretizing only <code>batch</code> leaves a non-leading wildcard
+and is rejected. Dimensions are never silently reordered, and wildcards never become
+fixed zero-length axes.</p>
+<p>Configure flexible shapes and variable sets on the model instance before querying
+<code>input_coords()</code>: a model supporting arbitrary crops is configured with its domain,
+and an observation model with optional channels with its available variables. The
+declaration then has concrete spatial coordinates and labels, so fetching and output
+planning are unambiguous. Keep the configuration fixed for a run; changing it
+requires new signatures and a new fetch/output plan. Models with a selectable spatial
+domain implement <code>DomainAdaptable</code> (see Domain selection), which returns a new view
+per region instead of reconfiguring a model in place. Constructors or model-specific
+setters configure other flexible declarations; a shared variable-selection interface
+is an open question, not a method callers can rely on. An unresolved
+wildcard never requests an unspecified region or variable set. Model-specific
+validation (patch-size multiples, supported channel combinations) supplements the
+coordinate handshakes.</p>
+<p><code>output_coords(input_coords)</code> validates and resolves outputs without touching field
+data, so rollouts can be planned before allocation. <code>coord_array_like(input,
+replacements)</code> preserves leading dimensions, dtype, name, metadata and unaffected
+coordinates. Replacing <code>lead_time</code> or <code>variable</code> drops dependent auxiliaries (e.g.
+<code>valid_time</code>, per-variable units); recompute them explicitly if needed. Temporal
+statistics are declared only in qualified labels such as <code>tp:sum:6h</code>:
+<code>coord_array()</code> and <code>coord_array_like()</code> derive the <code>earth2studio_statistics</code>
+attribute from them, recomputing it when variables are replaced. Spatial
+replacements need <code>coord_array(grid=...)</code> with a new grid definition;
+<code>coord_array_like()</code> rejects them to prevent stale grid metadata.</p>
+<h4 id="grid-backed-signatures">Grid-backed signatures<a class="headerlink" href="#grid-backed-signatures" title="Permanent link">&para;</a></h4>
+<p>Pass a registered name or <code>GridDefinition</code> to <code>coord_array(grid=...)</code> instead of
+repeating grid axes in each model. The helper attaches grid metadata,
+<code>earth2studio_crs</code> when the definition has a CRS, and <code>earth2studio_grid_id</code> for
+registered names. Projected, curvilinear and point signatures include geographic
+coordinates; HEALPix signatures use index coordinates. Handshakes validate
+geographic coordinates as well as axes.</p>
+<ul>
+<li><code>StormScopeGOES</code>, <code>StormScopeMRMS</code>: checkpoint <code>CurvilinearGrid</code> on <code>y, x</code>;
+  output offsets are added to the final input lead time.</li>
+<li><code>StormCastCONUS</code>: cropped <code>ProjectedGrid</code> with registered HRRR CRS on <code>y, x</code>;
+  output advances the final input lead time by one hour.</li>
+<li><code>PrecipitationAFNO</code>: registered <code>latlon-0.25deg-south-pole-excluded</code> grid
+  (720 × 1440) on <code>lat, lon</code>; output is <code>tp:sum:6h</code> with derived statistics
+  metadata.</li>
+</ul>
+<p>Models declaring relative lead-time history subtract the final input lead time
+before checking the declared window. Beforehand, <code>lead_time</code> must be an explicit,
+nonempty 1-D timedelta coordinate without <code>NaT</code>; datetime and numeric labels are
+rejected. Output planning accepts dynamic declarations and concrete DataArrays
+without mutating either.</p>
+<p>Validation uses the public handshakes in <code>earth2studio.utils.coords</code>, which also
+accept legacy coordinate dictionaries:</p>
+<ul>
+<li><code>handshake_dim</code>: dimension order, including unlabelled axes; a tuple checks the
+  complete ordered dimensions.</li>
+<li><code>handshake_size</code>: dimension sizes.</li>
+<li><code>handshake_coords</code>: coordinate dimensions and label values, without Xarray
+  alignment or attached auxiliaries; <code>subset=True</code> checks labels before an explicit
+  model-specific selection.</li>
+<li><code>handshake_dataarray(input, signature)</code>: the three above plus grid ID, CRS and
+  statistics metadata. Relative-history models normalize lead times before calling
+  it.</li>
+<li><code>handshake_time</code>: explicit, nonempty, finite datetime/timedelta labels, optionally
+  interval alignment or a minimum offset; <code>dimension=False</code> for auxiliary/scalar
+  validity times.</li>
+<li><code>handshake_metadata</code>: explicitly named attributes.</li>
+<li><code>handshake_nonempty(input)</code>: rejects unresolved zero-sized axes at execution
+  boundaries.</li>
+</ul>
+<p>Grid-type-specific attributes are not part of the generic handshake, and no check
+materializes field values or infers execution mode from field storage. Dynamic
+leading axes stay wildcards for planning, and generic leading axes need no labels;
+models validate temporal labels with <code>handshake_time</code>, using <code>allow_dynamic=True</code> for
+dynamic planning axes. Model methods keep their history/output transformations and call the
+standard handshakes for validation.</p>
+<h4 id="execution-boundary">Execution boundary<a class="headerlink" href="#execution-boundary" title="Permanent link">&para;</a></h4>
+<p>The public <code>PrognosticModel</code> and <code>DiagnosticModel</code> protocols (see Model Interface)
+take and return DataArrays: one positional argument per input slot, with multiple
+outputs grouped in a tuple. <strong>All exported prognostic and diagnostic wrappers take and return
+DataArrays.</strong> Fields are NumPy-backed on CPU or CuPy-backed on CUDA; wrappers
+document whether inputs must be on the model device or are moved at the core
+boundary. At the Torch boundary, <code>.e2s.to_torch()</code> and
+<code>from_torch(tensor, signature)</code> convert; the latter keeps all coordinates and output
+metadata without materializing the signature. Outputs omit signature kind/schema/dynamic attributes
+and keep user metadata, grid ID/CRS and applicable statistics. Precipitation changes
+the variable to <code>tp:sum:6h</code>, which declares its statistics. FCN requires finite
+timedelta lead times and advances six hours, including from nonzero offsets.</p>
+<p><code>batch_func</code> dispatches DataArrays to <code>.e2s.batch()</code>/<code>.e2s.unbatch()</code>, which pack
+arbitrary leading dimensions, handle an existing <code>batch</code> dimension and insert a
+singleton when there are none. Batch labels, batch-only auxiliaries and spatial
+auxiliaries survive even when the core drops attrs; output variable counts may
+change. Mixed batch/fixed auxiliary coordinates are unsupported. The core must keep
+the packed batch dimension's size and label order; reordering is rejected to prevent
+mislabeled output.</p>
+<p><code>PrognosticMixin</code> hooks take and return <code>y</code> in the original leading dimensions and
+run only during iteration; <code>clear_hooks()</code> restores identity hooks. Checkpoints save
+<code>(y, state)</code> (<code>P21</code>); level-two checkpoints store each field tensor separately from
+dimensions, coordinate values/attrs, name, attrs and encoding. Restarts call <code>step</code> on
+the saved pair, so they yield the step after the saved state rather than repeating
+it.</p>
+<p>A daily-mean model can declare two consecutive inputs with start-of-day timestamps:
+<code>mean:-1h:23h</code> for ordinary channels (00–23 UTC) and <code>mean:0h:24h</code> for hourly
+interval-ending <code>tp</code> and <code>ttr</code> (01 UTC through next 00 UTC), with matching statistics
+metadata. Its initial condition is the latest
+input day, and its iterator yields daily predictions. Hooks see one prediction;
+front- and rear-hook edits feed the next rolling state (see
+Open Questions). Fields move to the model device at the Torch/ONNX boundary. Input
+preparation and units follow <code>E2S-03_TIME_STATISTICS_SPEC.md</code> (calendar-day means).</p>
+<p>The legacy <code>CoordSystem</code> (<code>OrderedDict[str, np.ndarray]</code>) remains only in private
+numerical helpers, IO coordinate bookkeeping and legacy utilities such as
+<code>prep_data_array</code>; statistics, perturbations and IO backends take DataArrays
+(<a href="../E2S-10_IO_SPEC/">E2S-10_IO_SPEC.md</a>). Convert explicitly with <code>.e2s.to_torch()</code> and
+<code>from_torch()</code>. <code>fetch_data()</code> returns one field DataArray,
+not a tensor/coordinate pair. Random/Random_FX keep their data-source API, and
+assimilation protocols are outside this migration. Regional prognostic wrappers also
+use native DataArrays. StormCastCONUS's stored <code>ProjectedGrid</code> is its geometry
+source of truth: geographic auxiliaries derive from the cropped grid declaration,
+native axes from <code>input_coords()["y"]</code>/<code>["x"]</code>, and read-only <code>y</code>/<code>x</code> attributes from
+those coordinates.</p>
+<p>Runtime protocol membership checks method presence, not signatures, so it does not
+detect the execution API or whether <code>initialize</code>/<code>step</code> are implemented.
+<code>models.conformance</code> checks native DataArray signatures and the explicit-state
+execution API; dictionary signatures and initial-condition-first iterators fail. See
+<code>dev/examples/03_coordinate_signatures.py</code> for signature planning and
+<code>dev/examples/04_xarray_model_execution.py</code> for DataArray execution.</p>
+<h3 id="model-interface">Model Interface<a class="headerlink" href="#model-interface" title="Permanent link">&para;</a></h3>
+<p><code>earth2studio/models/px/base.py</code> and <code>earth2studio/models/dx/base.py</code> declare the
+protocols. <code>PrognosticMixin</code> supplies <code>forcing_coords()</code> (no forcing),
+<code>default_sources()</code> (no recommendation), <code>stochastic = False</code>, hooks, and private
+<code>_default_call</code>/<code>_default_create_iterator</code> helpers. It has no public execution stubs.
+Wrappers declare and document explicit execution signatures,
+optionally delegating to the private helpers. The protocol is the requirement; inheriting the
+mixin or deriving these methods from the primitives is optional. Direct
+implementations must satisfy the same behavioral rules.</p>
+<p>A single-DataArray protocol cannot express forced or stateful rollouts. StormCast and
+StormScope fetched conditioning from a model-owned <code>conditioning_data_source</code> that
+callers could not configure and the GOES+MRMS rollout had to bypass. Atlas kept its
+latent in the generator frame, so chaining <code>__call__</code> was wrong. The interface
+therefore has tuple signatures, declared forcing, an explicit-state transition and
+recommended sources that models never fetch.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">PrognosticModel</span><span class="p">(</span><span class="n">Protocol</span><span class="p">):</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">input_coords</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CoordinateSystem</span> <span class="o">|</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">CoordinateSystem</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span> <span class="o">...</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">forcing_coords</span><span class="p">(</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>        <span class="bp">self</span><span class="p">,</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CoordinateSystem</span> <span class="o">|</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">CoordinateSystem</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span> <span class="o">...</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">output_coords</span><span class="p">(</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>        <span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">input_coords</span><span class="p">:</span> <span class="n">CoordinateSystem</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CoordinateSystem</span> <span class="o">|</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">CoordinateSystem</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span> <span class="o">...</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">initialize</span><span class="p">(</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>        <span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">x</span><span class="p">:</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span> <span class="o">|</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span> <span class="n">Any</span><span class="p">]:</span> <span class="o">...</span>
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">step</span><span class="p">(</span>
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>        <span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">y</span><span class="p">:</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="n">Any</span>
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span> <span class="o">|</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span> <span class="n">Any</span><span class="p">]:</span> <span class="o">...</span>
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">default_sources</span><span class="p">(</span>
+<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>        <span class="bp">self</span><span class="p">,</span>
+<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>    <span class="p">)</span> <span class="o">-&gt;</span> <span class="p">(</span>
+<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>        <span class="n">DataSource</span> <span class="o">|</span> <span class="n">ForecastSource</span> <span class="o">|</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">DataSource</span> <span class="o">|</span> <span class="n">ForecastSource</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span>
+<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>    <span class="p">):</span> <span class="o">...</span>
+<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span>
+<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>        <span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">x</span><span class="p">:</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span>
+<a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span> <span class="o">|</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span> <span class="o">...</span>
+<a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">create_iterator</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">x</span><span class="p">:</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Generator</span><span class="p">[</span>
+<a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a>        <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span> <span class="o">|</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span>
+<a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a>        <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span> <span class="o">|</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a>        <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a>    <span class="p">]:</span> <span class="o">...</span>
+</code></pre></div>
+<h4 id="argument-slots">Argument slots<a class="headerlink" href="#argument-slots" title="Permanent link">&para;</a></h4>
+<p>Each signature is a slot supplied as a separate positional DataArray (<code>P17</code>).
+Initial arguments <code>*x</code> concatenate input slots and forcing slots, if any exist.
+Step arguments <code>*y</code> concatenate preceding output slots and time-varying forcing
+slots, if any exist. This concatenates argument sequences, not array contents.
+Within each sequence, declared slot order is preserved. Simple models use <code>x</code>
+and <code>y</code>; complex models may name individual parameters descriptively.</p>
+<p><strong>Wrappers must declare explicit execution signatures</strong> (<code>P24</code>, <code>D11</code>): a fixed
+number of named parameters, one per declared array slot, rather than <code>*args</code>, <code>*x</code>
+or <code>*y</code>. For prognostic wrappers this applies to <code>__call__</code>, <code>initialize</code>, <code>step</code>
+and <code>create_iterator</code>; for diagnostics it applies to <code>__call__</code>. The protocols use
+<code>*x</code> and <code>*y</code> only to describe different fixed arities across models, not a variable
+number of inputs to any one wrapper.</p>
+<p>Generic forwarding helpers may use variadic arguments internally, but wrappers must
+expose explicit signatures instead of inheriting a variadic execution method as their
+public interface. A wrapper may delegate its explicitly declared method to a mixin
+helper. Generic callers may unpack a slot tuple when calling a wrapper; this does not
+make the wrapper's signature variadic.</p>
+<table>
+<thead>
+<tr>
+<th>Described by</th>
+<th>Contents</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>input_coords()</code></td>
+<td>Initial fields, fetched once at initialization</td>
+</tr>
+<tr>
+<td><code>forcing_coords()</code></td>
+<td>External fields: full window at first, then newest frames</td>
+</tr>
+<tr>
+<td><code>output_coords()</code></td>
+<td>Outputs, fed back into the next <code>step</code></td>
+</tr>
+<tr>
+<td>the model</td>
+<td>Everything else a rollout needs; see Explicit state</td>
+</tr>
+</tbody>
+</table>
+<p>One output is returned directly; multiple outputs form a tuple. Callers unpack
+that tuple for the next step, but pass a single DataArray directly (splatting a
+DataArray would iterate its leading dimension). State is keyword-only in the
+variadic protocol; concrete implementations must declare it as a fixed
+positional-or-keyword parameter after the arrays. Generic callers use its keyword:
+<code>model.step(y, f, state=state)</code> or <code>model.step(*outputs, f, state=state)</code>.</p>
+<ul>
+<li><strong>Forcing is declared, not inferred.</strong> StormCast declares its conditioning in
+  <code>forcing_coords()</code> with plain labels such as <code>u10m</code>, though <code>u10m</code> is also a state
+  output on the same grid.</li>
+<li><strong>Forcing works like the inputs.</strong> <code>initialize</code> takes the whole window and each
+  <code>step</code> only the newest frames, as with <code>x</code> and <code>y</code>. The model keeps older frames in
+  its state, so callers never assemble windows.</li>
+<li><strong>Caller-supplied statics are forcing slots without <code>lead_time</code>.</strong> <code>initialize</code>
+  stores them in the state; later steps omit these slots. Statics shipped
+  with the checkpoint stay in the wrapper.</li>
+<li><strong>Models without forcing</strong> return <code>None</code> from <code>forcing_coords()</code> (the mixin
+  default) and take no additional forcing arguments.</li>
+</ul>
+<p>Slots are positional, not keyed:</p>
+<ul>
+<li><strong>Slot order is public API and append-only.</strong> A signature's <code>.name</code> is for display
+  only.</li>
+<li><strong>Automation matches by content.</strong> Pipelines and couplers match providers to slots
+  by variable, grid and valid time. Position only aligns tuples within one model.</li>
+</ul>
+<h4 id="splitting-rules">Splitting rules<a class="headerlink" href="#splitting-rules" title="Permanent link">&para;</a></h4>
+<ul>
+<li><strong>Slots within a group split when their coordinates differ.</strong> DLESyM declares its
+  atmosphere and ocean as separate input and output slots, because one step yields
+  more atmosphere lead times than ocean ones.</li>
+<li><strong>No two output slots share identical non-variable coordinates</strong> (<code>P18</code>). A
+  diagnostic on the state grid and lead times joins the state output slot.</li>
+<li><strong>Output slots holding state variables come first, in input-slot order.</strong>
+  Output-only slots (a diagnostic on another grid, say) follow them.</li>
+</ul>
+<h4 id="lead-times">Lead times<a class="headerlink" href="#lead-times" title="Permanent link">&para;</a></h4>
+<p><code>input_coords()</code> and <code>forcing_coords()</code> declare windows with lead times relative to
+initialization. To start at <code>t0</code>, fetch <code>x</code> and the forcing window at <code>t0</code> plus their
+declared lead times and pass both to <code>initialize</code>. Each <code>step</code> then needs only the
+newest forcing frames: the window's final lead time, shifted by each lead time of
+<code>y</code>, which <code>y</code> carries. <code>step</code> selects forcing by lead time, so extra frames (the
+whole shifted window, say) are harmless.</p>
+<p>StormCast declares <code>[0h]</code> for both, taking conditioning at <code>t0</code>, <code>t0 + 1h</code>, and so
+on. StormScopeMRMS declares a multi-frame GOES window and takes one new frame per
+step. ACE needs SST and insolation at the target time, so it declares <code>[0h, 6h]</code> and
+takes the <code>t + 6h</code> frame per step.</p>
+<h4 id="explicit-state">Explicit state<a class="headerlink" href="#explicit-state" title="Permanent link">&para;</a></h4>
+<p><code>initialize(*x)</code> runs the first core computation from the input window and
+forcing window. It returns <code>y</code>, the first forecast, and a model-defined state holding
+everything else needed for a rollout: older input and forcing frames, statics,
+latents, noise states and the RNG position. <code>step(*y, state=state)</code> returns
+the next forecast and state. Wrappers may delegate an explicitly declared
+<code>__call__</code> or <code>create_iterator</code> to the mixin's private helpers, or implement the same
+contract directly. Weights,
+configuration, cached statics and the <code>set_rng</code> seed stay on the model.</p>
+<p>For a two-frame model, <code>initialize([x(-6h), x(0h)])</code> returns <code>y = x(+6h)</code> and keeps
+<code>x(0h)</code> in the state; the first <code>step</code> returns <code>x(+12h)</code> and keeps <code>x(+6h)</code>.</p>
+<p>Models do not return the initial condition. Drivers that publish it take it from the
+inputs with <code>initial_condition(x)</code> (<code>earth2studio.models.px.utils</code>), which reduces
+each input slot to its final lead time. <code>initialize</code> and <code>step</code> stay separate methods:
+<code>initialize</code> takes the input group and the whole forcing window, creates the state and
+draws from the model's RNG stream, whereas <code>step</code> takes the output group and newest
+forcing, and is pure in its state.</p>
+<ul>
+<li><strong><code>(y, state)</code> is the complete continuation.</strong> Checkpoints save both, so any
+  rollout can be snapshot, restored or branched without another model instance.</li>
+<li><strong><code>step</code> is pure</strong> (<code>P19</code>). It modifies neither <code>y</code> nor <code>state</code>, and the same
+  arguments and seed give the same result.</li>
+<li><strong>State is serializable</strong> (<code>P21</code>): arrays, tensors, scalars, DataArrays,
+  dataclasses and tuples of these, or <code>None</code>. Store RNG position as a counter or
+  generator-state tensor, not a <code>torch.Generator</code>. No base class is required.</li>
+<li><strong>State does not duplicate <code>y</code>,</strong> unless published outputs are not a faithful next
+  input (clipped, cast or post-processed); then the model keeps its own copy.</li>
+<li><strong><code>y</code> always matches <code>output_coords()</code>,</strong> including diagnostics, output-only slots
+  and multi-lead-time chunks. <code>step</code> builds the next window by selecting input
+  variables by label and lead times from the end, never by position: the window is the
+  state's older frames followed by <code>y</code>, keeping the last <code>N</code> lead times.</li>
+<li><strong>Models never fetch</strong> (<code>P22</code>). Missing forcing raises <code>ValueError</code>; the derived
+  methods check slot counts before calling <code>initialize</code> or <code>step</code>; model-specific
+  implementations validate the arrays against the declared coordinates.</li>
+<li><strong><code>initialize</code> and <code>step</code> are each one core computation,</strong> so <code>initialize</code> is
+  as expensive as a <code>step</code>.</li>
+<li><strong>One step is one core computation and one yield.</strong> Models computing several lead
+  times per call (DLWP, Aurora1p5, SamudrACE, InterpModAFNO) declare them all in
+  <code>output_coords()</code> and return them together, with forcing windows covering the
+  chunk. Every sent value then feeds a real advance, the front hook runs once per
+  step, snapshots never fall mid-chunk, and each yield costs one core call.</li>
+</ul>
+<p>Example state with model-specific internal and RNG state:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="k">class</span><span class="w"> </span><span class="nc">AtlasState</span><span class="p">:</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>    <span class="n">history</span><span class="p">:</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>    <span class="n">latent</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>    <span class="n">rng_step</span><span class="p">:</span> <span class="nb">int</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="k">def</span><span class="w"> </span><span class="nf">initialize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>    <span class="n">window</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_validate</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>    <span class="n">state</span> <span class="o">=</span> <span class="n">AtlasState</span><span class="p">(</span><span class="n">window</span><span class="o">.</span><span class="n">isel</span><span class="p">(</span><span class="n">lead_time</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="bp">self</span><span class="o">.</span><span class="n">_encode</span><span class="p">(</span><span class="n">window</span><span class="p">),</span> <span class="mi">0</span><span class="p">)</span>
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>    <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_advance</span><span class="p">(</span><span class="n">window</span><span class="o">.</span><span class="n">isel</span><span class="p">(</span><span class="n">lead_time</span><span class="o">=</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]),</span> <span class="n">state</span><span class="p">)</span>
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="k">def</span><span class="w"> </span><span class="nf">step</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">state</span><span class="p">):</span>
+<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>    <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_advance</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">state</span><span class="p">)</span>
+<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>
+<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="k">def</span><span class="w"> </span><span class="nf">_advance</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">latest</span><span class="p">,</span> <span class="n">state</span><span class="p">):</span>
+<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>    <span class="n">out</span><span class="p">,</span> <span class="n">latent</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_forward</span><span class="p">(</span><span class="n">state</span><span class="o">.</span><span class="n">history</span><span class="p">,</span> <span class="n">latest</span><span class="p">,</span> <span class="n">state</span><span class="o">.</span><span class="n">latent</span><span class="p">,</span> <span class="n">state</span><span class="o">.</span><span class="n">rng_step</span><span class="p">)</span>
+<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a>    <span class="k">return</span> <span class="n">out</span><span class="p">,</span> <span class="n">AtlasState</span><span class="p">(</span><span class="n">latest</span><span class="p">,</span> <span class="n">latent</span><span class="p">,</span> <span class="n">state</span><span class="o">.</span><span class="n">rng_step</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+</code></pre></div>
+<h4 id="derived-iteration-with-send">Derived iteration with <code>send</code><a class="headerlink" href="#derived-iteration-with-send" title="Permanent link">&para;</a></h4>
+<p><code>create_iterator</code> yields forecasts only: its first yield is the output of
+<code>initialize</code>, and <code>nsteps</code> forecasts take <code>nsteps</code> yields. The initial forcing window
+is consumed by <code>initialize</code>, so a value sent to the iterator is always the forcing for
+the next <code>step</code>, as a single DataArray or a tuple of time-varying forcing slots
+in declared order.
+Static slots are omitted after initialization. <code>next(it)</code> is <code>send(None)</code>, so
+models requiring no new forcing keep plain loops.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># Single-input, single-output, unforced wrapper.</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>    <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_default_call</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="k">def</span><span class="w"> </span><span class="nf">create_iterator</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>    <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_default_create_iterator</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+</code></pre></div>
+<p>The helpers validate input and forcing slot counts. The iterator publishes the
+rear-hook result and feeds it into the next step. Both hooks receive the payload
+directly, without copies. In-place front-hook edits also modify the previously
+yielded payload; hooks can return new arrays when that is undesirable.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># Unforced</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="k">for</span> <span class="n">y</span> <span class="ow">in</span> <span class="n">islice</span><span class="p">(</span><span class="n">sfno</span><span class="o">.</span><span class="n">create_iterator</span><span class="p">(</span><span class="n">x</span><span class="p">),</span> <span class="n">nsteps</span><span class="p">):</span> <span class="o">...</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="c1"># Forced: the driver fetches conditioning alongside initial conditions</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="n">it</span> <span class="o">=</span> <span class="n">stormcast</span><span class="o">.</span><span class="n">create_iterator</span><span class="p">(</span><span class="n">x_hrrr</span><span class="p">,</span> <span class="n">fetch</span><span class="p">(</span><span class="n">stormcast</span><span class="o">.</span><span class="n">forcing_coords</span><span class="p">(),</span> <span class="n">t0</span><span class="p">))</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="n">y</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="n">it</span><span class="p">)</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">nsteps</span> <span class="o">-</span> <span class="mi">1</span><span class="p">):</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>    <span class="n">y</span> <span class="o">=</span> <span class="n">it</span><span class="o">.</span><span class="n">send</span><span class="p">((</span><span class="n">fetch</span><span class="p">(</span><span class="n">stormcast</span><span class="o">.</span><span class="n">forcing_coords</span><span class="p">(),</span> <span class="n">t0</span> <span class="o">+</span> <span class="n">y</span><span class="o">.</span><span class="n">lead_time</span><span class="p">),))</span>
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>
+<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="c1"># Publishing the initial condition is the driver&#39;s choice</span>
+<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="n">io</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">initial_condition</span><span class="p">(</span><span class="n">x</span><span class="p">))</span>
+<a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="k">for</span> <span class="n">y</span> <span class="ow">in</span> <span class="n">islice</span><span class="p">(</span><span class="n">sfno</span><span class="o">.</span><span class="n">create_iterator</span><span class="p">(</span><span class="n">x</span><span class="p">),</span> <span class="n">nsteps</span><span class="p">):</span>
+<a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a>    <span class="n">io</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">y</span><span class="p">)</span>
+<a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a>
+<a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a><span class="c1"># Explicit loop over two state slots</span>
+<a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a><span class="p">(</span><span class="n">atm</span><span class="p">,</span> <span class="n">ocn</span><span class="p">),</span> <span class="n">state</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">initialize</span><span class="p">(</span><span class="n">x_atm</span><span class="p">,</span> <span class="n">x_ocn</span><span class="p">,</span> <span class="n">forcing</span><span class="p">)</span>
+<a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a><span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">nsteps</span> <span class="o">-</span> <span class="mi">1</span><span class="p">):</span>
+<a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a>    <span class="p">(</span><span class="n">atm</span><span class="p">,</span> <span class="n">ocn</span><span class="p">),</span> <span class="n">state</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="n">atm</span><span class="p">,</span> <span class="n">ocn</span><span class="p">,</span> <span class="n">forcing</span><span class="p">,</span> <span class="n">state</span><span class="o">=</span><span class="n">state</span><span class="p">)</span>
+<a id="__codelineno-3-19" name="__codelineno-3-19" href="#__codelineno-3-19"></a>
+<a id="__codelineno-3-20" name="__codelineno-3-20" href="#__codelineno-3-20"></a><span class="c1"># Coupled: GOES output conditions MRMS; neither model owns a data source</span>
+<a id="__codelineno-3-21" name="__codelineno-3-21" href="#__codelineno-3-21"></a><span class="c1"># Concrete implementations declare state as a fixed positional-or-keyword parameter.</span>
+<a id="__codelineno-3-22" name="__codelineno-3-22" href="#__codelineno-3-22"></a><span class="n">y_goes</span><span class="p">,</span> <span class="n">s_goes</span> <span class="o">=</span> <span class="n">goes</span><span class="o">.</span><span class="n">initialize</span><span class="p">(</span><span class="n">x_goes</span><span class="p">)</span>
+<a id="__codelineno-3-23" name="__codelineno-3-23" href="#__codelineno-3-23"></a><span class="n">y_mrms</span><span class="p">,</span> <span class="n">s_mrms</span> <span class="o">=</span> <span class="n">mrms</span><span class="o">.</span><span class="n">initialize</span><span class="p">(</span><span class="n">x_mrms</span><span class="p">,</span> <span class="n">x_goes</span><span class="p">)</span>  <span class="c1"># GOES window</span>
+<a id="__codelineno-3-24" name="__codelineno-3-24" href="#__codelineno-3-24"></a><span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">nsteps</span> <span class="o">-</span> <span class="mi">1</span><span class="p">):</span>
+<a id="__codelineno-3-25" name="__codelineno-3-25" href="#__codelineno-3-25"></a>    <span class="n">y_mrms</span><span class="p">,</span> <span class="n">s_mrms</span> <span class="o">=</span> <span class="n">mrms</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="n">y_mrms</span><span class="p">,</span> <span class="n">y_goes</span><span class="p">,</span> <span class="n">s_mrms</span><span class="p">)</span>  <span class="c1"># newest frame</span>
+<a id="__codelineno-3-26" name="__codelineno-3-26" href="#__codelineno-3-26"></a>    <span class="n">y_goes</span><span class="p">,</span> <span class="n">s_goes</span> <span class="o">=</span> <span class="n">goes</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="n">y_goes</span><span class="p">,</span> <span class="n">s_goes</span><span class="p">)</span>
+</code></pre></div>
+<p>StormScope GOES and MRMS also support <code>create_iterator</code>. GOES has no forcing slot;
+MRMS declares its GOES history through <code>forcing_coords()</code>, so a coupled loop sends
+each new GOES forecast to the MRMS iterator:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">goes_it</span> <span class="o">=</span> <span class="n">goes</span><span class="o">.</span><span class="n">create_iterator</span><span class="p">(</span><span class="n">x_goes</span><span class="p">)</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="n">mrms_it</span> <span class="o">=</span> <span class="n">mrms</span><span class="o">.</span><span class="n">create_iterator</span><span class="p">(</span><span class="n">x_mrms</span><span class="p">,</span> <span class="n">x_goes</span><span class="p">)</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">y_mrms</span><span class="p">,</span> <span class="n">y_goes</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="n">mrms_it</span><span class="p">),</span> <span class="nb">next</span><span class="p">(</span><span class="n">goes_it</span><span class="p">)</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">nsteps</span> <span class="o">-</span> <span class="mi">1</span><span class="p">):</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>    <span class="n">y_mrms</span> <span class="o">=</span> <span class="n">mrms_it</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">y_goes</span><span class="p">)</span>  <span class="c1"># GOES frame at y_mrms&#39;s lead time</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>    <span class="n">y_goes</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="n">goes_it</span><span class="p">)</span>
+</code></pre></div>
+<p>The same GOES window initializes both models, and each iteration's <code>y_goes</code> has the
+lead time of <code>y_mrms</code>: the newest frame MRMS needs. MRMS keeps older GOES frames in
+its state, so the coupler holds no history. This assumes equal cadences; otherwise
+the coupler aligns lead times.</p>
+<p>Hooks take and return <code>y</code>, which always matches <code>output_coords()</code>. The front hook
+runs before every <code>step</code> and its edits feed the rollout, so per-step perturbation and
+noise injection work as before. The front hook does
+not run before <code>initialize</code>: perturb <code>x</code> to edit the initial window. The rear hook
+edits forecasts before publication, starting with the first forecast; its returned
+output also feeds the next front hook and <code>step</code>.</p>
+<h4 id="default-sources">Default sources<a class="headerlink" href="#default-sources" title="Permanent link">&para;</a></h4>
+<p><code>default_sources()</code> returns a <code>DataSource | ForecastSource</code> directly for a single
+slot, a tuple of sources or <code>None</code> for multiple slots, or <code>None</code> for no recommendations.
+A <code>None</code> tuple entry means no recommendation for that slot.
+Tuple entries are ordered by <code>input_coords()</code> slots followed by
+<code>forcing_coords()</code> slots (<code>P23</code>); the slot
+signature remains the requirement. It is required for prognostic and diagnostic
+models (the prognostic mixin recommends nothing). Drivers
+read either through <code>earth2studio.models.utils.recommended_sources(model)</code>, fetch,
+and handshake the result
+against the slot.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">default_sources</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>    <span class="n">grid</span> <span class="o">=</span> <span class="n">infer_grid</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">input_coords</span><span class="p">())</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>    <span class="k">return</span> <span class="p">(</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>        <span class="n">RegriddedSource</span><span class="p">(</span><span class="n">MRMS</span><span class="p">(),</span> <span class="n">NearestRegridder</span><span class="p">(</span><span class="s2">&quot;mrms-conus-0.01deg&quot;</span><span class="p">,</span> <span class="n">grid</span><span class="p">)),</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>        <span class="n">RegriddedSource</span><span class="p">(</span><span class="n">GOES</span><span class="p">(</span><span class="n">scan_mode</span><span class="o">=</span><span class="s2">&quot;C&quot;</span><span class="p">),</span> <span class="n">NearestRegridder</span><span class="p">(</span><span class="s2">&quot;goes-east-conus&quot;</span><span class="p">,</span> <span class="n">grid</span><span class="p">)),</span>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>    <span class="p">)</span>
+</code></pre></div>
+<p>A regridder is bound to its source's grid, so the two are recommended as one
+provider. Callers may keep the default or supply any provider matching the slot,
+such as a pre-regridded archive.</p>
+<h4 id="diagnostic-models">Diagnostic models<a class="headerlink" href="#diagnostic-models" title="Permanent link">&para;</a></h4>
+<p><code>DiagnosticModel.__call__(*x)</code> takes one positional DataArray per input slot in
+<code>input_coords()</code> order, and returns a single DataArray or a tuple in output-slot
+order. Wrappers must declare fixed, named input parameters (<code>D11</code>); the protocol's
+variadic notation only describes differing arities across wrappers. Generic callers
+use declared slot order, not parameter names. <code>output_coords</code> likewise takes one
+separate positional signature/DataArray per input slot, with fixed named parameters
+on concrete wrappers. It returns one signature or a tuple of output signatures.
+Slot order is append-only, automation matches by content, and slots split only when
+coordinates differ. A diagnostic defines <code>default_sources()</code>, returning a source
+for a single input slot, a tuple in input-slot order, or <code>None</code> for no recommendations.
+Forcing, <code>initialize</code>, <code>step</code> and hooks do not apply.</p>
+<h4 id="domain-selection">Domain selection<a class="headerlink" href="#domain-selection" title="Permanent link">&para;</a></h4>
+<p>A model whose spatial domain can be chosen implements the optional <code>DomainAdaptable</code>
+protocol (<code>earth2studio.models.base</code>) in addition to <code>PrognosticModel</code> or
+<code>DiagnosticModel</code>. Generic callers detect it with <code>isinstance</code>; fixed-domain models do
+not implement it. Design notes and wrapper guidance are in
+<a href="../../dev/scratch/flexible_domain.md">flexible_domain.md</a>.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nd">@runtime_checkable</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="k">class</span><span class="w"> </span><span class="nc">DomainAdaptable</span><span class="p">(</span><span class="n">Protocol</span><span class="p">):</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">with_region</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">region</span><span class="p">:</span> <span class="n">Region</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Self</span><span class="p">:</span> <span class="o">...</span>
+</code></pre></div>
+<p>A loaded model starts on its default domain, usually its full native footprint, and
+<code>with_region</code> is the only way to change it. A model with no natural full domain, such
+as one that builds a local projection anywhere on the globe, ships a documented
+default region so that its signatures are concrete (<code>P2</code>, <code>D2</code>).</p>
+<p><code>with_region</code> returns a <strong>view</strong>: a new model instance with its own coordinate
+signatures that shares the loaded weights and statics. The model selects the grid of
+every input, forcing and output slot itself, so multi-grid models keep their slots
+consistent. Selection uses each grid's own logic: a crop model selects and snaps cells
+from its supported footprint, and a globe-wide patch model builds a local grid at its
+native spacing and shape. A model rejects region kinds its grids cannot select with
+<code>ValueError</code>; grid-native selections such as HEALPix faces remain model-specific until
+a region kind is added for them. Model-specific settings such as CorrDiff's halo and
+input margin are configuration of the model a view is made from, not protocol
+arguments.</p>
+<p>Each view's <code>input_coords()</code>, <code>forcing_coords()</code> and <code>output_coords()</code> are
+authoritative. An internal run grid may be larger than a declared grid, as when
+CorrDiff computes a halo and trims it. A run binds one view and keeps it fixed (see
+Coordinate Systems). Views run safely in sequence, and concurrently only where the
+wrapper documents it.</p>
+<h5 id="regions">Regions<a class="headerlink" href="#regions" title="Permanent link">&para;</a></h5>
+<p><code>earth2studio.grids.Region</code> describes geography independently of any model grid. It
+is a frozen value type built through classmethods that validate and normalize it:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="n">Region</span><span class="o">.</span><span class="n">box</span><span class="p">(</span><span class="n">west</span><span class="p">,</span> <span class="n">south</span><span class="p">,</span> <span class="n">east</span><span class="p">,</span> <span class="n">north</span><span class="p">)</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="n">Region</span><span class="o">.</span><span class="n">band</span><span class="p">(</span><span class="n">south</span><span class="p">,</span> <span class="n">north</span><span class="p">)</span>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="n">Region</span><span class="o">.</span><span class="n">rectangle</span><span class="p">(</span><span class="n">lat</span><span class="p">,</span> <span class="n">lon</span><span class="p">,</span> <span class="n">half_width_m</span><span class="p">,</span> <span class="n">half_height_m</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">bearing_deg</span><span class="o">=</span><span class="mf">0.0</span><span class="p">)</span>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="n">Region</span><span class="o">.</span><span class="n">circle</span><span class="p">(</span><span class="n">lat</span><span class="p">,</span> <span class="n">lon</span><span class="p">,</span> <span class="n">radius_m</span><span class="p">)</span>
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th><code>kind</code></th>
+<th><code>params</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>"box"</code></td>
+<td><code>(west, south, east, north)</code></td>
+</tr>
+<tr>
+<td><code>"band"</code></td>
+<td><code>(south, north)</code></td>
+</tr>
+<tr>
+<td><code>"rectangle"</code></td>
+<td><code>(lat, lon, half_width_m, half_height_m, bearing_deg)</code></td>
+</tr>
+<tr>
+<td><code>"circle"</code></td>
+<td><code>(lat, lon, radius_m)</code></td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><code>box</code> uses CRS84 longitude/latitude, with edges along meridians and parallels.
+  <code>west &gt; east</code> crosses the antimeridian; <code>west == east</code> is a zero-width box, not
+  the whole globe.</li>
+<li><code>band</code> spans every longitude between two parallels, such as the tropics, a polar
+  cap (<code>band(60, 90)</code>) or the whole globe (<code>band(-90, 90)</code>). It has no east or west
+  edge, so coverage checks treat longitude as continuous.</li>
+<li><code>rectangle</code> lies in the local azimuthal-equidistant plane centered at <code>(lat, lon)</code>;
+  <code>half_height_m=None</code> makes a square. <code>bearing_deg</code> is the clockwise angle from true
+  north to the local positive <em>y</em> axis, with positive <em>x</em> to its right; at a pole,
+  <code>lon</code> is the reference meridian. A model accepting <code>rectangle</code> must honor its center
+  and orientation, or raise <code>ValueError</code>.</li>
+<li><code>circle</code> holds every point within geodesic distance <code>radius_m</code> of <code>(lat, lon)</code>, a
+  circle in the same local plane. At a pole, <code>lon</code> is irrelevant and normalized to 0.</li>
+</ul>
+<p>Direct construction applies the same validation and normalization as the
+classmethods, so equal requests compare and hash equal. Validation covers finite
+values, coordinate ranges and positive half-widths and radii. Longitude is normalized to
+<code>[-180, 180)</code> and bearing to <code>[0, 360)</code>; in-range values are kept exactly and
+coordinates are never rounded, which could change the requested footprint. A <code>box</code>
+spanning a nonzero multiple of 360° of longitude is rejected rather than collapsed to
+zero width; use <code>band</code> instead. Masks, vertical extent and variables are not part of
+a region. Further kinds (polygons, tracks) are additive.</p>
+<p>Coverage checks are model-specific: on projected and curvilinear grids, selecting
+cell centers inside a geographic box does not guarantee coverage. <code>subset_indexers()</code>
+keeps its center-selection meaning. A crop does not retain the parent's registered
+grid ID unless its geometry is identical (see <a href="../E2S-02_GRID_SPEC/">E2S-02_GRID_SPEC.md</a>).</p>
+<h3 id="rules">Rules<a class="headerlink" href="#rules" title="Permanent link">&para;</a></h3>
+<h4 id="prognostic">Prognostic<a class="headerlink" href="#prognostic" title="Permanent link">&para;</a></h4>
+<p>These rules apply to native DataArray execution and explicit continuation state.</p>
+<table>
+<thead>
+<tr>
+<th>Rule</th>
+<th>Requirement</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>P1</code></td>
+<td>Structurally satisfies <code>PrognosticModel</code></td>
+</tr>
+<tr>
+<td><code>P2</code></td>
+<td>Allocation-free DataArray declarations with explicit dynamic leading dimensions</td>
+</tr>
+<tr>
+<td><code>P3</code></td>
+<td>Input <code>lead_time</code> is relative, strictly increasing, and ends at or before zero</td>
+</tr>
+<tr>
+<td><code>P4</code></td>
+<td><code>output_coords()</code> treats its argument as read-only</td>
+</tr>
+<tr>
+<td><code>P5</code></td>
+<td><code>output_coords()</code> raises <code>ValueError</code> for an invalid coordinate system</td>
+</tr>
+<tr>
+<td><code>P6</code></td>
+<td>Shifting input <code>lead_time</code> by an offset shifts output <code>lead_time</code> by the same offset</td>
+</tr>
+<tr>
+<td><code>P7</code></td>
+<td><code>create_iterator()</code> yields forecasts only, the first being <code>initialize</code>'s output</td>
+</tr>
+<tr>
+<td><code>P8</code></td>
+<td>The 1st yield matches the coordinate system <code>output_coords()</code> declared</td>
+</tr>
+<tr>
+<td><code>P9</code></td>
+<td>Every forecast matches its planned coordinates and structural metadata</td>
+</tr>
+<tr>
+<td><code>P10</code></td>
+<td><code>create_iterator()</code> applies both hooks; <code>__call__</code>, <code>initialize</code> and <code>step</code> apply none</td>
+</tr>
+<tr>
+<td><code>P11</code></td>
+<td>The model declares a boolean <code>stochastic</code> attribute</td>
+</tr>
+<tr>
+<td><code>P12</code></td>
+<td>A stochastic model implements <code>set_rng(seed, reset=True)</code></td>
+</tr>
+<tr>
+<td><code>P13</code></td>
+<td>Seeding determines a rollout, and different seeds give different rollouts</td>
+</tr>
+<tr>
+<td><code>P14</code></td>
+<td>After <code>set_rng()</code>, seeding and stepping leave global RNG state unperturbed</td>
+</tr>
+<tr>
+<td><code>P15</code></td>
+<td>Stepping the model does not modify its input tensor or coordinate system</td>
+</tr>
+<tr>
+<td><code>P16</code></td>
+<td>Model advances do not overwrite earlier yields; explicit in-place hook edits are allowed</td>
+</tr>
+<tr>
+<td><code>P17</code></td>
+<td>One positional DataArray per slot; fields precede forcing, in declared order</td>
+</tr>
+<tr>
+<td><code>P18</code></td>
+<td>No two output slots share identical non-variable coordinates</td>
+</tr>
+<tr>
+<td><code>P19</code></td>
+<td><code>step</code> modifies neither <code>y</code> nor <code>state</code>; replaying <code>(y, state)</code> reproduces it</td>
+</tr>
+<tr>
+<td><code>P20</code></td>
+<td>Call, initialization forecast and first iterator yield agree without hooks</td>
+</tr>
+<tr>
+<td><code>P21</code></td>
+<td>The state is serializable, and a saved <code>(y, state)</code> round-trips</td>
+</tr>
+<tr>
+<td><code>P22</code></td>
+<td>The model never fetches; missing forcing raises <code>ValueError</code></td>
+</tr>
+<tr>
+<td><code>P23</code></td>
+<td><code>default_sources()</code> follows the single/tuple/None contract in Default sources</td>
+</tr>
+<tr>
+<td><code>P24</code></td>
+<td>Wrappers declare fixed, named execution parameters (see Argument slots)</td>
+</tr>
+</tbody>
+</table>
+<h4 id="diagnostic">Diagnostic<a class="headerlink" href="#diagnostic" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>Rule</th>
+<th>Requirement</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>D1</code></td>
+<td>Structurally satisfies <code>DiagnosticModel</code></td>
+</tr>
+<tr>
+<td><code>D2</code></td>
+<td>Allocation-free DataArray declarations with explicit dynamic leading dimensions</td>
+</tr>
+<tr>
+<td><code>D3</code></td>
+<td><code>output_coords()</code> treats its argument as read-only</td>
+</tr>
+<tr>
+<td><code>D4</code></td>
+<td><code>output_coords()</code> raises <code>ValueError</code> for an invalid coordinate system</td>
+</tr>
+<tr>
+<td><code>D5</code></td>
+<td><code>__call__</code> matches declared coordinates and structural metadata</td>
+</tr>
+<tr>
+<td><code>D6</code></td>
+<td><code>__call__</code> does not modify its input tensor or coordinate system</td>
+</tr>
+<tr>
+<td><code>D7</code></td>
+<td>The model declares a boolean <code>stochastic</code> attribute</td>
+</tr>
+<tr>
+<td><code>D8</code></td>
+<td>A stochastic model implements <code>set_rng(seed, reset=True)</code></td>
+</tr>
+<tr>
+<td><code>D9</code></td>
+<td>Seeding determines the output, and different seeds give different output</td>
+</tr>
+<tr>
+<td><code>D10</code></td>
+<td>After <code>set_rng()</code>, seeding and calling leave global RNG state unperturbed</td>
+</tr>
+<tr>
+<td><code>D11</code></td>
+<td>Wrappers declare fixed, named <code>__call__</code> parameters (see Argument slots)</td>
+</tr>
+</tbody>
+</table>
+<h4 id="domain">Domain<a class="headerlink" href="#domain" title="Permanent link">&para;</a></h4>
+<p>These rules apply only to models implementing <code>DomainAdaptable</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Rule</th>
+<th>Requirement</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>G1</code></td>
+<td><code>with_region(region)</code> returns a view covering the region, or raises <code>ValueError</code></td>
+</tr>
+<tr>
+<td><code>G2</code></td>
+<td>Views leave the parent and sibling views' signatures, parameters and results unchanged</td>
+</tr>
+<tr>
+<td><code>G3</code></td>
+<td>A view reaches the full supported footprint, with the original model's validation</td>
+</tr>
+<tr>
+<td><code>G4</code></td>
+<td>Domain-dependent prognostic state is rejected by a view on an incompatible domain</td>
+</tr>
+</tbody>
+</table>
+<p><code>G1</code> coverage is geometric: the usable area of every output slot contains the region,
+and a <code>rectangle</code> request's center and orientation are honored. It does not guarantee
+skill or the absence of edge artifacts. <code>G2</code> holds for sequential use with equivalent
+seeding; for example, seeding before each rollout of A in an A, B, A sequence
+reproduces A, and the root <code>state_dict</code> is unchanged.</p>
+<h3 id="lead-time">Lead Time<a class="headerlink" href="#lead-time" title="Permanent link">&para;</a></h3>
+<p>Declared input <code>lead_time</code> is relative to analysis time and ends at or before
+zero (e.g. <code>[-6h, 0h]</code>). Output offsets are added to the <em>final input</em> lead time,
+never a constant, allowing nonzero starts and resumed rollouts; shifting every input
+lead time shifts output equally (<code>P6</code>). <code>forcing_coords()</code> follows the same convention.</p>
+<p>The <strong>step interval</strong> is the declared output's last lead time minus the later of the
+first input slot's last lead time and zero. An input ending at zero, the usual case,
+steps by the output's last lead time. An input ending before zero is a background
+that <code>initialize</code> first brings up to the analysis time, for example by assimilating
+observations; <code>step</code> then advances by the forecast interval alone. A background at
+<code>-9h</code> with an initialization output at <code>+3h</code> steps by 3 h, so drivers plan lead
+times <code>+3h, +6h, ...</code> and publish no initial condition, since no input frame is
+valid at the analysis time. The rule is a convention: a model whose <code>step</code> advances
+by the full gap from its background must declare inputs ending at zero.</p>
+<h3 id="iteration">Iteration<a class="headerlink" href="#iteration" title="Permanent link">&para;</a></h3>
+<p><code>create_iterator()</code> yields complete forecasts only, starting with the output of
+<code>initialize</code>; <code>nsteps</code> forecasts take <code>nsteps</code> yields, and no yield is a partial
+step. A value sent at a yield is the forcing for the next <code>step</code>. Drivers that publish
+the initial condition take it from <code>initial_condition(x)</code>, which reduces each input
+slot to its final lead time.</p>
+<h3 id="hooks">Hooks<a class="headerlink" href="#hooks" title="Permanent link">&para;</a></h3>
+<p><strong>Hooks belong to the iterator (<code>P10</code>).</strong> <code>__call__</code>, <code>initialize</code> and <code>step</code> apply
+none, and neither hook sees the initial condition. <code>create_iterator</code> applies the rear
+hook to every forecast, starting with the output of <code>initialize</code>, and the front hook
+before every <code>step</code>: front hook → <code>step</code> → rear hook → yield.</p>
+<ul>
+<li><code>front_hook</code> transforms <code>y</code> just before the model computes from it; its edits feed
+  the rollout.</li>
+<li><code>rear_hook</code> transforms each forecast before it is yielded; its returned output
+  is both published and fed into the next advance.</li>
+</ul>
+<p>A step computing several lead times yields them together, so each hook runs once per
+chunk, and <code>P8</code>/<code>P9</code> hold because <code>output_coords()</code> declares the whole chunk.
+Aurora1p5 declares six hourly outputs per core advance, so both hooks run once per
+six-hour cycle.</p>
+<p>Each hook takes and returns <code>y</code> (a DataArray, or a tuple for multi-slot outputs) and
+is a single callable slot. Callers compose transformations explicitly, with no
+registration chain, so ordering stays visible at the assignment site and drivers
+cannot silently interleave transformations with caller hooks. <code>clear_hooks()</code>
+restores identity hooks. Single-step callers can transform inputs and outputs
+directly; iterator hooks add access to the fields fed back between steps (see
+<code>examples/02_medium_range/02_model_perturbation_hook.py</code>). The front hook reaches
+only <code>y</code>; history buffers and recurrent state are reached by editing <code>state</code> in an
+explicit <code>initialize</code>/<code>step</code> loop.</p>
+<p>GraphCast, GenCast and WeatherNext apply both hooks to public DataArrays while
+preserving native recurrence when numerical inputs are unchanged.</p>
+<h3 id="ownership-of-tensors">Ownership of Tensors<a class="headerlink" href="#ownership-of-tensors" title="Permanent link">&para;</a></h3>
+<p>A model borrows its input and owns its output. None of <code>__call__</code>, <code>initialize</code>,
+<code>step</code> and <code>create_iterator()</code> may modify caller input tensors or coordinates (<code>P15</code>,
+<code>D6</code>),
+and model advances must not overwrite earlier yields (<code>P16</code>); views are allowed only
+if their buffers will not be overwritten by the model. Hooks receive the payload
+directly and may explicitly edit it in place, including a previously yielded array.
+Callers retaining snapshots with such hooks must copy them before advancing.
+The motivating failure was
+<code>stormcast</code> overwriting the caller's initial condition
+(<a href="https://github.com/NVIDIA/earth2studio/issues/1133">issue #1133</a>, fixed in
+PR #1134). <code>AsyncZarrBackend</code> still copies every non-blocking write defensively;
+model-level ownership guarantees address the underlying buffer-lifetime problem.</p>
+<p>The reverse also holds: the <code>y</code> a model returns or yields feeds the next <code>step</code>, so
+callers must not modify it in place. An in-place edit, such as a unit conversion in
+an IO backend, would silently change the rollout; edits meant to feed back belong in
+the front hook.</p>
+<p>Legacy <code>batch_func</code> rebuilds coordinates but does not protect tensor inputs:
+<code>_compress_batch</code> uses <code>unsqueeze</code>/<code>flatten</code> views, so internal writes reach callers.</p>
+<h3 id="stochasticity">Stochasticity<a class="headerlink" href="#stochasticity" title="Permanent link">&para;</a></h3>
+<p><code>P11</code>–<code>P14</code> and <code>D7</code>–<code>D10</code> require a readable boolean <code>stochastic</code> declaration and,
+when true, <code>set_rng(seed: int, reset: bool = True) -&gt; None</code>. Undeclared models
+default to <code>False</code>, supplied by <code>PrognosticMixin</code>; diagnostics need no base class.
+The declaration lets drivers plan ensembles before execution.</p>
+<p>The seed is the first positional argument, supporting seed-only core APIs.
+<code>reset=True</code> replaces the generator; <code>reset=False</code> initializes it only if absent,
+otherwise ignoring the seed and keeping the trajectory. Ensemble drivers reseed each
+member with <code>reset=True</code> before <code>initialize</code>; components that seed lazily may call
+<code>set_rng(fallback_seed, reset=False)</code> without clobbering driver seeding, whereas
+resetting to the same seed before each rollout would repeat identical noise.
+Never-seeded models fall back to the global RNG rather than failing.</p>
+<p>The same seed must reproduce every rollout step (<code>P13</code>) or diagnostic output (<code>D9</code>)
+exactly, and different seeds must differ. A model declaring <code>stochastic=False</code> whose
+results vary for the same input also fails these rules.</p>
+<h4 id="rng-isolation">RNG isolation<a class="headerlink" href="#rng-isolation" title="Permanent link">&para;</a></h4>
+<p>After <code>set_rng()</code>, neither seeding nor stepping/calling may leave global RNG state
+perturbed (<code>P14</code>, <code>D10</code>). Use a local <code>torch.Generator</code> for every draw, a functional
+PRNG key, or <code>torch.random.fork_rng()</code> around global seeding and execution. Forking
+supports external packages without generator injection (e.g. <code>aifs2ens</code>/<code>anemoi</code>);
+pass <code>devices</code> explicitly, since the default forks all visible CUDA devices and
+warns. Unseeded global-RNG draws remain allowed.</p>
+<p>For a core that accepts only global seeding, store the seed without drawing and
+isolate each step, seeding from the position held in the state (see RNG with explicit
+state):</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">set_rng</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">seed</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">reset</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>    <span class="k">if</span> <span class="n">reset</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_seed</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_seed</span> <span class="o">=</span> <span class="n">seed</span>
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="c1"># Seeded step:</span>
+<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">fork_rng</span><span class="p">(</span><span class="n">devices</span><span class="o">=</span><span class="p">[</span><span class="n">x</span><span class="o">.</span><span class="n">device</span><span class="p">]</span> <span class="k">if</span> <span class="n">x</span><span class="o">.</span><span class="n">is_cuda</span> <span class="k">else</span> <span class="p">[]):</span>
+<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>    <span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="n">mix</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_seed</span><span class="p">,</span> <span class="n">state</span><span class="o">.</span><span class="n">rng_step</span><span class="p">))</span>
+<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a>    <span class="n">out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">core_model</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>
+</code></pre></div>
+<p>Isolation keeps other models, perturbations and dataloaders from having their streams
+reset. Reproducibility checks cannot catch this interference: a model may reproduce
+perfectly alone while destroying independence in a cascade. The rule constrains the
+observable effect, not the mechanism.</p>
+<p>Forking isolates sequential calls, not concurrent ones: <code>fork_rng</code> saves and restores
+process-global state, so concurrent threads can interleave fork windows. Drivers must
+not run a global-RNG component concurrently with another stochastic component in the
+same process.</p>
+<h4 id="rng-with-explicit-state">RNG with explicit state<a class="headerlink" href="#rng-with-explicit-state" title="Permanent link">&para;</a></h4>
+<p>The seed stays on the model; each rollout's stream position lives in its state.
+<code>initialize</code> draws the rollout's starting point from the model's stream, so new
+rollouts still advance it and only <code>set_rng(..., reset=True)</code> restarts it. Each
+<code>step</code> derives its draws from the state alone, so replaying a saved state is exact
+(<code>P19</code>):</p>
+<table>
+<thead>
+<tr>
+<th>Mechanism</th>
+<th>Per-step stream</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Forked global</td>
+<td><code>fork_rng(devices=...)</code>, then <code>manual_seed(mix(seed, rng_step))</code></td>
+</tr>
+<tr>
+<td>Local generator</td>
+<td>generator rebuilt from, or restored to, the state's position</td>
+</tr>
+<tr>
+<td>Functional key</td>
+<td><code>fold_in(key, rng_step)</code>, both held in the state</td>
+</tr>
+</tbody>
+</table>
+<p>Calling <code>set_rng</code> mid-rollout affects only later <code>initialize</code> calls, never a live
+trajectory.</p>
+<h4 id="seeding-is-the-only-entry-point">Seeding is the only entry point<a class="headerlink" href="#seeding-is-the-only-entry-point" title="Permanent link">&para;</a></h4>
+<p>Constructors and <code>load_model()</code> take no <code>seed</code>: load the model, then call
+<code>model.set_rng(seed)</code>. Calls and new iterators advance that stream; only an explicit
+reset restarts it.</p>
+<h4 id="current-wrappers">Current wrappers<a class="headerlink" href="#current-wrappers" title="Permanent link">&para;</a></h4>
+<p>Each wrapper owns its RNG implementation. FCN3 delegates to its backend's RNG API;
+CorrDiff passes sample seeds to its diffusion backend; StormScope and NSRDB use
+explicit noise generators; GenCast and WeatherNext advance functional JAX keys;
+DLESyM keeps its native local generator. Backends without a generator API run inside
+a wrapper-local Torch RNG fork (<code>earth2studio.models.utils.fork_rng</code>) that saves and
+resumes model-owned CPU/CUDA RNG state between sampling calls. Seeds initialize
+streams once per reset and sampling advances them; forks cover only the relevant
+numerical calls and never span iterator yields. Aurora also resets its cached noise,
+and DiagnosticWrapper dispatches seeding to its stochastic components.</p>
+<h3 id="conformance">Conformance<a class="headerlink" href="#conformance" title="Permanent link">&para;</a></h3>
+<p><code>earth2studio.models.conformance.check_prognostic_contract(model)</code> evaluates every
+applicable probe before failing, reporting collected violations and returning
+unevaluated rules with reasons. <code>rollout=False</code> retains declarations/planning
+(<code>P1</code>–<code>P6</code>), stochastic declarations and seeding (<code>P11</code>, <code>P12</code>, the seeding half of
+<code>P14</code>), slot/signature checks (<code>P17</code>, <code>P18</code>, <code>P24</code>) and sources (<code>P23</code>).
+<code>check_diagnostic_contract(model, forward=False)</code> retains <code>D1</code>–<code>D4</code>, <code>D7</code>, <code>D8</code>,
+<code>D11</code> and the seeding half of <code>D10</code>. Behavioral <code>reset=False</code> checks need execution.</p>
+<p>Probes concretize dynamic dimensions for every declared slot and use each
+signature's <code>.shape</code>, auxiliary coordinates and grid/statistics metadata.
+Execution and planning both pass separate positional arguments in input-slot order.
+Pseudo-random probes expose input mutation; models rejecting unphysical data need
+realistic initial-condition fixtures. Generic probes cannot prove numerical
+correctness, semantic source ordering or absence of internal fetching.</p>
+<p>Every forecast in the probed rollout is checked against independently planned
+coordinates. The checker rebases the declared input history at the previous planned
+output's final lead before planning the next forecast, supporting multi-frame
+histories and multi-output steps without trusting yielded coordinates. Calls and
+yields must preserve declared grid, CRS and statistics metadata and omit signature
+kind/schema/dynamic attributes; user attributes may change through hooks.</p>
+<h4 id="enforcement">Enforcement<a class="headerlink" href="#enforcement" title="Permanent link">&para;</a></h4>
+<p>Model creation skills produce <code>test_&lt;model&gt;_conformance</code> from existing mock-weight
+fixtures, without real weights or network access. <code>test/models/test_conformance.py</code>
+tests the checker; <code>test/models/test_model_conformance.py</code> introspects
+<code>earth2studio.models.px</code>/<code>dx</code> and requires every class to conform or be explicitly
+exempt with a pinned reason. Backend-dependent execution needs its optional
+dependencies; a dependency skip is not evidence of conformance.</p>
+<h3 id="migration">Migration<a class="headerlink" href="#migration" title="Permanent link">&para;</a></h3>
+<p>The checker implements this contract. Wrappers and consumers migrate separately:</p>
+<ul>
+<li><strong>Wrappers.</strong> The mixin supplies hooks, defaults and private helpers, not public
+  execution methods. Concrete wrappers define <code>__call__</code>, <code>initialize</code>, <code>step</code>
+  and <code>create_iterator</code>; missing methods fail structural <code>P1</code>.</li>
+<li><strong>Protocol annotations.</strong> <code>PrognosticModel</code> now declares variadic DataArray
+  arguments and single-or-tuple output signatures. Migrated wrappers declare explicit
+  fixed signatures (<code>P24</code>, <code>D11</code>) without inheriting variadic execution methods.
+  Wrappers and callers in
+  <code>earth2studio.run</code>, perturbations, <code>dxwrapper</code>, <code>interpmodafno</code> and recipes must
+  migrate together; structural protocol membership does not validate signatures.</li>
+<li><strong>One iterator API.</strong> <code>create_iterator</code> remains the public name and is not
+  deprecated. Migrated implementations yield forecasts only. Coordinate the
+  transition with consumers that currently count <code>nsteps + 1</code> yields, so their
+  forecasts retain the correct lead-time labels.</li>
+<li><strong>Chunked yields.</strong> Unmigrated DLWP, Aurora1p5, SamudrACE and InterpModAFNO yield
+  one lead time at a time and declare <code>front_hook_interval</code>, the number of yields per
+  front-hook call (DLWP: 2, front hook → compute +6h and +12h → rear hook and yield
+  each). Migrated, they yield whole chunks and <code>front_hook_interval</code> is removed.</li>
+<li><strong>Conformance.</strong> The checker rejects initial-condition-first iteration and probes
+  <code>P17</code>–<code>P24</code>, <code>D11</code> and multiple slots. Signature checks follow decorators that
+  preserve the wrapped method's declared signature. Unmigrated wrappers fail the
+  checker until they implement the new execution and declaration requirements.</li>
+<li><strong>Diagnostics.</strong> Add a <code>DiagnosticMixin</code> supplying <code>stochastic = False</code> and a
+  <code>default_sources()</code> recommending nothing, inherited by every diagnostic wrapper.
+  <code>default_sources()</code> then becomes a required <code>DiagnosticModel</code> member, as for
+  <code>PrognosticModel</code>, and drivers drop their <code>getattr</code> fallbacks for both attributes.</li>
+<li><strong>Domain selection.</strong> Add <code>DomainAdaptable</code>, <code>Region</code> and checks for <code>G1</code>–<code>G4</code>.
+  <code>StormScopeGOES</code> and <code>StormScopeMRMS</code> implement it for box regions: Flash variants
+  crop the HRRR footprint with context, and baseline variants return full-footprint
+  views, which cover any supported region. <code>CorrDiffEra5Hrrr</code>, <code>CorrDiffCosmoEra5</code>,
+  <code>StormCastCONUS</code>, <code>cBottleSR</code> and <code>InterpCRPSDiT</code> implement it too. <code>with_region</code>
+  replaces <code>CorrDiffCosmoEra5.set_domain</code>, <code>InterpCRPSDiT.set_domain</code> and
+  <code>CBottleSR.set_super_resolution_window</code>, which are removed. StormCastCONUS keeps
+  its construction-time <code>hrrr_lat_lim</code> / <code>hrrr_lon_lim</code>; cBottleSR's constructor
+  and <code>load_model</code> take a <code>region</code>.
+  <code>StormCast</code> stays fixed-domain: its additive positional embedding and invariants
+  cover only its 512×640 window. See
+  <a href="../../dev/scratch/flexible_domain.md">flexible_domain.md</a>.</li>
+<li><strong>Examples and drivers.</strong> <code>earth2studio.run</code>, <code>examples/</code> and <code>dev/examples/</code> call
+  <code>create_iterator</code> and count <code>nsteps + 1</code> yields; they move to <code>nsteps</code> yields,
+  writing <code>initial_condition(x)</code> where they publish the initial condition.</li>
+</ul>
+<h3 id="open-questions">Open Questions<a class="headerlink" href="#open-questions" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Should <code>P13</code>'s exact comparison allow a configurable tolerance for nondeterministic GPU
+  kernels that make deterministic models appear stochastic?</li>
+<li>An opaque, unseedable dependency would need a separate <code>seedable</code> declaration and
+  would skip <code>P13</code> while keeping <code>P14</code>. No current wrapper needs this split.</li>
+<li><code>P14</code>/<code>D10</code> cover only models implementing <code>set_rng</code>; widen them if a deterministic
+  model that reseeds globally appears.</li>
+<li>DA now separates independent <code>AssimilationModel</code> calls from the extending
+  <code>StatefulAssimilationModel</code> lifecycle (<code>initialize</code>, <code>step</code>, <code>create_iterator</code>).
+  Its first yield is the computed analysis; there are no priming yields. Explicit
+  state, replay, and ownership follow the prognostic conventions, extended to
+  DataFrame slots and optional observations. <code>send(None)</code> only permits advancement
+  when no new required forcing is needed; StormCast requires conditioning even
+  without observations. Tabular outputs use <code>FrameSchema</code>.</li>
+</ul>
+<p>Remaining generic DA planning questions are analysis-time resolution for
+  observation-only models, machine-readable observation windows and optionality
+  (including HealDA's at-least-one constraint). RNG follows the shared convention
+  in <a href="../E2S-07_DA_MODEL_CONTRACT_SPEC/">the DA contract</a>. Model-specific metadata/window
+  contracts remain authoritative until those are standardized.
+- Do drivers accept yields with several <code>lead_time</code> entries? IO backends do
+  (<a href="../E2S-10_IO_SPEC/">E2S-10_IO_SPEC.md</a>); chunked steps for DLWP, Aurora1p5, SamudrACE and
+  InterpModAFNO depend on drivers as well.
+- A hook editing <code>y</code> can leave derived private state (Atlas's latent) stale.
+  Should <code>step</code> re-derive from <code>y</code>, or document what it ignores?
+- Front hooks no longer see frames older than <code>y</code>, nor the initial condition, so
+  they cannot apply fresh noise to a whole history window at once. Is this a
+  limitation for history-window perturbation workflows?
+- Should components declare their RNG mechanism (e.g. <code>rng = "local" | "global"</code>) so
+  drivers can run global-RNG components serially?</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Copyright &copy; 2024-2026 NVIDIA Corporation & Affiliates
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+    <a href="https://github.com/NVIDIA/earth2studio" target="_blank" rel="noopener" title="Earth2Studio on GitHub" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["announce.dismiss", "navigation.tabs", "navigation.tabs.sticky", "navigation.indexes", "navigation.top", "navigation.footer", "search.highlight", "search.suggest", "toc.follow", "content.code.copy", "content.code.annotate"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="../../assets/javascripts/e2s-landing.js"></script>
+      
+        <script src="../../assets/javascripts/e2s-install-selector.js"></script>
+      
+        <script src="../../assets/javascripts/e2s-catalog.js"></script>
+      
+        <script src="../../assets/javascripts/mathjax.js"></script>
+      
+        <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+      
+        <script src="../../assets/javascripts/mkdocs-badges-data.js"></script>
+      
+        <script src="../../assets/javascripts/mkdocs-badges.js"></script>
+      
+    
+  </body>
+</html>

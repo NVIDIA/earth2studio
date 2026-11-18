@@ -653,6 +653,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -703,6 +707,34 @@
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
             
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../userguide/components/coordinates/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data and Metadata
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
               
             
               
@@ -901,6 +933,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../userguide/components/execution/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pipelines and Runners
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -920,6 +980,12 @@
       
         
           
+        
+      
+        
+      
+        
+      
         
       
         
@@ -999,6 +1065,62 @@
     
   
     Checkpointing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../userguide/advanced/io/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Advanced Output Handling
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../userguide/advanced/domains/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Adaptive Model Domains
   
 
     
@@ -1102,6 +1224,34 @@
   
   
   
+    <li class="md-nav__item">
+      <a href="../../../../userguide/advanced/serving/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment and Serving
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
     
     
       
@@ -1122,7 +1272,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_5_6" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_5_9" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -1144,14 +1294,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_2_5_6" id="__nav_2_5_6_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_2_5_9" id="__nav_2_5_9_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_2_5_6_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_2_5_6">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_2_5_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_5_9">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -3431,7 +3581,7 @@
 <h1 id="zarrbackend"><code>ZarrBackend</code><a class="headerlink" href="#zarrbackend" title="Permanent link">&para;</a></h1>
 <p><strong>Import path:</strong> <code>earth2studio.io.ZarrBackend</code></p>
 <p><a href="" id="earth2studio.io.ZarrBackend"></a></p>
-<p><a class="e2s-source-link" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/io/zarr.py#L32-L345" title="earth2studio/io/zarr.py:32">View source on GitHub</a></p>
+<p><a class="e2s-source-link" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/io/zarr.py#L37-L451" title="earth2studio/io/zarr.py:37">View source on GitHub</a></p>
 <h2 id="documentation">Documentation<a class="headerlink" href="#documentation" title="Permanent link">&para;</a></h2>
 
 
@@ -3445,6 +3595,9 @@
 
 
         <p>A backend that supports the zarr format.</p>
+<p>One array is created per <code>variable</code> label of an <code>add_array</code> template,
+with the dimension and auxiliary coordinates stored alongside them so the group
+opens directly with <code>xarray.open_zarr</code> (see <code>to_xarray</code>).</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -3464,12 +3617,14 @@ in-memory store., by default None</p>
         <li class="doc-section-item field-body">
             <b><code>chunks</code></b>
               (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a>, <a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#int">int</a>]</code>, default:
-                  <code>{&#39;ensemble&#39;: 1, &#39;time&#39;: 1, &#39;lead_time&#39;: 1, &#39;variable&#39;: 1}</code>
+                  <code>{&#39;ensemble&#39;: 1, &#39;time&#39;: 1, &#39;lead_time&#39;: 1}</code>
 )
           –
           <div class="doc-md-description">
-            <p>An ordered dict of chunks to use with the data passed through data/coords, by
-default {}</p>
+            <p>An ordered dict of chunk sizes keyed by dimension. Dimensions that are not
+present in a stored array are ignored and dimensions without an entry are
+stored in a single chunk, by default {"ensemble": 1, "time": 1,
+"lead_time": 1}</p>
           </div>
         </li>
         <li class="doc-section-item field-body">
@@ -3501,6 +3656,13 @@ If None, will use no compressor, by default None</p>
   <p>For keyword argument options see: <a href="https://zarr.readthedocs.io/en/latest/api/zarr/index.html#zarr.group">zarr.readthedocs.io/en/latest/api/zarr/index.html#zarr.group</a></p>
 </details>
 
+<details class="note" open>
+  <summary>Note</summary>
+  <p>Variable labels name arrays verbatim, including statistic qualifiers such as
+<code>tp:sum:6h</code>. A local store creates one directory per array, so such labels
+require a file system that permits <code>:</code> in names.</p>
+</details>
+
 
 
 
@@ -3526,59 +3688,25 @@ If None, will use no compressor, by default None</p>
 
 
 <a href="#earth2studio.io.ZarrBackend.add_array" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">add_array</span><span class="p">(</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">coords</span><span class="p">:</span> <span class="n"><span title="earth2studio.utils.type.CoordSystem">CoordSystem</span></span><span class="p">,</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">array_name</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">],</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">data</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="torch.Tensor" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor">Tensor</a></span> <span class="o">|</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" title="torch.Tensor" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor">Tensor</a></span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Any" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a></span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">add_array</span><span class="p">(</span><span class="n">template</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="xarray.DataArray" href="https://docs.xarray.dev/en/stable/generated/xarray.DataArray.html#xarray.DataArray">DataArray</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
 
-        <p>Add an array to the existing zarr group.</p>
+        <p>Create the arrays a template describes in the zarr group.</p>
+<p>Coordinates are written once, here, together with their attributes. Each
+stored array lists its auxiliary coordinates in a CF <code>coordinates</code>
+attribute and carries the template's attributes.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
     <ul>
         <li class="doc-section-item field-body">
-            <b><code>coords</code></b>
-              (<code><span title="earth2studio.utils.type.CoordSystem">CoordSystem</span></code>)
+            <b><code>template</code></b>
+              (<code><a class="autorefs autorefs-external" title="xarray.DataArray" href="https://docs.xarray.dev/en/stable/generated/xarray.DataArray.html#xarray.DataArray">DataArray</a></code>)
           –
           <div class="doc-md-description">
-            <p>Ordered dict of coordinate information.</p>
-          </div>
-        </li>
-        <li class="doc-section-item field-body">
-            <b><code>array_name</code></b>
-              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></code>)
-          –
-          <div class="doc-md-description">
-            <p>Name to add to zarr group for the new array.</p>
-          </div>
-        </li>
-        <li class="doc-section-item field-body">
-            <b><code>data</code></b>
-              (<code><a class="autorefs autorefs-external" title="torch.Tensor" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor">Tensor</a> | <a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#list">list</a>[<a class="autorefs autorefs-external" title="torch.Tensor" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor">Tensor</a>]</code>, default:
-                  <code>None</code>
-)
-          –
-          <div class="doc-md-description">
-            <p>Optional data to initialize the array with. If None, then
-the array is NaN initialized (zarr default).
-Can also pass a list of tensors, which must match in length to the
-list of array_names passed. If a list of tensors is passed, it is assumed
-that each tensor share <code>coords</code>.</p>
-          </div>
-        </li>
-        <li class="doc-section-item field-body">
-            <b><code>kwargs</code></b>
-              (<code><a class="autorefs autorefs-external" title="typing.Any" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a></code>, default:
-                  <code>{}</code>
-)
-          –
-          <div class="doc-md-description">
-            <p>Optional keyword arguments passed to zarr dataset constructor.</p>
+            <p>Concrete coordinate signature; field values are never read.</p>
           </div>
         </li>
     </ul>
@@ -3601,42 +3729,22 @@ that each tensor share <code>coords</code>.</p>
 
 
 <a href="#earth2studio.io.ZarrBackend.write" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">write</span><span class="p">(</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">x</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="torch.Tensor" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor">Tensor</a></span> <span class="o">|</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" title="torch.Tensor" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor">Tensor</a></span><span class="p">],</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">coords</span><span class="p">:</span> <span class="n"><span title="earth2studio.utils.type.CoordSystem">CoordSystem</span></span><span class="p">,</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">array_name</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">],</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">write</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="xarray.DataArray" href="https://docs.xarray.dev/en/stable/generated/xarray.DataArray.html#xarray.DataArray">DataArray</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
 
-        <p>Write data to the current zarr group using the passed array_name.</p>
+        <p>Write a field at the positions its coordinate labels identify.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
     <ul>
         <li class="doc-section-item field-body">
             <b><code>x</code></b>
-              (<code><a class="autorefs autorefs-external" title="torch.Tensor" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor">Tensor</a> | <a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#list">list</a>[<a class="autorefs autorefs-external" title="torch.Tensor" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor">Tensor</a>]</code>)
+              (<code><a class="autorefs autorefs-external" title="xarray.DataArray" href="https://docs.xarray.dev/en/stable/generated/xarray.DataArray.html#xarray.DataArray">DataArray</a></code>)
           –
           <div class="doc-md-description">
-            <p>Tensor(s) to be written to zarr store.</p>
-          </div>
-        </li>
-        <li class="doc-section-item field-body">
-            <b><code>coords</code></b>
-              (<code><a class="autorefs autorefs-external" title="collections.OrderedDict" href="https://docs.python.org/3/library/collections.html#collections.OrderedDict">OrderedDict</a></code>)
-          –
-          <div class="doc-md-description">
-            <p>Coordinates of the passed data.</p>
-          </div>
-        </li>
-        <li class="doc-section-item field-body">
-            <b><code>array_name</code></b>
-              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a> | <a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#list">list</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a>]</code>)
-          –
-          <div class="doc-md-description">
-            <p>Name(s) of the array(s) that will be written to.</p>
+            <p>NumPy-, CuPy- or Torch-backed field. It is never modified.</p>
           </div>
         </li>
     </ul>
@@ -3668,6 +3776,7 @@ that each tensor share <code>coords</code>.</p>
 <a class="e2sg-gallery-card" href="../../../../examples/03_downscaling/01_corrdiff_inference/"><img class="e2sg-card-image" src="../../../../examples/_assets/03_downscaling-01_corrdiff_inference/thumbnail.webp" alt="Preview of Generative Downscaling" loading="lazy"><span class="e2sg-card-body"><strong>Generative Downscaling</strong><span class="e2sg-card-summary">Generative downscaling over Taiwan using CorrDiff diffusion model.</span></span></a>
 <a class="e2sg-gallery-card" href="../../../../examples/03_downscaling/03_ensemble_downscaling/"><img class="e2sg-card-image" src="../../../../examples/_assets/03_downscaling-03_ensemble_downscaling/thumbnail.webp" alt="Preview of Ensemble Forecasting with Downscaling" loading="lazy"><span class="e2sg-card-body"><strong>Ensemble Forecasting with Downscaling</strong><span class="e2sg-card-summary">Custom ensembling workflow with generative downscaling using CorrDiff.</span></span></a>
 <a class="e2sg-gallery-card" href="../../../../examples/04_nowcasting/02_stormcast_ensemble_example/"><img class="e2sg-card-image" src="../../../../examples/_assets/04_nowcasting-02_stormcast_ensemble_example/thumbnail.webp" alt="Preview of Running StormCast Ensemble Inference" loading="lazy"><span class="e2sg-card-body"><strong>Running StormCast Ensemble Inference</strong><span class="e2sg-card-summary">Ensemble StormCast inference workflow.</span></span></a>
+<a class="e2sg-gallery-card" href="../../../../examples/05_data_assimilation/05_aida_weathermesh/"><div class="e2sg-card-placeholder" aria-hidden="true"><span class="e2sg-card-placeholder-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M10 13l-2 2 2 2M14 13l2 2-2 2"/></svg></span></div><span class="e2sg-card-body"><strong>AIDA and WeatherMesh-5c</strong><span class="e2sg-card-summary">Observation-initialized global ensemble forecasts with WindBorne&#x27;s AIDA data assimilation and WeatherMesh-5c forecast models.</span></span></a>
 <a class="e2sg-gallery-card" href="../../../../examples/07_misc/03_io_performance/"><img class="e2sg-card-image" src="../../../../examples/_assets/07_misc-03_io_performance/thumbnail.webp" alt="Preview of IO Backend Performance" loading="lazy"><span class="e2sg-card-body"><strong>IO Backend Performance</strong><span class="e2sg-card-summary">Leverage different IO backends for storing inference results.</span></span></a>
 <a class="e2sg-gallery-card" href="../../../../examples/08_extend/01_custom_prognostic/"><img class="e2sg-card-image" src="../../../../examples/_assets/08_extend-01_custom_prognostic/thumbnail.webp" alt="Preview of Extending Prognostic Models" loading="lazy"><span class="e2sg-card-body"><strong>Extending Prognostic Models</strong><span class="e2sg-card-summary">Implementing a custom prognostic model</span></span></a>
 <a class="e2sg-gallery-card" href="../../../../examples/08_extend/02_custom_diagnostic/"><img class="e2sg-card-image" src="../../../../examples/_assets/08_extend-02_custom_diagnostic/thumbnail.webp" alt="Preview of Extending Diagnostic Models" loading="lazy"><span class="e2sg-card-body"><strong>Extending Diagnostic Models</strong><span class="e2sg-card-summary">Implementing a custom diagnostic model</span></span></a>

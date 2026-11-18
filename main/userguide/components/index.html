@@ -16,7 +16,7 @@
         <link rel="prev" href="../about/catalog/">
       
       
-        <link rel="next" href="prognostic/">
+        <link rel="next" href="coordinates/">
       
       
         
@@ -666,6 +666,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -716,6 +720,34 @@
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
             
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="coordinates/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data and Metadata
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
               
             
               
@@ -914,6 +946,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="execution/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pipelines and Runners
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -933,6 +993,12 @@
       
         
           
+        
+      
+        
+      
+        
+      
         
       
         
@@ -1012,6 +1078,62 @@
     
   
     Checkpointing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../advanced/io/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Advanced Output Handling
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../advanced/domains/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Adaptive Model Domains
   
 
     
@@ -1115,6 +1237,34 @@
   
   
   
+    <li class="md-nav__item">
+      <a href="../advanced/serving/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment and Serving
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
     
     
       
@@ -1135,7 +1285,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_5_6" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_5_9" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -1157,14 +1307,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_2_5_6" id="__nav_2_5_6_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_2_5_9" id="__nav_2_5_9_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_2_5_6_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_2_5_6">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_2_5_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_5_9">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -3395,15 +3545,63 @@
 
 
 <h1 id="core-components">Core Components<a class="headerlink" href="#core-components" title="Permanent link">&para;</a></h1>
-<ul>
-<li><a href="prognostic/">Prognostic Models</a></li>
-<li><a href="diagnostic/">Diagnostic Models</a></li>
-<li><a href="data_assimilation/">Data Assimilation Models</a></li>
-<li><a href="datasources/">Data Sources</a></li>
-<li><a href="perturbation/">Perturbations</a></li>
-<li><a href="io/">IO Backends</a></li>
-<li><a href="statistics/">Statistics</a></li>
-</ul>
+<p>Earth2Studio workflows compose small, interchangeable components. Fetch physical
+fields, run a model, and pass its labelled outputs to another model, a statistic, or
+an output backend.</p>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="coordinates/">Data and metadata</a></td>
+<td>Describe fields, grids, times, and tabular schemas.</td>
+</tr>
+<tr>
+<td><a href="prognostic/">Prognostic models</a></td>
+<td>Advance a forecast through time.</td>
+</tr>
+<tr>
+<td><a href="diagnostic/">Diagnostic models</a></td>
+<td>Derive or transform fields in a single call.</td>
+</tr>
+<tr>
+<td><a href="data_assimilation/">Data assimilation models</a></td>
+<td>Combine observations and background states.</td>
+</tr>
+<tr>
+<td><a href="datasources/">Data sources</a></td>
+<td>Fetch gridded fields or tabular observations.</td>
+</tr>
+<tr>
+<td><a href="perturbation/">Perturbations</a></td>
+<td>Generate perturbed fields for ensembles.</td>
+</tr>
+<tr>
+<td><a href="io/">IO backends</a></td>
+<td>Store labelled outputs in memory or on disk.</td>
+</tr>
+<tr>
+<td><a href="statistics/">Statistics</a></td>
+<td>Reduce fields and compare predictions with observations.</td>
+</tr>
+<tr>
+<td><a href="execution/">Pipelines and runners</a></td>
+<td>Run components over many forecasts and stream outputs to storage.</td>
+</tr>
+</tbody>
+</table>
+<p>Start with <a href="coordinates/">Data and Metadata</a> for the data exchanged between
+components. See <a href="execution/">Pipelines and Runners</a> for running them at scale.</p>
+<p>Each component page introduces its interface, shows usage, and explains how to
+implement your own component. Full requirements live in the
+<a href="../../specs/">specifications</a>. You can implement
+these interfaces in your own project without inheriting a protocol class. For an
+agent-assisted custom model, start with
+<a href="prognostic/#wrap-your-own-prognostic-model">Wrap Your Own Prognostic Model</a>.</p>
 
 
 
@@ -3456,13 +3654,13 @@
         
         
           
-          <a href="prognostic/" class="md-footer__link md-footer__link--next" aria-label="Next: Prognostic Models">
+          <a href="coordinates/" class="md-footer__link md-footer__link--next" aria-label="Next: Data and Metadata">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Prognostic Models
+                Data and Metadata
               </div>
             </div>
             <div class="md-footer__button md-icon">

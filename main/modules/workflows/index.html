@@ -659,6 +659,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -709,6 +713,34 @@
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
             
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../userguide/components/coordinates/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data and Metadata
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
               
             
               
@@ -907,6 +939,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../userguide/components/execution/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pipelines and Runners
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -926,6 +986,12 @@
       
         
           
+        
+      
+        
+      
+        
+      
         
       
         
@@ -1005,6 +1071,62 @@
     
   
     Checkpointing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../userguide/advanced/io/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Advanced Output Handling
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../userguide/advanced/domains/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Adaptive Model Domains
   
 
     
@@ -1108,6 +1230,34 @@
   
   
   
+    <li class="md-nav__item">
+      <a href="../../userguide/advanced/serving/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment and Serving
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
     
     
       
@@ -1128,7 +1278,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_5_6" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_5_9" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -1150,14 +1300,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_2_5_6" id="__nav_2_5_6_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_2_5_9" id="__nav_2_5_9_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_2_5_6_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_2_5_6">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_2_5_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_5_9">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -3408,9 +3558,10 @@
 use cases.</p>
 <div class="admonition warning">
 <p class="admonition-title">Warning</p>
-<p>The built in workflows should not be viewed as silver bullets that work for every
-model and use case. Earth2Studio is focused on enabling users to build and extend,
-these are starting points.</p>
+<p><code>deterministic</code>, <code>diagnostic</code>, and <code>ensemble</code> are legacy workflows limited to
+simple cases: a single unforced prognostic model and one output store. For forced
+or coupled models, multiple output streams, distributed runs, or resuming
+interrupted work, use <a href="../../userguide/components/execution/"><code>Pipeline</code> and runners</a>.</p>
 </div>
 <!-- e2s-autosummary
 currentmodule: earth2studio.run
@@ -3418,7 +3569,7 @@ template: function
 output: generated/workflows
 -->
 
-<table class="mkdocs-badges-autosummary"><tbody><tr data-page-src="modules/generated/workflows/deterministic.md" data-page-url="modules/generated/workflows/deterministic/" data-render-badges="true" data-badge-ids=""><td><a href="../generated/workflows/deterministic/"><code>deterministic</code></a></td><td>Built in deterministic workflow.</td></tr><tr data-page-src="modules/generated/workflows/diagnostic.md" data-page-url="modules/generated/workflows/diagnostic/" data-render-badges="true" data-badge-ids=""><td><a href="../generated/workflows/diagnostic/"><code>diagnostic</code></a></td><td>Built in diagnostic workflow.</td></tr><tr data-page-src="modules/generated/workflows/ensemble.md" data-page-url="modules/generated/workflows/ensemble/" data-render-badges="true" data-badge-ids=""><td><a href="../generated/workflows/ensemble/"><code>ensemble</code></a></td><td>Built in ensemble workflow.</td></tr></tbody></table>
+<table class="mkdocs-badges-autosummary"><tbody><tr data-page-src="modules/generated/workflows/deterministic.md" data-page-url="modules/generated/workflows/deterministic/" data-render-badges="true" data-badge-ids=""><td><a href="../generated/workflows/deterministic/"><code>deterministic</code></a></td><td>API reference page.</td></tr><tr data-page-src="modules/generated/workflows/diagnostic.md" data-page-url="modules/generated/workflows/diagnostic/" data-render-badges="true" data-badge-ids=""><td><a href="../generated/workflows/diagnostic/"><code>diagnostic</code></a></td><td>API reference page.</td></tr><tr data-page-src="modules/generated/workflows/ensemble.md" data-page-url="modules/generated/workflows/ensemble/" data-render-badges="true" data-badge-ids=""><td><a href="../generated/workflows/ensemble/"><code>ensemble</code></a></td><td>API reference page.</td></tr><tr data-page-src="modules/generated/workflows/map_field.md" data-page-url="modules/generated/workflows/map_field/" data-render-badges="true" data-badge-ids=""><td><a href="../generated/workflows/map_field/"><code>map_field</code></a></td><td>Select the variables and domain of `target` from `x`.</td></tr></tbody></table>
 
 
 

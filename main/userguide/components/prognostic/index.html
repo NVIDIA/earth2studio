@@ -13,7 +13,7 @@
         <link rel="canonical" href="https://nvidia.github.io/earth2studio/main/userguide/components/prognostic/">
       
       
-        <link rel="prev" href="../">
+        <link rel="prev" href="../coordinates/">
       
       
         <link rel="next" href="../diagnostic/">
@@ -666,6 +666,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -716,6 +720,34 @@
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
             
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../coordinates/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data and Metadata
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
               
             
               
@@ -785,10 +817,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#prognostic-interface" class="md-nav__link">
+  <a href="#interface" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Prognostic Interface
+        Interface
       
     </span>
   </a>
@@ -796,22 +828,22 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#prognostic-usage" class="md-nav__link">
+  <a href="#usage" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Prognostic Usage
+        Usage
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Prognostic Usage">
+    <nav class="md-nav" aria-label="Usage">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#loading-a-pre-trained-prognostic" class="md-nav__link">
+  <a href="#load-and-predict" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Loading a Pre-trained Prognostic
+        Load and Predict
       
     </span>
   </a>
@@ -819,21 +851,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#single-step-prediction" class="md-nav__link">
+  <a href="#continue-a-forecast" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Single Step Prediction
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#time-series-prediction" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Time-series Prediction
+        Continue a Forecast
       
     </span>
   </a>
@@ -846,21 +867,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#custom-prognostic-models" class="md-nav__link">
+  <a href="#wrap-your-own-prognostic-model" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Custom Prognostic Models
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#contributing-a-prognostic-model" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Contributing a Prognostic Model
+        Wrap Your Own Prognostic Model
       
     </span>
   </a>
@@ -1044,6 +1054,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../execution/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pipelines and Runners
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -1063,6 +1101,12 @@
       
         
           
+        
+      
+        
+      
+        
+      
         
       
         
@@ -1142,6 +1186,62 @@
     
   
     Checkpointing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../advanced/io/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Advanced Output Handling
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../advanced/domains/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Adaptive Model Domains
   
 
     
@@ -1245,6 +1345,34 @@
   
   
   
+    <li class="md-nav__item">
+      <a href="../../advanced/serving/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment and Serving
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
     
     
       
@@ -1265,7 +1393,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_5_6" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_5_9" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -1287,14 +1415,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_2_5_6" id="__nav_2_5_6_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_2_5_9" id="__nav_2_5_9_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_2_5_6_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_2_5_6">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_2_5_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_5_9">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -3513,10 +3641,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#prognostic-interface" class="md-nav__link">
+  <a href="#interface" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Prognostic Interface
+        Interface
       
     </span>
   </a>
@@ -3524,22 +3652,22 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#prognostic-usage" class="md-nav__link">
+  <a href="#usage" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Prognostic Usage
+        Usage
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Prognostic Usage">
+    <nav class="md-nav" aria-label="Usage">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#loading-a-pre-trained-prognostic" class="md-nav__link">
+  <a href="#load-and-predict" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Loading a Pre-trained Prognostic
+        Load and Predict
       
     </span>
   </a>
@@ -3547,21 +3675,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#single-step-prediction" class="md-nav__link">
+  <a href="#continue-a-forecast" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Single Step Prediction
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#time-series-prediction" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Time-series Prediction
+        Continue a Forecast
       
     </span>
   </a>
@@ -3574,21 +3691,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#custom-prognostic-models" class="md-nav__link">
+  <a href="#wrap-your-own-prognostic-model" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Custom Prognostic Models
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#contributing-a-prognostic-model" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Contributing a Prognostic Model
+        Wrap Your Own Prognostic Model
       
     </span>
   </a>
@@ -3616,175 +3722,155 @@
 
 
 <h1 id="prognostic_model_userguide">Prognostic Models<a class="headerlink" href="#prognostic_model_userguide" title="Permanent link">&para;</a></h1>
-<p>Prognostic models forecast future atmospheric states from initial conditions.
-In Earth2Studio they provide a set of models designed to perform time
-integration. For example, given a set of atmospheric fields at a particular time,
-the model auto-regressively predicts the same fields (typically six hours for many models)
-into the future.</p>
-<p>The usage of prognostic models falls into two categories, which are commonly achieved
-through two different APIs:</p>
+<p>Prognostic models advance atmospheric or other physical fields through time. A model
+can produce one forecast chunk or continue a trajectory using explicit state.
+Browse the built-in models in the <a href="../../../modules/models_px/">prognostic API</a>.</p>
+<h2 id="interface">Interface<a class="headerlink" href="#interface" title="Permanent link">&para;</a></h2>
+<p>Models exchange labelled <code>xarray.DataArray</code> fields in physical units. Coordinate
+methods describe those fields without allocating their values; see the
+<a href="../coordinates/">Data and Metadata</a>.</p>
+<p>For a model with one input and no forcing, the interface is:</p>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>input_coords()</code></td>
+<td>Declare initial fields, history, variables, and grid.</td>
+</tr>
+<tr>
+<td><code>forcing_coords()</code></td>
+<td>Declare external conditioning; <code>None</code> when unforced.</td>
+</tr>
+<tr>
+<td><code>output_coords(input_coords)</code></td>
+<td>Validate coordinates and plan the output.</td>
+</tr>
+<tr>
+<td><code>default_sources()</code></td>
+<td>Recommend data providers for the caller.</td>
+</tr>
+<tr>
+<td><code>model(x)</code></td>
+<td>Compute an independent forecast chunk.</td>
+</tr>
+<tr>
+<td><code>initialize(x)</code></td>
+<td>Return the first forecast and continuation state: <code>(y, state)</code>.</td>
+</tr>
+<tr>
+<td><code>step(y, state=state)</code></td>
+<td>Return the next forecast and updated state.</td>
+</tr>
+<tr>
+<td><code>create_iterator(x)</code></td>
+<td>Manage state internally and yield forecast chunks.</td>
+</tr>
+<tr>
+<td><code>to(device)</code></td>
+<td>Place model computation on the requested device.</td>
+</tr>
+</tbody>
+</table>
+<p>Multi-input models take separate, named arguments in declared order. Forcing follows
+the initial inputs in <code>initialize</code> and the previous outputs in <code>step</code>, with <code>state</code>
+last. One output is returned directly; multiple outputs form an ordered tuple.
+The protocol is defined in <a href="https://github.com/NVIDIA/earth2studio/blob/1.0.0-rc/earth2studio/models/px/base.py"><code>earth2studio.models.px.base.PrognosticModel</code></a>; inheritance
+from it is not required. <code>stochastic</code> identifies stochastic models, which expose
+<code>set_rng(seed, reset=True)</code> for reproducible rollouts.</p>
+<p>See <a href="../../../specs/E2S-06_MODEL_CONTRACT_SPEC/">E2S-06: Model Contract</a> for the full coordinate, execution, state,
+randomness, and domain-selection requirements.</p>
+<h2 id="usage">Usage<a class="headerlink" href="#usage" title="Permanent link">&para;</a></h2>
+<h3 id="load-and-predict">Load and Predict<a class="headerlink" href="#load-and-predict" title="Permanent link">&para;</a></h3>
+<p>Use a concrete model class to load pretrained weights. This example requires SFNO's
+optional dependencies, weights, and sufficient device memory; see
+<a href="../../advanced/auto/#automodel_userguide">AutoModels</a>.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.data</span><span class="w"> </span><span class="kn">import</span> <span class="n">GFS</span><span class="p">,</span> <span class="n">fetch_data</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.grids</span><span class="w"> </span><span class="kn">import</span> <span class="n">infer_grid</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.px</span><span class="w"> </span><span class="kn">import</span> <span class="n">SFNO</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="n">device</span> <span class="o">=</span> <span class="s2">&quot;cuda:0&quot;</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="n">model</span> <span class="o">=</span> <span class="n">SFNO</span><span class="o">.</span><span class="n">load_model</span><span class="p">(</span><span class="n">SFNO</span><span class="o">.</span><span class="n">load_default_package</span><span class="p">())</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="n">signature</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">input_coords</span><span class="p">()</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="n">x</span> <span class="o">=</span> <span class="n">fetch_data</span><span class="p">(</span>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>    <span class="n">GFS</span><span class="p">(),</span>
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>    <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="s2">&quot;2024-01-01T00&quot;</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="s2">&quot;datetime64[ns]&quot;</span><span class="p">),</span>
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>    <span class="n">signature</span><span class="o">.</span><span class="n">coords</span><span class="p">[</span><span class="s2">&quot;variable&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">,</span>
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>    <span class="n">lead_time</span><span class="o">=</span><span class="n">signature</span><span class="o">.</span><span class="n">coords</span><span class="p">[</span><span class="s2">&quot;lead_time&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">,</span>
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>    <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span>
+<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>    <span class="n">target_grid</span><span class="o">=</span><span class="n">infer_grid</span><span class="p">(</span><span class="n">signature</span><span class="p">),</span>
+<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="p">)</span>
+<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="n">planned</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">output_coords</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>  <span class="c1"># Coordinate validation, without inference</span>
+<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a><span class="n">y</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+</code></pre></div>
+<h3 id="continue-a-forecast">Continue a Forecast<a class="headerlink" href="#continue-a-forecast" title="Permanent link">&para;</a></h3>
+<p>Use explicit state when you need to save or branch a trajectory:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">y</span><span class="p">,</span> <span class="n">state</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">initialize</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>             <span class="c1"># First forecast</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="n">y</span><span class="p">,</span> <span class="n">state</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">state</span><span class="o">=</span><span class="n">state</span><span class="p">)</span>      <span class="c1"># Second forecast</span>
+</code></pre></div>
+<p>For a simple unforced rollout, use the iterator instead:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">itertools</span><span class="w"> </span><span class="kn">import</span> <span class="n">islice</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">iterator</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">create_iterator</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="k">for</span> <span class="n">y</span> <span class="ow">in</span> <span class="n">islice</span><span class="p">(</span><span class="n">iterator</span><span class="p">,</span> <span class="mi">4</span><span class="p">):</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">y</span><span class="o">.</span><span class="n">lead_time</span><span class="o">.</span><span class="n">values</span><span class="p">)</span>  <span class="c1"># SFNO: 6h, 12h, 18h, 24h</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="n">iterator</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+</code></pre></div>
+<p>For forced models, pass the initial forcing window to <code>create_iterator</code>, then use
+<code>iterator.send(forcing)</code> for each subsequent step, or send a tuple for multiple
+forcing slots. Supply the newest required frames; required time-varying forcing is
+not fetched or silently reused. Static forcing without a <code>lead_time</code> dimension is
+supplied only at initialization.</p>
+<p><code>PrognosticMixin</code> provides iterator hooks: <code>rear_hook</code> runs before every yield,
+including the first, and <code>front_hook</code> runs before subsequent steps. Both affect the
+continuing trajectory. Hooks do not run in <code>model(x)</code>, <code>initialize</code>, or <code>step</code>;
+perturb the initial input explicitly when needed. For stochastic models, call
+<code>set_rng</code> before a new rollout; reseeding does not change an existing explicit state.</p>
+<h2 id="wrap-your-own-prognostic-model">Wrap Your Own Prognostic Model<a class="headerlink" href="#wrap-your-own-prognostic-model" title="Permanent link">&para;</a></h2>
+<p>Keep a wrapper in your own project, such as <code>my_project/models/my_model.py</code>, and pass
+its instance to Earth2Studio workflows just like a built-in model. The wrapper
+adapts your existing inference code to the interface above, handling coordinates,
+physical-unit conversion, device placement, and explicit continuation state.</p>
+<p>The <strong><code>earth2studio-create-prognostic</code> agentic skill</strong> provides a model contract,
+wrapper skeleton, method templates, and validation guidance. Give your coding agent
+the <a href="https://github.com/NVIDIA/earth2studio/tree/1.0.0-rc/skills/earth2studio-create-prognostic">skill directory</a> from a checkout matching your Earth2Studio
+version, and ask it to load <code>SKILL.md</code> and the referenced files. Provide:</p>
 <ul>
-<li>Single time-step predictions</li>
-<li>Time-series predictions</li>
+<li>Your working inference script, weights, configuration, and dependency requirements.</li>
+<li>Input/output variable names and units, grid, normalization, history, and forecast step.</li>
+<li>Required forcing or static data, device support, and stochastic behavior.</li>
+<li>A small reference input and expected output for numerical comparison.</li>
 </ul>
-<p>The list of prognostic models that are already built into Earth2Studio can be found in
-the API documentation <a href="../../../modules/models_px/">earth2studio.models.px</a>.
-For a complete workflow example, refer to <code>earth2studio.run.deterministic</code>.</p>
-<h2 id="prognostic-interface">Prognostic Interface<a class="headerlink" href="#prognostic-interface" title="Permanent link">&para;</a></h2>
-<p>The full requirements for a standard prognostic model are defined explicitly in the
-<code>earth2studio/models/px/base.py</code>.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nd">@runtime_checkable</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="k">class</span><span class="w"> </span><span class="nc">PrognosticModel</span><span class="p">(</span><span class="n">Protocol</span><span class="p">):</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Prognostic model interface&quot;&quot;&quot;</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>        <span class="bp">self</span><span class="p">,</span>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>        <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>        <span class="n">coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">,</span>
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">CoordSystem</span><span class="p">]:</span>
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Forward pass of the prognostic model, time integrating a single time-step</span>
-<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>
-<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="sd">        Parameters</span>
-<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="sd">        ----------</span>
-<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="sd">        x : torch.Tensor</span>
-<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="sd">            Input tensor intended to apply diagnostic function on</span>
-<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="sd">        coords : CoordSystem</span>
-<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="sd">            Ordered dict representing coordinate system that describes the tensor</span>
-<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>
-<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a><span class="sd">        Returns</span>
-<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a><span class="sd">        -------</span>
-<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a><span class="sd">        tuple[torch.Tensor, CoordSystem]</span>
-<a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a><span class="sd">            Output tensor and coordinate dictionary one time-step into the future</span>
-<a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a><span class="sd">        &quot;&quot;&quot;</span>
-<a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a>        <span class="k">pass</span>
-<a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a>
-<a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">create_iterator</span><span class="p">(</span>
-<a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a>        <span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">coords</span><span class="p">:</span> <span class="n">CoordSystem</span>
-<a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a>    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">CoordSystem</span><span class="p">]]:</span>
-<a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Creates a iterator which can be used to perform time-integration of the</span>
-<a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a><span class="sd">        prognostic model. Will return the initial condition first (0th step).</span>
-<a id="__codelineno-0-31" name="__codelineno-0-31" href="#__codelineno-0-31"></a>
-<a id="__codelineno-0-32" name="__codelineno-0-32" href="#__codelineno-0-32"></a><span class="sd">        Parameters</span>
-<a id="__codelineno-0-33" name="__codelineno-0-33" href="#__codelineno-0-33"></a><span class="sd">        ----------</span>
-<a id="__codelineno-0-34" name="__codelineno-0-34" href="#__codelineno-0-34"></a><span class="sd">        x : torch.Tensor</span>
-<a id="__codelineno-0-35" name="__codelineno-0-35" href="#__codelineno-0-35"></a><span class="sd">            Input tensor, which can be viewed as the initial state of the prognositc</span>
-<a id="__codelineno-0-36" name="__codelineno-0-36" href="#__codelineno-0-36"></a><span class="sd">        coords : CoordSystem</span>
-<a id="__codelineno-0-37" name="__codelineno-0-37" href="#__codelineno-0-37"></a><span class="sd">            Input coordinate system</span>
-<a id="__codelineno-0-38" name="__codelineno-0-38" href="#__codelineno-0-38"></a>
-<a id="__codelineno-0-39" name="__codelineno-0-39" href="#__codelineno-0-39"></a><span class="sd">        Yields</span>
-<a id="__codelineno-0-40" name="__codelineno-0-40" href="#__codelineno-0-40"></a><span class="sd">        ------</span>
-<a id="__codelineno-0-41" name="__codelineno-0-41" href="#__codelineno-0-41"></a><span class="sd">        Iterator[tuple[torch.Tensor, CoordSystem]]</span>
-<a id="__codelineno-0-42" name="__codelineno-0-42" href="#__codelineno-0-42"></a><span class="sd">            Iterator that generates time-steps of the prognostic model container the</span>
-<a id="__codelineno-0-43" name="__codelineno-0-43" href="#__codelineno-0-43"></a><span class="sd">            output data tensor and coordinate system dictionary.</span>
-<a id="__codelineno-0-44" name="__codelineno-0-44" href="#__codelineno-0-44"></a><span class="sd">        &quot;&quot;&quot;</span>
-<a id="__codelineno-0-45" name="__codelineno-0-45" href="#__codelineno-0-45"></a>        <span class="k">pass</span>
-<a id="__codelineno-0-46" name="__codelineno-0-46" href="#__codelineno-0-46"></a>
-<a id="__codelineno-0-47" name="__codelineno-0-47" href="#__codelineno-0-47"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">input_coords</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CoordSystem</span><span class="p">:</span>
-<a id="__codelineno-0-48" name="__codelineno-0-48" href="#__codelineno-0-48"></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Input coordinate system of prognostic model, time dimension should contain</span>
-<a id="__codelineno-0-49" name="__codelineno-0-49" href="#__codelineno-0-49"></a><span class="sd">        time-delta objects</span>
-<a id="__codelineno-0-50" name="__codelineno-0-50" href="#__codelineno-0-50"></a>
-<a id="__codelineno-0-51" name="__codelineno-0-51" href="#__codelineno-0-51"></a><span class="sd">        Returns</span>
-<a id="__codelineno-0-52" name="__codelineno-0-52" href="#__codelineno-0-52"></a><span class="sd">        -------</span>
-<a id="__codelineno-0-53" name="__codelineno-0-53" href="#__codelineno-0-53"></a><span class="sd">        CoordSystem</span>
-<a id="__codelineno-0-54" name="__codelineno-0-54" href="#__codelineno-0-54"></a><span class="sd">            Coordinate system dictionary</span>
-<a id="__codelineno-0-55" name="__codelineno-0-55" href="#__codelineno-0-55"></a><span class="sd">        &quot;&quot;&quot;</span>
-<a id="__codelineno-0-56" name="__codelineno-0-56" href="#__codelineno-0-56"></a>        <span class="k">pass</span>
-<a id="__codelineno-0-57" name="__codelineno-0-57" href="#__codelineno-0-57"></a>
-<a id="__codelineno-0-58" name="__codelineno-0-58" href="#__codelineno-0-58"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">output_coords</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_coords</span><span class="p">:</span> <span class="n">CoordSystem</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CoordSystem</span><span class="p">:</span>
-<a id="__codelineno-0-59" name="__codelineno-0-59" href="#__codelineno-0-59"></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Output coordinate system of the prognostic model give an input coordinate</span>
-<a id="__codelineno-0-60" name="__codelineno-0-60" href="#__codelineno-0-60"></a><span class="sd">        system.</span>
-<a id="__codelineno-0-61" name="__codelineno-0-61" href="#__codelineno-0-61"></a>
-<a id="__codelineno-0-62" name="__codelineno-0-62" href="#__codelineno-0-62"></a><span class="sd">        Parameters</span>
-<a id="__codelineno-0-63" name="__codelineno-0-63" href="#__codelineno-0-63"></a><span class="sd">        ----------</span>
-<a id="__codelineno-0-64" name="__codelineno-0-64" href="#__codelineno-0-64"></a><span class="sd">        input_coords : CoordSystem</span>
-<a id="__codelineno-0-65" name="__codelineno-0-65" href="#__codelineno-0-65"></a><span class="sd">            Input coordinate system to transform into output_coords</span>
-<a id="__codelineno-0-66" name="__codelineno-0-66" href="#__codelineno-0-66"></a>
-<a id="__codelineno-0-67" name="__codelineno-0-67" href="#__codelineno-0-67"></a><span class="sd">        Returns</span>
-<a id="__codelineno-0-68" name="__codelineno-0-68" href="#__codelineno-0-68"></a><span class="sd">        -------</span>
-<a id="__codelineno-0-69" name="__codelineno-0-69" href="#__codelineno-0-69"></a><span class="sd">        CoordSystem</span>
-<a id="__codelineno-0-70" name="__codelineno-0-70" href="#__codelineno-0-70"></a><span class="sd">            Coordinate system dictionary</span>
-<a id="__codelineno-0-71" name="__codelineno-0-71" href="#__codelineno-0-71"></a>
-<a id="__codelineno-0-72" name="__codelineno-0-72" href="#__codelineno-0-72"></a><span class="sd">        Raises</span>
-<a id="__codelineno-0-73" name="__codelineno-0-73" href="#__codelineno-0-73"></a><span class="sd">        ------</span>
-<a id="__codelineno-0-74" name="__codelineno-0-74" href="#__codelineno-0-74"></a><span class="sd">        ValueError</span>
-<a id="__codelineno-0-75" name="__codelineno-0-75" href="#__codelineno-0-75"></a><span class="sd">            If input_coords are not valid</span>
-<a id="__codelineno-0-76" name="__codelineno-0-76" href="#__codelineno-0-76"></a><span class="sd">        &quot;&quot;&quot;</span>
-<a id="__codelineno-0-77" name="__codelineno-0-77" href="#__codelineno-0-77"></a>        <span class="k">pass</span>
-<a id="__codelineno-0-78" name="__codelineno-0-78" href="#__codelineno-0-78"></a>
-<a id="__codelineno-0-79" name="__codelineno-0-79" href="#__codelineno-0-79"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">to</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">device</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PrognosticModel</span><span class="p">:</span>
-<a id="__codelineno-0-80" name="__codelineno-0-80" href="#__codelineno-0-80"></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Moves prognostic model onto inference device, this is typically satisfied via</span>
-<a id="__codelineno-0-81" name="__codelineno-0-81" href="#__codelineno-0-81"></a><span class="sd">        `torch.nn.Module`.</span>
-<a id="__codelineno-0-82" name="__codelineno-0-82" href="#__codelineno-0-82"></a>
-<a id="__codelineno-0-83" name="__codelineno-0-83" href="#__codelineno-0-83"></a><span class="sd">        Parameters</span>
-<a id="__codelineno-0-84" name="__codelineno-0-84" href="#__codelineno-0-84"></a><span class="sd">        ----------</span>
-<a id="__codelineno-0-85" name="__codelineno-0-85" href="#__codelineno-0-85"></a><span class="sd">        device : Any</span>
-<a id="__codelineno-0-86" name="__codelineno-0-86" href="#__codelineno-0-86"></a><span class="sd">            Object representing the inference device, typically `torch.device` or str</span>
-<a id="__codelineno-0-87" name="__codelineno-0-87" href="#__codelineno-0-87"></a>
-<a id="__codelineno-0-88" name="__codelineno-0-88" href="#__codelineno-0-88"></a><span class="sd">        Returns</span>
-<a id="__codelineno-0-89" name="__codelineno-0-89" href="#__codelineno-0-89"></a><span class="sd">        -------</span>
-<a id="__codelineno-0-90" name="__codelineno-0-90" href="#__codelineno-0-90"></a><span class="sd">        PrognosticModel</span>
-<a id="__codelineno-0-91" name="__codelineno-0-91" href="#__codelineno-0-91"></a><span class="sd">            Returns instance of prognostic</span>
-<a id="__codelineno-0-92" name="__codelineno-0-92" href="#__codelineno-0-92"></a><span class="sd">        &quot;&quot;&quot;</span>
-<a id="__codelineno-0-93" name="__codelineno-0-93" href="#__codelineno-0-93"></a>        <span class="k">pass</span>
+<p>For example:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>Use the earth2studio-create-prognostic skill to wrap my existing model in
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>my_project/models/my_model.py for local use with Earth2Studio. Follow the model
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>contract and relevant rules from this checkout. Scope the work to my project;
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>skip package exports, dependency extras, changelog, and pull-request steps.
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>Reference inference: &lt;script&gt;; weights/configuration: &lt;paths&gt;.
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>Variables/units/grid: &lt;details&gt;; history and forecast step: &lt;details&gt;.
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>Forcing, normalization, devices, and randomness: &lt;details&gt;.
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>
+<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>Preserve the reference inference behavior. Validate coordinate-only planning,
+<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>single-call and multi-step execution, input immutability, state replay, and
+<a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a>numerical agreement with the reference. Show a short local usage example.
 </code></pre></div>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>Prognostic models do not need to inherit this protocol, this is used to define
-the required APIs. Prognostic models can maintain their internal state when using the
-iterator if necessary.</p>
-</div>
-<p>Prognostic models also tend to extend two classes:</p>
-<ul>
-<li><code>earth2studio.models.px.utils.PrognosticMixin</code>: A utility class that
-defines iterator hooks used in all the built-in models. These provide a finer level
-of control over the time-series prediction of models.</li>
-<li><code>earth2studio.models.auto.AutoModel</code>: Defines APIs for models that have
-checkpoints that can be auto-downloaded and cached. Refer to
-<a href="../../advanced/auto/#automodel_userguide">AutoModels</a> for additional details.</li>
-</ul>
-<h2 id="prognostic-usage">Prognostic Usage<a class="headerlink" href="#prognostic-usage" title="Permanent link">&para;</a></h2>
-<h3 id="loading-a-pre-trained-prognostic">Loading a Pre-trained Prognostic<a class="headerlink" href="#loading-a-pre-trained-prognostic" title="Permanent link">&para;</a></h3>
-<p>The following two commands can be used to download and load a pre-trained built
-prognostic model.
-More information on automatic downloading of checkpoints can be found in the
-<a href="../../advanced/auto/#automodel_userguide">AutoModels</a> section.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.px</span><span class="w"> </span><span class="kn">import</span> <span class="n">PrognosticModel</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">model_package</span> <span class="o">=</span> <span class="n">PrognosticModel</span><span class="o">.</span><span class="n">load_default_package</span><span class="p">()</span>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="n">model</span> <span class="o">=</span> <span class="n">PrognosticModel</span><span class="o">.</span><span class="n">load_model</span><span class="p">(</span><span class="n">model_package</span><span class="p">)</span>
-</code></pre></div>
-<h3 id="single-step-prediction">Single Step Prediction<a class="headerlink" href="#single-step-prediction" title="Permanent link">&para;</a></h3>
-<p>A prognostic model can be called for a single time-step using the call function.
-The function takes a data tensor and coordinate system (refer to
-<a href="../../about/overview/#data_userguide">Data Movement</a> for the structure) and
-returns the predicted output.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># Assume model is an instance of a PrognosticModel</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">x</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>  <span class="c1"># Input tensor</span>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">coords</span> <span class="o">=</span> <span class="n">CoordSystem</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>  <span class="c1"># Coordinate system</span>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">x</span><span class="p">,</span> <span class="n">coords</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>  <span class="c1"># Predict a single time-step</span>
-</code></pre></div>
-<h3 id="time-series-prediction">Time-series Prediction<a class="headerlink" href="#time-series-prediction" title="Permanent link">&para;</a></h3>
-<p>To predict a time-series, the <code>create_iterator</code> method can be used to create an iterable
-data source to generate time-series data as the model rolls out.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># Assume model is an instance of a PrognosticModel</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">x</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>  <span class="c1"># Input tensor</span>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="n">coords</span> <span class="o">=</span> <span class="n">CoordSystem</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>  <span class="c1"># Coordinate system</span>
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="n">model_iterator</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">create_iterator</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span>  <span class="c1"># Create iterator for time integration</span>
-<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="k">for</span> <span class="n">step</span><span class="p">,</span> <span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">model_iterator</span><span class="p">):</span>
-<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>    <span class="c1"># Perform operations for each time-step</span>
-<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>    <span class="c1"># First output should always be time-step 0 (the input)</span>
-</code></pre></div>
-<h2 id="custom-prognostic-models">Custom Prognostic Models<a class="headerlink" href="#custom-prognostic-models" title="Permanent link">&para;</a></h2>
-<p>To integrate your own prognostic, satisfy the interface above.
-We recommend that you review the <a href="../../../examples/#extend">extension examples</a>
-examples, which walk you through implementing a custom prognostic.</p>
-<h2 id="contributing-a-prognostic-model">Contributing a Prognostic Model<a class="headerlink" href="#contributing-a-prognostic-model" title="Permanent link">&para;</a></h2>
-<p>Want to add your prognostic to the package? We are happy to work with you.
-At the minimum we expect the model to abide by the defined interface and meet
-the requirements set forth in our contribution guide. Typically, you are expected
-to provide the weights of the model in a downloadable location that can be fetched.</p>
-<p><a href="https://github.com/NVIDIA/earth2studio/issues">Open an issue</a> when you have an initial
-implementation you would like us to review.</p>
+<p>Use explicit named parameters for every input and forcing slot. Build signatures
+with <code>coord_array</code> and <code>coord_array_like</code>; for PyTorch models, use
+<code>x.e2s.to_torch()</code> and <code>from_torch()</code> at field boundaries. <code>PrognosticMixin</code> supplies
+private call/iterator helpers, but your wrapper must expose its public methods.
+Automatic weight downloading is optional: a wrapper can accept an already loaded
+model and local assets.</p>
+<p>The skill's conformance checks help validate the interface. Also compare a short
+rollout with your reference implementation: matching shapes alone does not establish
+that normalization, timing, or predictions are correct. See the
+<a href="../../../examples/#extend">extension examples</a> for complete integrations.</p>
 
 
 
@@ -3820,7 +3906,7 @@ implementation you would like us to review.</p>
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../" class="md-footer__link md-footer__link--prev" aria-label="Previous: Core Components">
+          <a href="../coordinates/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Data and Metadata">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -3830,7 +3916,7 @@ implementation you would like us to review.</p>
                 Previous
               </span>
               <div class="md-ellipsis">
-                Core Components
+                Data and Metadata
               </div>
             </div>
           </a>

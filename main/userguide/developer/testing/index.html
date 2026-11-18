@@ -664,6 +664,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -714,6 +718,34 @@
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
             
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../components/coordinates/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data and Metadata
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
               
             
               
@@ -912,6 +944,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../components/execution/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pipelines and Runners
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -931,6 +991,12 @@
       
         
           
+        
+      
+        
+      
+        
+      
         
       
         
@@ -1010,6 +1076,62 @@
     
   
     Checkpointing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../advanced/io/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Advanced Output Handling
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../advanced/domains/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Adaptive Model Domains
   
 
     
@@ -1113,6 +1235,34 @@
   
   
   
+    <li class="md-nav__item">
+      <a href="../../advanced/serving/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment and Serving
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
     
     
       
@@ -1133,7 +1283,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_5_6" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_5_9" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -1155,14 +1305,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_2_5_6" id="__nav_2_5_6_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_2_5_9" id="__nav_2_5_9_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_2_5_6_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_2_5_6">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_2_5_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_5_9">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -1518,6 +1668,28 @@
     <span class="md-ellipsis">
       
         Running Tests with Tox
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#test-results" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Test results
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#bounded-data-source-tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Bounded data-source tests
       
     </span>
   </a>
@@ -3569,6 +3741,28 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#test-results" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Test results
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#bounded-data-source-tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Bounded data-source tests
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#running-tests-directly-with-pytest" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3666,7 +3860,6 @@ were <strong>xfail</strong> (expected failure).</p>
 <li><strong><code>test-px-models</code></strong> - Prognostic model tests (requires <code>all</code> extra)</li>
 <li><strong><code>test-dx-models</code></strong> - Diagnostic model tests (requires <code>all</code> extra)</li>
 <li><strong><code>test-da-models</code></strong> - Data assimilation model tests (requires <code>all</code> extra)</li>
-<li><strong><code>test-serve</code></strong> - Serve/API tests (requires <code>serve</code> extra)</li>
 </ul>
 <h3 id="automatic-test-skipping">Automatic Test Skipping<a class="headerlink" href="#automatic-test-skipping" title="Permanent link">&para;</a></h3>
 <p>Test files that require optional dependencies are automatically skipped during pytest
@@ -3718,17 +3911,62 @@ required dependency groups (from <code>pyproject.toml</code>) or individual pack
 <a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="c1"># Run with additional pytest arguments</span>
 <a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>uvx<span class="w"> </span>tox<span class="w"> </span>-c<span class="w"> </span>tox.ini<span class="w"> </span>run<span class="w"> </span>-e<span class="w"> </span>test-data<span class="w"> </span>--<span class="w"> </span>-v
 </code></pre></div>
-<h3 id="running-tests-directly-with-pytest">Running Tests Directly with pytest<a class="headerlink" href="#running-tests-directly-with-pytest" title="Permanent link">&para;</a></h3>
-<p>For rapid iteration during development, you can run pytest directly:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># Quick test suite (skips slow tests)</span>
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>uv<span class="w"> </span>run<span class="w"> </span>pytest<span class="w"> </span>test/
+<h3 id="test-results">Test results<a class="headerlink" href="#test-results" title="Permanent link">&para;</a></h3>
+<p>Tox writes JUnit reports to <code>.cache/test-results/&lt;tox-env&gt;/</code>. CI includes full console
+logs and uploads <code>test-results-&lt;tox-env&gt;</code> artifacts even on failure, retained for <strong>3 days</strong>.</p>
+<h3 id="bounded-data-source-tests">Bounded data-source tests<a class="headerlink" href="#bounded-data-source-tests" title="Permanent link">&para;</a></h3>
+<p><code>test-data</code> runs supervisor checks, lexicon and Icechunk tests, then isolated data-test processes
+with <strong>8 workers</strong>, <strong>300s per file</strong>, and <strong>1,200s total</strong>, plus termination grace.
+Override these with <code>DATA_TEST_WORKERS</code>, <code>DATA_TEST_FILE_TIMEOUT</code>, and <code>DATA_TEST_TIMEOUT</code>.
+File budgets include startup, shutdown, and restarts; exceeding a budget fails the run.
+Logs and partial results: <code>.cache/test-results/test-data/data/</code>.
+Once pytest finalization finishes, lingering processes are terminated after the shutdown
+grace period and the recorded test outcome is preserved. Forced cleanup is logged explicitly.</p>
+<p>Mark network tests with <code>@pytest.mark.live(timeout=60)</code> (default: 60s). This also
+marks them <code>slow</code>, so they require <code>--slow</code>. Live selection provides an additional filter:</p>
+<ul>
+<li><code>--live=none</code>: skip live tests for offline checks.</li>
+<li><code>--live=changed</code>: run affected sources (CI default); shared changes enable all sources.
+  CI compares against the PR merge base or the pushed branch's previous tip.
+  Manual dispatch defaults to <code>all</code>, with an explicit live-mode selector.
+  Locally, <code>DATA_TEST_BASE</code> defaults to <code>HEAD</code>, including uncommitted changes.</li>
+<li><code>--live=all</code>: select all live tests (default; still requires <code>--slow</code>).</li>
+</ul>
+<p>Under supervision, live-call timeouts become XFAIL; the process is killed and remaining
+tests resume in a fresh process. Other errors fail normally. File summaries show
+<code>PASSED (XFAIL)</code> when expected failures occurred. Selected live files bypass testmon.
+Use <code>--live-timeout</code> to override marker deadlines.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># Run changed sources.</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="nv">DATA_TEST_BASE</span><span class="o">=</span>upstream/1.0.0-rc<span class="w"> </span>uvx<span class="w"> </span>tox<span class="w"> </span>-e<span class="w"> </span>test-data<span class="w"> </span>--<span class="w"> </span>--slow<span class="w"> </span>--live<span class="o">=</span>changed<span class="w"> </span>--testmon
 <a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>
-<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="c1"># Standard test suite (includes slow tests)</span>
-<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>uv<span class="w"> </span>run<span class="w"> </span>pytest<span class="w"> </span>--slow<span class="w"> </span>test/
-<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>
-<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="c1"># Run specific test module</span>
-<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>uv<span class="w"> </span>run<span class="w"> </span>pytest<span class="w"> </span>test/data/test_gfs.py
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="c1"># Run one source with longer budgets.</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="nv">DATA_TEST_PATHS</span><span class="o">=</span>test/data/test_gfs.py<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="nv">DATA_TEST_FILE_TIMEOUT</span><span class="o">=</span><span class="m">3600</span><span class="w"> </span><span class="nv">DATA_TEST_TIMEOUT</span><span class="o">=</span><span class="m">7200</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="w">    </span>uvx<span class="w"> </span>tox<span class="w"> </span>-e<span class="w"> </span>test-data<span class="w"> </span>--<span class="w"> </span>--slow<span class="w"> </span>--live<span class="o">=</span>all<span class="w"> </span>--live-timeout<span class="o">=</span><span class="m">600</span><span class="w"> </span>--package
 </code></pre></div>
+<p>Arguments after <code>--</code> apply only to data-source tests and replace their Tox defaults;
+include <code>--testmon</code> and <code>--cov</code> as needed. Lexicon and Icechunk tests run with fixed defaults.</p>
+<h3 id="running-tests-directly-with-pytest">Running Tests Directly with pytest<a class="headerlink" href="#running-tests-directly-with-pytest" title="Permanent link">&para;</a></h3>
+<p>For local development, plain pytest skips slow and live tests. Add <code>--slow</code> to
+enable both, or combine it with <code>--live=none</code> to run only non-live slow tests:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1"># Run the test suite (skips tests marked slow)</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>uv<span class="w"> </span>run<span class="w"> </span>pytest<span class="w"> </span>test/
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="c1"># Standard test suite (includes slow tests)</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>uv<span class="w"> </span>run<span class="w"> </span>pytest<span class="w"> </span>--slow<span class="w"> </span>test/
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="c1"># Include slow tests but skip live requests</span>
+<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>uv<span class="w"> </span>run<span class="w"> </span>pytest<span class="w"> </span>--slow<span class="w"> </span>--live<span class="o">=</span>none<span class="w"> </span>test/
+<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>
+<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="c1"># Run a specific test module, including live requests</span>
+<a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a>uv<span class="w"> </span>run<span class="w"> </span>pytest<span class="w"> </span>--slow<span class="w"> </span>test/data/test_gfs.py
+<a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a>
+<a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a><span class="c1"># Filter tests within a module</span>
+<a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a>uv<span class="w"> </span>run<span class="w"> </span>pytest<span class="w"> </span>--slow<span class="w"> </span>test/data/test_gfs.py<span class="w"> </span>-k<span class="w"> </span>cache
+</code></pre></div>
+<p>Direct pytest uses <code>pytest-timeout</code> for live deadlines (including <code>--live-timeout</code>
+overrides). These timeouts are failures, without process cleanup or restart;
+the supervised Tox workflow records live-call timeouts as XFAIL and restarts.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>When running pytest directly, ensure you have the appropriate dependencies installed
@@ -3745,21 +3983,21 @@ debugging and allows parallel execution. Each job only runs when relevant files 
 <li><strong><code>test-px-models</code></strong> - Runs when prognostic model code or tests change</li>
 <li><strong><code>test-dx-models</code></strong> - Runs when diagnostic model code or tests change</li>
 <li><strong><code>test-da-models</code></strong> - Runs when data assimilation model code or tests change</li>
-<li><strong><code>test-serve</code></strong> - Runs when serve, API code, or tests change</li>
 </ul>
 <p>To force all tests to run regardless of changes, set the <code>CI_PYTEST_ALL</code> environment variable
-to <code>1</code>, <code>true</code>, <code>yes</code>, or <code>on</code>.</p>
+to <code>1</code>, <code>true</code>, <code>yes</code>, or <code>on</code>. In CI, also set <code>DATA_TEST_LIVE=all</code> to bypass
+change-based live selection. Supervised runs retain finite process budgets.</p>
 <h2 id="coverage">Coverage<a class="headerlink" href="#coverage" title="Permanent link">&para;</a></h2>
 <p>Coverage is calculated using the <a href="https://coverage.readthedocs.io/en/7.5.3/">coverage.py</a>
 package configured in the <a href="https://github.com/NVIDIA/earth2studio/blob/main/pyproject.toml">pyproject.toml</a>.
 Presently the CI pipeline will fail if unit test coverage drops below 90%.</p>
 <p>The CI pipeline runs tests using tox environments which automatically collect coverage data.
 After all test jobs complete, coverage is combined and reported:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1"># Run tests (coverage is collected automatically by tox)</span>
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>make<span class="w"> </span>pytest<span class="w"> </span><span class="nv">TOX_ENV</span><span class="o">=</span>test-data
-<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>
-<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="c1"># Combine coverage from all test runs</span>
-<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>make<span class="w"> </span>coverage
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># Run tests (coverage is collected automatically by tox)</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>make<span class="w"> </span>pytest<span class="w"> </span><span class="nv">TOX_ENV</span><span class="o">=</span>test-data
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="c1"># Combine coverage from all test runs</span>
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>make<span class="w"> </span>coverage
 </code></pre></div>
 <p>The <code>make coverage</code> command combines coverage data from all test environments and generates
 a report. The CI pipeline runs this automatically after all test jobs complete.</p>

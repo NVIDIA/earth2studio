@@ -664,6 +664,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -714,6 +718,34 @@
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
             
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../components/coordinates/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data and Metadata
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
               
             
               
@@ -912,6 +944,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../components/execution/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pipelines and Runners
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -931,6 +991,12 @@
       
         
           
+        
+      
+        
+      
+        
+      
         
       
         
@@ -1010,6 +1076,62 @@
     
   
     Checkpointing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../advanced/io/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Advanced Output Handling
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../advanced/domains/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Adaptive Model Domains
   
 
     
@@ -1113,6 +1235,34 @@
   
   
   
+    <li class="md-nav__item">
+      <a href="../../advanced/serving/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment and Serving
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
     
     
       
@@ -1133,7 +1283,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_5_6" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_5_9" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -1155,14 +1305,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_2_5_6" id="__nav_2_5_6_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_2_5_9" id="__nav_2_5_9_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_2_5_6_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_2_5_6">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_2_5_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_5_9">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -1712,6 +1862,17 @@
     <span class="md-ellipsis">
       
         Will Earth2Studio add XYZ model?
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-do-i-deploy-earth2studio-as-an-inference-service" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How do I deploy Earth2Studio as an inference service?
       
     </span>
   </a>
@@ -3485,6 +3646,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#how-do-i-deploy-earth2studio-as-an-inference-service" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How do I deploy Earth2Studio as an inference service?
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#earth2studio-requires-xyz-package-or-python-version-can-i-use-another" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3528,6 +3700,11 @@ If you would like to use a new feature, install from source following the
 making Earth2Studio as feature rich as possible for users.
 Open an issue to discuss the model you're interested in using / integrating and we can
 work out a plan to get it integrated.</p>
+<h2 id="how-do-i-deploy-earth2studio-as-an-inference-service">How do I deploy Earth2Studio as an inference service?<a class="headerlink" href="#how-do-i-deploy-earth2studio-as-an-inference-service" title="Permanent link">&para;</a></h2>
+<p>The inference server and client previously included in Earth2Studio (<code>earth2studio.serve</code>
+and the <code>serve/</code> directory) have moved to
+<a href="https://github.com/NVIDIA/physicsnemo-serve">PhysicsNeMo Serve</a>.
+See <a href="../../advanced/serving/">Deployment and Serving</a>.</p>
 <h2 id="earth2studio-requires-xyz-package-or-python-version-can-i-use-another">Earth2Studio requires X.Y.Z package or Python version, can I use another?<a class="headerlink" href="#earth2studio-requires-xyz-package-or-python-version-can-i-use-another" title="Permanent link">&para;</a></h2>
 <p>Earth2Studio has adopted the <a href="https://scientific-python.org/specs/">Scientific Python</a>
 SPEC 0 for minimum supported dependencies.

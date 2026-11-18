@@ -659,6 +659,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -709,6 +713,34 @@
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
             
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/components/coordinates/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data and Metadata
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
               
             
               
@@ -907,6 +939,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/components/execution/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pipelines and Runners
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -926,6 +986,12 @@
       
         
           
+        
+      
+        
+      
+        
+      
         
       
         
@@ -1005,6 +1071,62 @@
     
   
     Checkpointing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/advanced/io/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Advanced Output Handling
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/advanced/domains/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Adaptive Model Domains
   
 
     
@@ -1108,6 +1230,34 @@
   
   
   
+    <li class="md-nav__item">
+      <a href="../../../userguide/advanced/serving/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment and Serving
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
     
     
       
@@ -1128,7 +1278,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_5_6" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_5_9" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -1150,14 +1300,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_2_5_6" id="__nav_2_5_6_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_2_5_9" id="__nav_2_5_9_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_2_5_6_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_2_5_6">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_2_5_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_5_9">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -3157,6 +3307,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#initialization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Initialization
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#skill" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3496,6 +3657,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#initialization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Initialization
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#skill" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3595,18 +3767,20 @@ while it predicts every hour, so this scorecard carries hourly lead
 times, verified against hourly ERA5. It covers the outputs ERA5
 provides, including dew point, cloud covers, skin temperature, soil
 temperature, soil moisture, sea ice, and snow depth.</p>
+<h2 id="initialization">Initialization<a class="headerlink" href="#initialization" title="Permanent link">&para;</a></h2>
+<p>The Initialization selector in the plot switches between forecasts started from ARCO-ERA5 and from HealDA v2. On the HealDA v2 view the ERA5-initialized run stays as the dashed curve for reference, and both runs are verified against ERA5. HealDA is an AI data assimilation model: a neural network on a HEALPix mesh that turns a window of raw conventional and satellite observations from the NNJA archive directly into a global analysis. A forecast initialized from it runs from observations to prediction. Note : Some inputs like <code>tp06</code> are not provided by HealDA, so either they can be replaced by ERA5 or a precipitation diagnostic such as PrecipitationAFNOv2.</p>
 <h2 id="skill">Skill<a class="headerlink" href="#skill" title="Permanent link">&para;</a></h2>
-<p>Pick a metric and variable; hover for exact values at each lead time. Use the Region selector for continental splits, the Month selector for seasonal (DJF/MAM/JJA/SON) and per-month skill against the all-month curve, the Init hour selector for skill by initialization time, the View selector for the skill of every initial condition, and the Baseline selector to overlay persistence and climatology reference forecasts.</p>
+<p>Pick a metric and variable; hover for exact values at each lead time. Use the Initialization selector for forecasts started from HealDA v2 analyses, with the ERA5-initialized run dashed for reference, the Region selector for continental splits, the Month selector for seasonal (DJF/MAM/JJA/SON) and per-month skill against the all-month curve, the Init hour selector for skill by initialization time, the View selector for the skill of every initial condition, and the Baseline selector to overlay persistence and climatology reference forecasts.</p>
 <!-- The src is resolved in the browser against the FINAL page URL
      (.../scorecard/generated/<model>/), so it stays correct at any site
      depth — fork preview, versioned deploy, or local serve — and there is
      no static URL for the site build to rewrite. -->
 <iframe id="skill-plot" title="Aurora 1.5 Ensemble skill"
-        style="width:100%;height:560px;border:1px solid rgba(128,128,128,.35);border-radius:10px;"
+        style="width:100%;height:600px;border:1px solid rgba(128,128,128,.35);border-radius:10px;"
         loading="lazy"></iframe>
 <script>
 document.getElementById("skill-plot").src = new URL(
-  "../../../_static/scorecard/plot.html?model=aurora1p5ens&label=Aurora%201.5%20Ensemble&domain=Global&v=60ce8024",
+  "../../../_static/scorecard/plot.html?model=aurora1p5ens&label=Aurora%201.5%20Ensemble&domain=Global&inits=healda&v=06f2be60",
   window.location.href);
 </script>
 
@@ -3634,6 +3808,10 @@ Initial conditions rotate through the 00Z/06Z/12Z/18Z hours.</p>
 <tr>
 <td>Initial condition source</td>
 <td>ERA5 (ARCO)</td>
+</tr>
+<tr>
+<td>Initializations</td>
+<td>ERA5 (ARCO), 48 initial conditions; HealDA v2 analyses, 48 initial conditions</td>
 </tr>
 <tr>
 <td>Verification (ground truth)</td>
@@ -4173,7 +4351,9 @@ Initial conditions rotate through the 00Z/06Z/12Z/18Z hours.</p>
 </details>
 <p>All of the model's output variables that have ERA5 verification are scored.</p>
 <h2 id="data">Data<a class="headerlink" href="#data" title="Permanent link">&para;</a></h2>
-<p>The numbers behind the plot are in <a href="../../../_static/scorecard/eval_scores_aurora1p5ens.json"><code>eval_scores_aurora1p5ens.json</code></a>, exported by
+<p>The numbers behind the plot are published in the Earth2Studio assets dataset
+on Hugging Face: <a href="https://huggingface.co/datasets/nvidia/earth2studio-assets/tree/main/scorecard/aurora1p5ens"><code>scorecard/aurora1p5ens/</code></a> holds
+<code>eval_scores_aurora1p5ens.json</code> and its split files, and <a href="https://huggingface.co/datasets/nvidia/earth2studio-assets/tree/main/scorecard/aurora1p5ens_healda"><code>scorecard/aurora1p5ens_healda/</code></a> the HealDA v2-initialized run. They are exported by
 the <a href="https://github.com/NVIDIA/earth2studio/tree/main/recipes/eval">eval recipe scorecard</a>
 (<code>scorecard/export_scores.py --docs</code>) -- one value per metric, variable
 and lead time, in the variable's own units.</p>
@@ -4237,6 +4417,7 @@ Nature, 641, 1180–1187.
 <a href="https://doi.org/10.1038/s41586-025-09005-y">doi:10.1038/s41586-025-09005-y</a>.</p>
 <p>Microsoft (2025). Aurora 1.5 model card.
 <a href="https://huggingface.co/microsoft/aurora">huggingface.co/microsoft/aurora</a>.</p>
+<p>Gupta, A., Subramaniam, A., Pritchard, M. S., Kashinath, K., Frolov, S., Lieberman, K., ... &amp; Brenowitz, N. D. (2026). HealDA: Highlighting the importance of initial errors in end-to-end AI weather forecasts. arXiv preprint <a href="https://arxiv.org/abs/2601.17636">arXiv:2601.17636</a>.</p>
 
 
 

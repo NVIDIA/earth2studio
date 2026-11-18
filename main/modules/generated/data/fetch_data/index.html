@@ -653,6 +653,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -703,6 +707,34 @@
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
             
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../userguide/components/coordinates/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data and Metadata
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
               
             
               
@@ -901,6 +933,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../userguide/components/execution/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pipelines and Runners
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -920,6 +980,12 @@
       
         
           
+        
+      
+        
+      
+        
+      
         
       
         
@@ -999,6 +1065,62 @@
     
   
     Checkpointing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../userguide/advanced/io/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Advanced Output Handling
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../userguide/advanced/domains/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Adaptive Model Domains
   
 
     
@@ -1102,6 +1224,34 @@
   
   
   
+    <li class="md-nav__item">
+      <a href="../../../../userguide/advanced/serving/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment and Serving
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
     
     
       
@@ -1122,7 +1272,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_5_6" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_5_9" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -1144,14 +1294,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_2_5_6" id="__nav_2_5_6_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_2_5_9" id="__nav_2_5_9_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_2_5_6_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_2_5_6">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_2_5_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_5_9">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -3403,7 +3553,7 @@
 <h1 id="fetch_data"><code>fetch_data</code><a class="headerlink" href="#fetch_data" title="Permanent link">&para;</a></h1>
 <p><strong>Import path:</strong> <code>earth2studio.data.fetch_data</code></p>
 <p><a href="" id="earth2studio.data.fetch_data"></a></p>
-<p><a class="e2s-source-link" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/utils.py#L104-L190" title="earth2studio/data/utils.py:104">View source on GitHub</a></p>
+<p><a class="e2s-source-link" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/data/utils.py#L368-L476" title="earth2studio/data/utils.py:368">View source on GitHub</a></p>
 <h2 id="documentation">Documentation<a class="headerlink" href="#documentation" title="Permanent link">&para;</a></h2>
 
 
@@ -3414,10 +3564,7 @@
 
     <div class="doc doc-contents first">
 
-        <p>Utility function to fetch data arrays from particular sources and load data on
-the target device. If desired, xarray interpolation/regridding in the spatial
-domain can be used by passing a target coordinate system via the optional
-<code>interp_to</code> argument.</p>
+        <p>Fetch field DataArrays with temporal statistics, optionally regridded.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -3443,13 +3590,14 @@ domain can be used by passing a target coordinate system via the optional
               (<code><span title="earth2studio.utils.type.VariableArray">VariableArray</span></code>)
           –
           <div class="doc-md-description">
-            <p>Strings or list of strings that refer to variables to return</p>
+            <p>Variable labels, optionally qualified with a temporal statistic, e.g.
+<code>"t2m:mean:24h"</code>.</p>
           </div>
         </li>
         <li class="doc-section-item field-body">
             <b><code>lead_time</code></b>
               (<code><span title="earth2studio.utils.type.LeadTimeArray">LeadTimeArray</span></code>, default:
-                  <code><a class="autorefs autorefs-external" title="numpy.array" href="https://numpy.org/doc/stable/reference/generated/numpy.array.html#numpy.array">array</a>([<a class="autorefs autorefs-external" title="numpy.timedelta64" href="https://numpy.org/doc/stable/reference/arrays.scalars.html#numpy.timedelta64">timedelta64</a>(0, &#39;h&#39;)])</code>
+                  <code><a class="autorefs autorefs-external" title="typing.cast" href="https://docs.python.org/3/library/typing.html#typing.cast">cast</a>(<span title="earth2studio.utils.type.LeadTimeArray">LeadTimeArray</span>, <a class="autorefs autorefs-external" title="numpy.array" href="https://numpy.org/doc/stable/reference/generated/numpy.array.html#numpy.array">array</a>([<a class="autorefs autorefs-external" title="numpy.timedelta64" href="https://numpy.org/doc/stable/reference/arrays.scalars.html#numpy.timedelta64">timedelta64</a>(0, &#39;h&#39;)]))</code>
 )
           –
           <div class="doc-md-description">
@@ -3459,44 +3607,50 @@ np.array(np.timedelta64(0, "h"))</p>
         </li>
         <li class="doc-section-item field-body">
             <b><code>device</code></b>
-              (<code><a class="autorefs autorefs-external" title="torch.device" href="https://pytorch.org/docs/stable/tensor_attributes.html#torch.device">device</a></code>, default:
+              (<code><a class="autorefs autorefs-external" title="torch.device" href="https://pytorch.org/docs/stable/tensor_attributes.html#torch.device">device</a> | <a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></code>, default:
                   <code>&#39;cpu&#39;</code>
 )
           –
           <div class="doc-md-description">
-            <p>Torch device to load data tensor to, by default "cpu"</p>
+            <p>NumPy CPU or CuPy CUDA destination, by default "cpu"</p>
           </div>
         </li>
         <li class="doc-section-item field-body">
-            <b><code>interp_to</code></b>
-              (<code><span title="earth2studio.utils.type.CoordSystem">CoordSystem</span></code>, default:
+            <b><code>target_grid</code></b>
+              (<code><span title="earth2studio.grids.GridDefinition">GridDefinition</span></code>, default:
                   <code>None</code>
 )
           –
           <div class="doc-md-description">
-            <p>If provided, the fetched data will be interpolated to the coordinates
-specified by lat/lon arrays in this CoordSystem</p>
+            <p>Grid to return fields on, such as <code>infer_grid(model.input_coords())</code>, by
+default None, which keeps the source grid. Without <code>regridder</code>, fields
+already on it pass through, exact crops are selected, and otherwise fields
+are regridded by nearest neighbor within the source resolution, raising if
+the target extends beyond the source.</p>
           </div>
         </li>
         <li class="doc-section-item field-body">
-            <b><code>interp_method</code></b>
-              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></code>, default:
-                  <code>&#39;nearest&#39;</code>
+            <b><code>regridder</code></b>
+              (<code><span title="earth2studio.grids.Regridder">Regridder</span></code>, default:
+                  <code>None</code>
 )
           –
           <div class="doc-md-description">
-            <p>Interpolation method to use with xarray (by default 'nearest')</p>
+            <p>Regridder to apply, by default None. It must produce <code>target_grid</code> when
+both are given.</p>
           </div>
         </li>
         <li class="doc-section-item field-body">
-            <b><code>legacy</code></b>
-              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></code>, default:
-                  <code>True</code>
+            <b><code>member</code></b>
+              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#int">int</a> | <a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a> | <a class="autorefs autorefs-external" title="collections.abc.Sequence" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Sequence">Sequence</a> | <span title="earth2studio.utils.type.MemberArray">MemberArray</span></code>, default:
+                  <code>None</code>
 )
           –
           <div class="doc-md-description">
-            <p>If True (default), returns tuple of (torch.Tensor, CoordSystem).
-If False, returns xr.DataArray with numpy arrays for CPU or cupy arrays for CUDA.</p>
+            <p>Distinct ensemble member label or labels to fetch, in the source's own
+labeling, by default None, which returns the member the source was built
+with. Only ensemble sources, those taking a <code>member</code> keyword (see
+<a class="autorefs autorefs-internal" title="Ensemble Members" href="../../../../userguide/components/datasources/#earth2studio.data.EnsembleDataSource"><code>EnsembleDataSource</code></a>), accept it.</p>
           </div>
         </li>
     </ul>
@@ -3505,19 +3659,44 @@ If False, returns xr.DataArray with numpy arrays for CPU or cupy arrays for CUDA
 <p><span class="doc-section-title">Returns:</span></p>
     <ul>
         <li class="doc-section-item field-body">
-              <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#tuple">tuple</a>[<a class="autorefs autorefs-external" title="torch.Tensor" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor">Tensor</a>, <span title="earth2studio.utils.type.CoordSystem">CoordSystem</span>] | <a class="autorefs autorefs-external" title="xarray.DataArray" href="https://docs.xarray.dev/en/stable/generated/xarray.DataArray.html#xarray.DataArray">DataArray</a></code>
+              <code><a class="autorefs autorefs-external" title="xarray.DataArray" href="https://docs.xarray.dev/en/stable/generated/xarray.DataArray.html#xarray.DataArray">DataArray</a></code>
           –
           <div class="doc-md-description">
-            <p>If legacy=True: Tuple containing output tensor and coordinate OrderedDict.
-If legacy=False: xr.DataArray with numpy arrays (CPU) or cupy arrays (CUDA).</p>
+            <p>Field values with dimensions [time, lead_time, variable, ...], auxiliary
+coordinates, actual grid metadata and normalized temporal statistics. The
+field is on the source grid unless regridded. With <code>member</code>, a leading
+<code>ensemble</code> dimension holds the requested members in order. Floating point
+fields are always returned as float32, regardless of the source's dtype.</p>
           </div>
         </li>
     </ul>
 
 
+<details class="note" open>
+  <summary>Note</summary>
+  <p>Temporal statistics require native source support. The source chooses its
+sampling and computes the reduction; unsupported methods raise <code>ValueError</code>.
+Windows exclude their left endpoint and include their right endpoint.
+Sources may return NumPy- or CuPy-backed fields. Temporal reductions run on
+that backing; the result then moves to <code>device</code> only if it is not already
+there, and regridding runs last, on <code>device</code>. Regridding automatically
+constructs a regridder on every call; pass a
+[<code>Regridder</code>][earth2studio.grids.Regridder] to choose the method and reuse it.</p>
+</details>
+
     </div>
 
 </div><!-- e2sg-backreferences: earth2studio.data.fetch_data -->
+<!-- e2sg-backreferences-generated:start -->
+<!-- markdownlint-disable MD033 -->
+<section class="e2sg-backreferences" data-e2sg-object="earth2studio.data.fetch_data">
+<h2>Examples using <code>earth2studio.data.fetch_data</code></h2>
+<div class="e2sg-gallery-grid">
+<a class="e2sg-gallery-card" href="../../../../examples/04_nowcasting/03_stormscope_goes_example/"><img class="e2sg-card-image" src="../../../../examples/_assets/04_nowcasting-03_stormscope_goes_example/thumbnail.webp" alt="Preview of StormScope Satellite and Radar Nowcasting" loading="lazy"><span class="e2sg-card-body"><strong>StormScope Satellite and Radar Nowcasting</strong><span class="e2sg-card-summary">StormScope inference workflow with GOES satellite imagery and MRMS radar data.</span></span></a>
+</div>
+</section>
+<!-- markdownlint-enable MD033 -->
+<!-- e2sg-backreferences-generated:end -->
 
 
 

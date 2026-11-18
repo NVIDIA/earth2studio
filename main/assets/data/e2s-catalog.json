@@ -1290,6 +1290,44 @@
   },
   {
     "badges": [
+      "region:global",
+      "dataclass:analysis",
+      "product:ocean",
+      "provider:noaa"
+    ],
+    "chips": [
+      "Data Source",
+      "Analysis / Initial Conditions",
+      "NOAA",
+      "Ocean"
+    ],
+    "filters": {
+      "data class": [
+        "Analysis / Initial Conditions"
+      ],
+      "dataset family": [],
+      "gpu": [],
+      "product": [
+        "Ocean"
+      ],
+      "provider": [
+        "NOAA"
+      ],
+      "region": [
+        "Global"
+      ],
+      "year": []
+    },
+    "group": "Data Source",
+    "kind": "data",
+    "signature": "OISST(lag_days: int = 0, lookback_days: int = 1, cache: bool = True, verbose: bool = True, async_timeout: int = 600, async_workers: int | None = None, retries: int = 3, device: torch.device | str = 'cpu')",
+    "summary": "NOAA daily 0.25\u00b0 Optimum Interpolation Sea Surface Temperature (OISST v2.1), read directly from NCEI.",
+    "title": "OISST",
+    "tone": "ocean",
+    "url": "../../../modules/generated/data/analysis/OISST"
+  },
+  {
+    "badges": [
       "region:eu",
       "dataclass:observation",
       "product:precip",
@@ -2378,7 +2416,7 @@
     },
     "group": "DataFrame Source",
     "kind": "data",
-    "signature": "NNJAObsConv(source: str = 'prepbufr', time_tolerance: TimeTolerance = np.timedelta64(0, 'm'), cache: bool = True, verbose: bool = True, async_timeout: int = 600, async_workers: int = 24, decode_workers: int = 8, retries: int = 3, exclude_message_types: Sequence[str] = (), original_event: bool = False, layout: Literal['long', 'wide'] = _DEFAULT_LAYOUT)",
+    "signature": "NNJAObsConv(source: str = 'prepbufr', time_tolerance: TimeTolerance = np.timedelta64(0, 'm'), cache: bool = True, verbose: bool = True, async_timeout: int = 600, async_workers: int = 24, decode_workers: int = 8, retries: int = 3, exclude_message_types: Sequence[str] = (), original_event: bool = False, layout: Literal['long', 'wide'] = _DEFAULT_LAYOUT, gpsro_profile_metadata: bool = False)",
     "summary": "NNJA conventional (in-situ + GPS RO) observational data source. NOAA-NASA Joint Archive (NNJA) of Observations for Earth System Reanalysis is an archive ideal for developing observation-driven weather forecasting tools, as it includes a wide cross-section of data from a plethora of sensing platforms (satellites, surface stations, weather balloons, and more) and features data from 1979 to the present.",
     "title": "NNJAObsConv",
     "tone": "observation",
@@ -2415,7 +2453,7 @@
     },
     "group": "DataFrame Source",
     "kind": "data",
-    "signature": "NNJAObsSat(time_tolerance: TimeTolerance = np.timedelta64(10, 'm'), satellites: list[str] | None = None, cache: bool = True, verbose: bool = True, async_timeout: int = 600, async_workers: int = 8, decode_workers: int = 8, retries: int = 3, sensor_indices: dict[str, Sequence[int]] | None = None, layout: Literal['long', 'wide'] = _DEFAULT_LAYOUT)",
+    "signature": "NNJAObsSat(time_tolerance: TimeTolerance = np.timedelta64(10, 'm'), satellites: list[str] | None = None, cache: bool = True, verbose: bool = True, async_timeout: int = 600, async_workers: int = 8, decode_workers: int = 8, retries: int = 3, sensor_indices: dict[str, Sequence[int]] | None = None, layout: Literal['long', 'wide'] = _DEFAULT_LAYOUT, footprint_float64: bool = False)",
     "summary": "NNJA historical NCEP aggregate satellite observations.",
     "title": "NNJAObsSat",
     "tone": "satellite",
@@ -3601,6 +3639,95 @@
     "badges": [
       "region:global",
       "class:data-assimilation",
+      "product:atmos",
+      "provider:windborne",
+      "backend:pytorch",
+      "gpu:40gb"
+    ],
+    "chips": [
+      "Data Assimilation",
+      "Windborne",
+      "PyTorch",
+      "Atmosphere"
+    ],
+    "filters": {
+      "backend": [
+        "PyTorch"
+      ],
+      "class": [
+        "Data Assimilation"
+      ],
+      "gpu": [
+        "40 GB VRAM (A100, L40S, H100, GH200, H200, B40, B100, B200)"
+      ],
+      "product": [
+        "Atmosphere"
+      ],
+      "provider": [
+        "Windborne"
+      ],
+      "region": [
+        "Global"
+      ],
+      "year": []
+    },
+    "group": "Data Assimilation",
+    "kind": "model",
+    "signature": "AIDA(core_model: torch.nn.Module, assimilation_steps: int = 3, max_observations: int | None = None, variables: tuple[str, ...] | None = None)",
+    "summary": "WindBorne's AI data assimilation model.",
+    "title": "AIDA",
+    "tone": "assimilation",
+    "url": "../../../modules/generated/models/da/AIDA"
+  },
+  {
+    "badges": [
+      "region:global",
+      "class:medium-range",
+      "product:atmos",
+      "provider:windborne",
+      "backend:pytorch",
+      "gpu:40gb"
+    ],
+    "chips": [
+      "Data Assimilation",
+      "Medium Range",
+      "Windborne",
+      "PyTorch",
+      "Atmosphere"
+    ],
+    "filters": {
+      "backend": [
+        "PyTorch"
+      ],
+      "class": [
+        "Medium Range"
+      ],
+      "gpu": [
+        "40 GB VRAM (A100, L40S, H100, GH200, H200, B40, B100, B200)"
+      ],
+      "product": [
+        "Atmosphere"
+      ],
+      "provider": [
+        "Windborne"
+      ],
+      "region": [
+        "Global"
+      ],
+      "year": []
+    },
+    "group": "Data Assimilation",
+    "kind": "model",
+    "signature": "AIDAWeatherMesh5C(core_model: torch.nn.Module, assimilation_steps: int = 3, max_observations: int | None = None, fork_hour: int | None = 72, variables: tuple[str, ...] | None = None)",
+    "summary": "Global WeatherMesh-5c forecasts initialized by AIDA.",
+    "title": "AIDAWeatherMesh5C",
+    "tone": "model",
+    "url": "../../../modules/generated/models/da/AIDAWeatherMesh5C"
+  },
+  {
+    "badges": [
+      "region:global",
+      "class:data-assimilation",
       "class:downscaling",
       "product:wind",
       "product:temp",
@@ -3723,7 +3850,7 @@
       "product:insitu",
       "product:sat",
       "year:2026",
-      "gpu:80gb",
+      "gpu:40gb",
       "provider:nvidia",
       "backend:pytorch"
     ],
@@ -3743,7 +3870,7 @@
         "Data Assimilation"
       ],
       "gpu": [
-        "80 GB VRAM (A100 80GB, H100, GH200, H200, B40, B100, B200)"
+        "40 GB VRAM (A100, L40S, H100, GH200, H200, B40, B100, B200)"
       ],
       "product": [
         "Surface Winds",
@@ -3765,7 +3892,7 @@
     "group": "Data Assimilation",
     "kind": "model",
     "signature": "HealDAv2(model: Any)",
-    "summary": "HealDA v2, a global machine-learning data-assimilation model that maps a 48-hour sequence of satellite and conventional observations to a 104-channel, 0.25 degree atmospheric analysis on a regular latitude-longitude grid.",
+    "summary": "HealDA v2 maps 48 hours of observations to a global, 104-channel atmospheric analysis on a 0.25 degree latitude-longitude grid (721 x 1440).",
     "title": "HealDAv2",
     "tone": "satellite",
     "url": "../../../modules/generated/models/da/HealDAv2"
@@ -3821,6 +3948,56 @@
       "region:na",
       "class:data-assimilation",
       "class:nowcasting",
+      "product:atmos",
+      "product:insitu",
+      "year:2026",
+      "provider:nvidia",
+      "backend:pytorch"
+    ],
+    "chips": [
+      "Data Assimilation",
+      "Nowcasting",
+      "NVIDIA",
+      "PyTorch",
+      "Atmosphere",
+      "In-Situ Observations"
+    ],
+    "filters": {
+      "backend": [
+        "PyTorch"
+      ],
+      "class": [
+        "Data Assimilation",
+        "Nowcasting"
+      ],
+      "gpu": [],
+      "product": [
+        "Atmosphere",
+        "In-Situ Observations"
+      ],
+      "provider": [
+        "NVIDIA"
+      ],
+      "region": [
+        "North America"
+      ],
+      "year": [
+        "2026"
+      ]
+    },
+    "group": "Data Assimilation",
+    "kind": "model",
+    "signature": "StormCastConusSDA(model: StormCastCONUS)",
+    "summary": "StormCast-CONUS with score-based observation guidance and explicit state.",
+    "title": "StormCastConusSDA",
+    "tone": "assimilation",
+    "url": "../../../modules/generated/models/da/StormCastConusSDA"
+  },
+  {
+    "badges": [
+      "region:na",
+      "class:data-assimilation",
+      "class:nowcasting",
       "product:wind",
       "product:temp",
       "product:atmos",
@@ -3869,7 +4046,7 @@
     },
     "group": "Data Assimilation",
     "kind": "model",
-    "signature": "StormCastSDA(regression_model: torch.nn.Module, diffusion_model: torch.nn.Module, means: torch.Tensor, stds: torch.Tensor, invariants: torch.Tensor, hrrr_lat_lim: tuple[int, int] = (273, 785), hrrr_lon_lim: tuple[int, int] = (579, 1219), variables: np.array = np.array(VARIABLES), conditioning_means: torch.Tensor | None = None, conditioning_stds: torch.Tensor | None = None, conditioning_variables: np.array = np.array(CONDITIONING_VARIABLES), conditioning_data_source: DataSource | ForecastSource | None = None, time_tolerance: TimeTolerance = np.timedelta64(10, 'm'), sampler_steps: int = 36, sampler_args: dict[str, float | int] | None = None, sda_std_obs: float = 0.1, sda_gamma: float = 0.001)",
+    "signature": "StormCastSDA(regression_model: torch.nn.Module, diffusion_model: torch.nn.Module, means: torch.Tensor, stds: torch.Tensor, invariants: torch.Tensor, hrrr_lat_lim: tuple[int, int] = (273, 785), hrrr_lon_lim: tuple[int, int] = (579, 1219), variables: np.ndarray = np.array(VARIABLES), conditioning_means: torch.Tensor | None = None, conditioning_stds: torch.Tensor | None = None, conditioning_variables: np.ndarray = np.array(CONDITIONING_VARIABLES), time_tolerance: TimeTolerance = np.timedelta64(10, 'm'), sampler_steps: int = 36, sampler_args: dict[str, float | int] | None = None, sda_std_obs: float = 0.1, sda_gamma: float = 0.001)",
     "summary": "StormCast with score-based data assimilation (SDA) using diffusion posterior sampling for convection-allowing regional forecasts. Combines a regression and diffusion model with DPS guidance to assimilate observations during inference. Model time step size is 1 hour, taking as input:",
     "title": "StormCastSDA",
     "tone": "radar",
@@ -3926,7 +4103,7 @@
     },
     "group": "Diagnostic",
     "kind": "model",
-    "signature": "CBottleInfill(core_model: torch.nn.Module, sst_ds: xr.Dataset, input_variables: list[str] | VariableArray, sampler_steps: int = 18, sigma_max: float = 200, seed: int | None = None)",
+    "signature": "CBottleInfill(core_model: torch.nn.Module, sst_ds: xr.Dataset, input_variables: list[str] | VariableArray, sampler_steps: int = 18, sigma_max: float = 200)",
     "summary": "Climate in a bottle infill diagnostic Climate in a Bottle (cBottle) is an AI model for emulating global km-scale climate simulations and reanalysis on the equal-area HEALPix grid. The cBottle infill diagnostic enables users to generate all variables supported by cBottle from just a subset ontop of existing monthly average sea surface temperatures and solar conditioning. The cBottle infill model uses the a globally-trained coarse-resolution image diffusion model that generates 100km (50k-pixel) fields",
     "title": "CBottleInfill",
     "tone": "ocean",
@@ -3981,7 +4158,7 @@
     },
     "group": "Diagnostic",
     "kind": "model",
-    "signature": "CBottleSR(sr_model: torch.nn.Module, lat_lon: bool = True, output_resolution: tuple[int, int] = (2161, 4320), super_resolution_window: tuple[int, int, int, int] | None = None, sampler_steps: int = 18, sigma_max: int = 800, seed: int | None = None)",
+    "signature": "CBottleSR(sr_model: torch.nn.Module, lat_lon: bool = True, output_resolution: tuple[int, int] = (2161, 4320), region: Region | None = None, sampler_steps: int = 18, sigma_max: int = 800)",
     "summary": "Climate in a Bottle Super-Resolution (CBottleSR) model.",
     "title": "CBottleSR",
     "tone": "precip",
@@ -4036,7 +4213,7 @@
     },
     "group": "Diagnostic",
     "kind": "model",
-    "signature": "CBottleTCGuidance(core_model: torch.nn.Module, classifier_model: torch.nn.Module, sst_ds: xr.Dataset, lat_lon: bool = True, sampler_steps: int = 18, sigma_max: float = 200.0, batch_size: int = 4, seed: int | None = None, dataset_modality: DatasetModality = DatasetModality.ERA5)",
+    "signature": "CBottleTCGuidance(core_model: torch.nn.Module, classifier_model: torch.nn.Module, sst_ds: xr.Dataset, lat_lon: bool = True, sampler_steps: int = 18, sigma_max: float = 200.0, batch_size: int = 4, dataset_modality: DatasetModality = DatasetModality.ERA5)",
     "summary": "Climate in a Bottle tropical cyclone guidance diagnostic. This model for Climate in a Bottle (cBottle) allows users to provide an cyclone guidance map on a lat-lon grid and synthesis global climate realizations at that given time. The tropical cyclone guidance field is regridded to HPX Level 3, which is then used during the sampling process.",
     "title": "CBottleTCGuidance",
     "tone": "precip",
@@ -4141,7 +4318,7 @@
     },
     "group": "Diagnostic",
     "kind": "model",
-    "signature": "CorrDiffCMIP6(input_variables: Sequence[str], output_variables: Sequence[str], residual_model: torch.nn.Module, regression_model: torch.nn.Module, lat_input_grid: torch.Tensor, lon_input_grid: torch.Tensor, lat_output_grid: torch.Tensor, lon_output_grid: torch.Tensor, in_center: torch.Tensor, in_scale: torch.Tensor, out_center: torch.Tensor, out_scale: torch.Tensor, invariants: OrderedDict | None = None, invariant_center: torch.Tensor | None = None, invariant_scale: torch.Tensor | None = None, number_of_samples: int = 1, number_of_steps: int = 18, solver: Literal['euler', 'heun'] = 'euler', sampler_type: Literal['deterministic', 'stochastic'] = 'stochastic', inference_mode: Literal['regression', 'diffusion', 'both'] = 'both', hr_mean_conditioning: bool = True, seed: int | None = None, grid_spacing_tolerance: float = 1e-05, grid_bounds_margin: float = 0.0, sigma_min: float | None = None, sigma_max: float | None = None, time_feature_center: torch.Tensor | None = None, time_feature_scale: torch.Tensor | None = None, output_lead_times: LeadTimeArray = np.array([np.timedelta64(-12, 'h')]))",
+    "signature": "CorrDiffCMIP6(input_variables: Sequence[str], output_variables: Sequence[str], residual_model: torch.nn.Module, regression_model: torch.nn.Module, lat_input_grid: torch.Tensor, lon_input_grid: torch.Tensor, lat_output_grid: torch.Tensor, lon_output_grid: torch.Tensor, in_center: torch.Tensor, in_scale: torch.Tensor, out_center: torch.Tensor, out_scale: torch.Tensor, invariants: OrderedDict | None = None, invariant_center: torch.Tensor | None = None, invariant_scale: torch.Tensor | None = None, number_of_samples: int = 1, number_of_steps: int = 18, solver: Literal['euler', 'heun'] = 'euler', sampler_type: Literal['deterministic', 'stochastic'] = 'stochastic', inference_mode: Literal['regression', 'diffusion', 'both'] = 'both', hr_mean_conditioning: bool = True, grid_spacing_tolerance: float = 1e-05, grid_bounds_margin: float = 0.0, sigma_min: float | None = None, sigma_max: float | None = None, time_feature_center: torch.Tensor | None = None, time_feature_scale: torch.Tensor | None = None, output_lead_times: LeadTimeArray = np.array([np.timedelta64(-12, 'h')]))",
     "summary": "CMIP6 to ERA5 downscaling model based on the CorrDiff architecture. This model can be used to downscale both in the spatial and temporal dimensions. This model works with the [`earth2studio.data.CMIP6MultiRealm`][earth2studio.data.CMIP6MultiRealm] data source.",
     "title": "CorrDiffCMIP6",
     "tone": "precip",
@@ -4196,7 +4373,7 @@
     },
     "group": "Diagnostic",
     "kind": "model",
-    "signature": "CorrDiffCosmoEra5(era5_variables: Sequence[str], output_variables: Sequence[str], regression_model: torch.nn.Module | None, diffusion_model: torch.nn.Module | None, resolution: Literal['rea6', 'rea2'], mode: Literal['mean', 'diffusion'], lat_input_grid: torch.Tensor, lon_input_grid: torch.Tensor, lat_output_grid: torch.Tensor, lon_output_grid: torch.Tensor, era5_center: torch.Tensor, era5_scale: torch.Tensor, out_center: torch.Tensor, out_scale: torch.Tensor, static_invariants: 'OrderedDict[str, torch.Tensor]', pre_invariant_variables: Sequence[str], post_invariant_variables: Sequence[str], channel_transforms: dict | None = None, constraints: dict | None = None, number_of_samples: int = 1, physical_clamp: bool = True, number_of_steps: int = 18, sigma_min: float = 0.002, sigma_max: float = 800.0, rho: float = 7.0, solver: Literal['heun', 'euler'] = 'heun', seed: int | None = None, amp: bool = False, hub_heights: Sequence[float] | None = None, hub_interp: Literal['linear', 'log'] = 'linear', wind_levels: dict | None = None)",
+    "signature": "CorrDiffCosmoEra5(era5_variables: Sequence[str], output_variables: Sequence[str], regression_model: torch.nn.Module | None, diffusion_model: torch.nn.Module | None, resolution: Literal['rea6', 'rea2'], mode: Literal['mean', 'diffusion'], lat_input_grid: torch.Tensor, lon_input_grid: torch.Tensor, lat_output_grid: torch.Tensor, lon_output_grid: torch.Tensor, era5_center: torch.Tensor, era5_scale: torch.Tensor, out_center: torch.Tensor, out_scale: torch.Tensor, static_invariants: 'OrderedDict[str, torch.Tensor]', pre_invariant_variables: Sequence[str], post_invariant_variables: Sequence[str], channel_transforms: dict | None = None, constraints: dict | None = None, number_of_samples: int = 1, physical_clamp: bool = True, number_of_steps: int = 18, sigma_min: float = 0.002, sigma_max: float = 800.0, rho: float = 7.0, solver: Literal['heun', 'euler'] = 'heun', amp: bool = False, hub_heights: Sequence[float] | None = None, hub_interp: Literal['linear', 'log'] = 'linear', wind_levels: dict | None = None)",
     "summary": "COSMO-REA downscaling model: ERA5 -> high-resolution COSMO-REA.",
     "title": "CorrDiffCosmoEra5",
     "tone": "precip",
@@ -4251,7 +4428,7 @@
     },
     "group": "Diagnostic",
     "kind": "model",
-    "signature": "CorrDiffEra5Hrrr(network: torch.nn.Module, lat_input_grid: torch.Tensor, lon_input_grid: torch.Tensor, lat_output_grid: torch.Tensor, lon_output_grid: torch.Tensor, hrrr_y: torch.Tensor, hrrr_x: torch.Tensor, era5_center: torch.Tensor, era5_scale: torch.Tensor, out_center: torch.Tensor, out_scale: torch.Tensor, invariants: torch.Tensor, network_kind: Literal['rectified_flow', 'edm'] = 'rectified_flow', era5_variables: Sequence[str] = ERA5_VARIABLES, output_variables: Sequence[str] = OUTPUT_VARIABLES, presence_flags: Sequence[str] = (), day_of_year: bool = True, prediction_type: Literal['x0', 'flow'] = 'x0', time_scale: float = 999.0, number_of_samples: int = 1, number_of_steps: int = 50, solver: Literal['heun', 'euler'] = 'heun', shift: float = 32.0, t_max: float = 0.99, x0v_clip: float = 0.05, sigma_min: float = 0.01, sigma_max: float = 200.0, rho: float = 7.0, seed: int | None = None, amp: bool = True)",
+    "signature": "CorrDiffEra5Hrrr(network: torch.nn.Module, lat_input_grid: torch.Tensor, lon_input_grid: torch.Tensor, lat_output_grid: torch.Tensor, lon_output_grid: torch.Tensor, y: torch.Tensor, x: torch.Tensor, era5_center: torch.Tensor, era5_scale: torch.Tensor, out_center: torch.Tensor, out_scale: torch.Tensor, invariants: torch.Tensor, network_kind: Literal['rectified_flow', 'edm'] = 'rectified_flow', era5_variables: Sequence[str] = ERA5_VARIABLES, output_variables: Sequence[str] = OUTPUT_VARIABLES, presence_flags: Sequence[str] = (), day_of_year: bool = True, prediction_type: Literal['x0', 'flow'] = 'x0', time_scale: float = 999.0, number_of_samples: int = 1, number_of_steps: int = 50, solver: Literal['heun', 'euler'] = 'heun', shift: float = 32.0, t_max: float = 0.99, x0v_clip: float = 0.05, sigma_min: float = 0.01, sigma_max: float = 200.0, rho: float = 7.0, amp: bool = True)",
     "summary": "Generative downscaling from 0.25-degree ERA5 to 3 km HRRR over CONUS.",
     "title": "CorrDiffEra5Hrrr",
     "tone": "radar",
@@ -4306,7 +4483,7 @@
     },
     "group": "Diagnostic",
     "kind": "model",
-    "signature": "CorrDiffTaiwan(residual_model: torch.nn.Module, regression_model: torch.nn.Module, in_center: torch.Tensor, in_scale: torch.Tensor, out_center: torch.Tensor, out_scale: torch.Tensor, out_lat: torch.Tensor, out_lon: torch.Tensor, number_of_samples: int = 1, number_of_steps: int = 8, solver: Literal['euler', 'heun'] = 'euler', seed: int | None = None)",
+    "signature": "CorrDiffTaiwan(residual_model: torch.nn.Module, regression_model: torch.nn.Module, in_center: torch.Tensor, in_scale: torch.Tensor, out_center: torch.Tensor, out_scale: torch.Tensor, out_lat: torch.Tensor, out_lon: torch.Tensor, number_of_samples: int = 1, number_of_steps: int = 8, solver: Literal['euler', 'heun'] = 'euler')",
     "summary": "CorrDiff is a Corrector Diffusion model that learns mappings between low- and high-resolution weather data with high fidelity. This particular model was trained over a particular region near Taiwan.",
     "title": "CorrDiffTaiwan",
     "tone": "precip",
@@ -4392,7 +4569,45 @@
     },
     "group": "Diagnostic",
     "kind": "model",
-    "signature": "DerivedRH(levels: list[int | str] = [100])",
+    "signature": "DerivedPressureLevels(variables: list[str], levels: list[float], input_levels: list[float] | None = None, model_levels: list[int] | None = None, a: Sequence[float] | None = None, b: Sequence[float] | None = None, pressure: str | None = None, level_suffix: str = 'k', grid: str | GridDefinition = 'latlon-0.25deg', fill_value: float | None = None)",
+    "summary": "Interpolates fields from model or pressure levels onto pressure levels.",
+    "title": "DerivedPressureLevels",
+    "tone": "model",
+    "url": "../../../modules/generated/models/dx/DerivedPressureLevels"
+  },
+  {
+    "badges": [
+      "region:global",
+      "product:atmos",
+      "provider:nvidia",
+      "backend:pytorch"
+    ],
+    "chips": [
+      "Diagnostic",
+      "NVIDIA",
+      "PyTorch",
+      "Atmosphere"
+    ],
+    "filters": {
+      "backend": [
+        "PyTorch"
+      ],
+      "class": [],
+      "gpu": [],
+      "product": [
+        "Atmosphere"
+      ],
+      "provider": [
+        "NVIDIA"
+      ],
+      "region": [
+        "Global"
+      ],
+      "year": []
+    },
+    "group": "Diagnostic",
+    "kind": "model",
+    "signature": "DerivedRH(levels: list[int | str] = [100], grid: str | GridDefinition = 'latlon-0.25deg')",
     "summary": "Calculates the relative humidity (RH) from specific humidity and temperature for specified pressure levels. Based on the calculations ECMWF uses in the IFS numerical simulator which accounts for estimating the water vapor and ice present in the atmosphere.",
     "title": "DerivedRH",
     "tone": "model",
@@ -4430,7 +4645,7 @@
     },
     "group": "Diagnostic",
     "kind": "model",
-    "signature": "DerivedRHDewpoint()",
+    "signature": "DerivedRHDewpoint(grid: str | GridDefinition = 'latlon-0.25deg')",
     "summary": "Calculates the surface relative humidity (RH) from dewpoint temperature and air temperature. This calculation is based on the August-Roche-Magnus approximation.",
     "title": "DerivedRHDewpoint",
     "tone": "model",
@@ -4506,7 +4721,7 @@
     },
     "group": "Diagnostic",
     "kind": "model",
-    "signature": "DerivedTCWV(levels: list[int] = [1000, 850, 700, 500, 300, 200, 100])",
+    "signature": "DerivedTCWV(levels: list[int] = [1000, 850, 700, 500, 300, 200, 100], grid: str | GridDefinition = 'latlon-0.25deg')",
     "summary": "Calculates the Total Column Water Vapor (TCWV) from specific humidity at pressure levels and surface pressure. The calculation is based on the vertical integration of specific humidity using the trapezoidal rule:",
     "title": "DerivedTCWV",
     "tone": "model",
@@ -4547,7 +4762,7 @@
     },
     "group": "Diagnostic",
     "kind": "model",
-    "signature": "DerivedVPD(levels: list[int | str] = [100])",
+    "signature": "DerivedVPD(levels: list[int | str] = [100], grid: str | GridDefinition = 'latlon-0.25deg')",
     "summary": "Calculates the Vapor Pressure Deficit (VPD) in hPa from relative humidity and temperature fields. The calculation is based on the formula:",
     "title": "DerivedVPD",
     "tone": "model",
@@ -4588,7 +4803,7 @@
     },
     "group": "Diagnostic",
     "kind": "model",
-    "signature": "DerivedWS(levels: list[int | str] = [100])",
+    "signature": "DerivedWS(levels: list[int | str] = [100], grid: str | GridDefinition = 'latlon-0.25deg')",
     "summary": "Calculates the Wind Speed (WS) magnitude from eastward and northward wind components for specified levels. The calculation is based on the formula: ws = sqrt(u^2 + v^2)",
     "title": "DerivedWS",
     "tone": "model",
@@ -4906,7 +5121,7 @@
     },
     "group": "Diagnostic",
     "kind": "model",
-    "signature": "StormScopeDxNSRDB(diffusion_model: nn.Module, regression_model: nn.Module, sigma_min: float, sigma_max: float, conditioning_means: torch.Tensor, conditioning_stds: torch.Tensor, conditioning_variables: np.ndarray, output_variables: np.ndarray, latitudes: torch.Tensor, longitudes: torch.Tensor, invariants: torch.Tensor | None = None, valid_mask: torch.Tensor | None = None, y_coords: np.ndarray | None = None, x_coords: np.ndarray | None = None, input_interp_max_dist_km: float = 12.0, number_of_samples: int = 1, seed: int | None = None, num_steps: int = 12, amp: bool = True)",
+    "signature": "StormScopeDxNSRDB(diffusion_model: nn.Module, regression_model: nn.Module, sigma_min: float, sigma_max: float, conditioning_means: torch.Tensor, conditioning_stds: torch.Tensor, conditioning_variables: np.ndarray, output_variables: np.ndarray, latitudes: torch.Tensor, longitudes: torch.Tensor, invariants: torch.Tensor | None = None, valid_mask: torch.Tensor | None = None, y_coords: np.ndarray | None = None, x_coords: np.ndarray | None = None, max_dist_km: float = 12.0, number_of_samples: int = 1, num_steps: int = 12, amp: bool = True)",
     "summary": "Estimate Global Horizontal Irradiance from GOES imagery.",
     "title": "StormScopeDxNSRDB",
     "tone": "solar",
@@ -5100,7 +5315,7 @@
     },
     "group": "Prognostic",
     "kind": "model",
-    "signature": "ACE2ERA5(stepper: Stepper, forcing_data_source: DataSource = ACE2ERA5Data(mode='forcing'), dt: np.timedelta64 = np.timedelta64(6, 'h'))",
+    "signature": "ACE2ERA5(stepper: Stepper, dt: np.timedelta64 = np.timedelta64(6, 'h'))",
     "summary": "ACE2-ERA5 prognostic model wrapper.",
     "title": "ACE2ERA5",
     "tone": "ocean",
@@ -5281,7 +5496,7 @@
     },
     "group": "Prognostic",
     "kind": "model",
-    "signature": "AIFS2ENS(model: torch.nn.Module, latitudes: torch.Tensor, longitudes: torch.Tensor, interpolation_matrix: torch.Tensor, inverse_interpolation_matrix: torch.Tensor, invariants: torch.Tensor, preload_invariants: bool = True, seed: int | None = None)",
+    "signature": "AIFS2ENS(model: torch.nn.Module, latitudes: torch.Tensor, longitudes: torch.Tensor, interpolation_matrix: torch.Tensor, inverse_interpolation_matrix: torch.Tensor, invariants: torch.Tensor, preload_invariants: bool = True)",
     "summary": "Artificial Intelligence Forecasting System Ensemble version 2 (AIFS ENS v2), a data driven ensemble forecast model developed by the European Centre for Medium-Range Weather Forecasts (ECMWF). AIFS ENS v2 is based on a graph neural network (GNN) encoder and decoder, and a sliding window transformer processor. It extends AIFS ENS v1 with wave forecasting capabilities, improved stratospheric representation (10 hPa level), and snow cover. The ensemble model incorporates inherent stochasticity through noise conditioning, producing different forecasts for the same initial conditions.",
     "title": "AIFS2ENS",
     "tone": "solar",
@@ -5625,7 +5840,7 @@
     },
     "group": "Prognostic",
     "kind": "model",
-    "signature": "Aurora1p5Ensemble(core_model: torch.nn.Module, static_vars: dict[str, torch.Tensor], seed: int | None = None)",
+    "signature": "Aurora1p5Ensemble(core_model: torch.nn.Module, static_vars: dict[str, torch.Tensor])",
     "summary": "Aurora v1.5 ensemble 0.25 degree global forecast model. Identical to [`Aurora1p5`][Aurora1p5] except it uses the stochastic ensemble checkpoint, where each forward pass injects fresh Gaussian noise into the backbone conditioning context. Calling the model N times (or with a batch of N copies of the same initial condition) therefore produces N statistically independent members.",
     "title": "Aurora1p5Ensemble",
     "tone": "solar",
@@ -5686,7 +5901,7 @@
     },
     "group": "Prognostic",
     "kind": "model",
-    "signature": "Aurora1p5Ensemble_6h(core_model: torch.nn.Module, static_vars: dict[str, torch.Tensor], seed: int | None = None)",
+    "signature": "Aurora1p5Ensemble_6h(core_model: torch.nn.Module, static_vars: dict[str, torch.Tensor])",
     "summary": "Aurora v1.5 ensemble global forecast model with six-hourly output.",
     "title": "Aurora1p5Ensemble_6h",
     "tone": "solar",
@@ -5859,7 +6074,7 @@
     },
     "group": "Prognostic",
     "kind": "model",
-    "signature": "CBottleVideo(core_model: torch.nn.Module, sst_ds: xr.Dataset, lat_lon: bool = True, sampler_steps: int = 18, sigma_max: float = 1000.0, sigma_min: float = 0.02, seed: int | None = None, dataset_modality: DatasetModality = DatasetModality.ERA5, time_stepper: TimeStepperFunction = TimeStepperFunction.HEUN)",
+    "signature": "CBottleVideo(core_model: torch.nn.Module, sst_ds: xr.Dataset, lat_lon: bool = True, sampler_steps: int = 18, sigma_max: float = 1000.0, sigma_min: float = 0.02, dataset_modality: DatasetModality = DatasetModality.ERA5, time_stepper: TimeStepperFunction = TimeStepperFunction.HEUN)",
     "summary": "Climate in a bottle video prognostic Climate in a Bottle (cBottle) is an AI model for emulating global km-scale climate simulations and reanalysis on the equal-area HEALPix grid. The cBottle video prognostic model uses the video diffusion checkpoint of CBottle trained to predict 12 frames (initial state including) at a time.",
     "title": "CBottleVideo",
     "tone": "solar",
@@ -5927,7 +6142,6 @@
       "product:wind",
       "product:temp",
       "product:atmos",
-      "product:ocean",
       "year:2025",
       "gpu:40gb",
       "provider:nvidia",
@@ -5954,7 +6168,54 @@
       "product": [
         "Surface Winds",
         "Surface Temperature",
-        "Atmosphere",
+        "Atmosphere"
+      ],
+      "provider": [
+        "NVIDIA"
+      ],
+      "region": [
+        "Global"
+      ],
+      "year": [
+        "2025"
+      ]
+    },
+    "group": "Prognostic",
+    "kind": "model",
+    "signature": "DLESyMAtmos()",
+    "summary": "Atmosphere component of DLESyM, as a standalone prognostic model.",
+    "title": "DLESyMAtmos",
+    "tone": "model",
+    "url": "../../../modules/generated/models/px/DLESyMAtmos"
+  },
+  {
+    "badges": [
+      "region:global",
+      "class:subseasonal-seasonal",
+      "product:ocean",
+      "year:2025",
+      "gpu:40gb",
+      "provider:nvidia",
+      "backend:pytorch"
+    ],
+    "chips": [
+      "Prognostic",
+      "Sub-Seasonal to Seasonal",
+      "NVIDIA",
+      "PyTorch",
+      "Ocean"
+    ],
+    "filters": {
+      "backend": [
+        "PyTorch"
+      ],
+      "class": [
+        "Sub-Seasonal to Seasonal"
+      ],
+      "gpu": [
+        "40 GB VRAM (A100, L40S, H100, GH200, H200, B40, B100, B200)"
+      ],
+      "product": [
         "Ocean"
       ],
       "provider": [
@@ -5969,11 +6230,11 @@
     },
     "group": "Prognostic",
     "kind": "model",
-    "signature": "DLESyMLatLon(atmos_model: torch.nn.Module, ocean_model: torch.nn.Module, hpx_lat: np.ndarray, hpx_lon: np.ndarray, nside: int, center: np.ndarray, scale: np.ndarray, atmos_constants: np.ndarray, ocean_constants: np.ndarray, atmos_input_times: np.ndarray, ocean_input_times: np.ndarray, atmos_output_times: np.ndarray, ocean_output_times: np.ndarray, atmos_variables: list[str], ocean_variables: list[str], atmos_coupling_variables: list[str], ocean_coupling_variables: list[str], atmos_diagnostic_variables: list[str] | None = None, ocean_diagnostic_variables: list[str] | None = None, use_cln: bool = False, condition_shape: int | None = None)",
-    "summary": "DLESyM prognostic model supporting lat/lon input and output coordinates. This model still uses the HEALPix grid internally, but the first input is regridded from lat/lon and the outputs are regridded back to lat/lon upon returning from the model. Regridding is done using the `earth2grid` package. For convenience, we expose regridding methods that are accessible as `.to_hpx` and `.to_ll`.",
-    "title": "DLESyMLatLon",
+    "signature": "DLESyMOcean(core: torch.nn.Module, hpx_lat: np.ndarray, hpx_lon: np.ndarray, nside: int, center: np.ndarray, scale: np.ndarray, coupling_center: np.ndarray, coupling_scale: np.ndarray, constants: np.ndarray, input_times: np.ndarray, output_times: np.ndarray, atmos_output_times: np.ndarray, variables: list[str], coupling_variables: list[str], diagnostic_variables: list[str] | None = None, use_cln: bool = False, condition_shape: int | None = None)",
+    "summary": "Ocean component of DLESyM, as a standalone prognostic model.",
+    "title": "DLESyMOcean",
     "tone": "ocean",
-    "url": "../../../modules/generated/models/px/DLESyMLatLon"
+    "url": "../../../modules/generated/models/px/DLESyMOcean"
   },
   {
     "badges": [
@@ -6037,7 +6298,6 @@
       "product:wind",
       "product:temp",
       "product:atmos",
-      "product:ocean",
       "year:2024",
       "gpu:40gb",
       "provider:nvidia",
@@ -6064,7 +6324,54 @@
       "product": [
         "Surface Winds",
         "Surface Temperature",
-        "Atmosphere",
+        "Atmosphere"
+      ],
+      "provider": [
+        "NVIDIA"
+      ],
+      "region": [
+        "Global"
+      ],
+      "year": [
+        "2024"
+      ]
+    },
+    "group": "Prognostic",
+    "kind": "model",
+    "signature": "DLESyMv0_ISCCP_ERA5Atmos(*args: Any, use_ttr: bool = True, ttr_clim_mean: np.ndarray | None = None, ttr_clim_std: np.ndarray | None = None, olr_clim_mean: np.ndarray | None = None, olr_clim_std: np.ndarray | None = None, olr_floor: float = 0.0, **kwargs: Any)",
+    "summary": "Atmosphere component of [`DLESyMv0_ISCCP_ERA5`][earth2studio.models.px.DLESyMv0_ISCCP_ERA5], as a standalone prognostic model.",
+    "title": "DLESyMv0_ISCCP_ERA5Atmos",
+    "tone": "model",
+    "url": "../../../modules/generated/models/px/DLESyMv0_ISCCP_ERA5Atmos"
+  },
+  {
+    "badges": [
+      "region:global",
+      "class:climate",
+      "product:ocean",
+      "year:2024",
+      "gpu:40gb",
+      "provider:nvidia",
+      "backend:pytorch"
+    ],
+    "chips": [
+      "Prognostic",
+      "Climate",
+      "NVIDIA",
+      "PyTorch",
+      "Ocean"
+    ],
+    "filters": {
+      "backend": [
+        "PyTorch"
+      ],
+      "class": [
+        "Climate"
+      ],
+      "gpu": [
+        "40 GB VRAM (A100, L40S, H100, GH200, H200, B40, B100, B200)"
+      ],
+      "product": [
         "Ocean"
       ],
       "provider": [
@@ -6079,11 +6386,11 @@
     },
     "group": "Prognostic",
     "kind": "model",
-    "signature": "DLESyMv0_ISCCP_ERA5LatLon()",
-    "summary": "Lat/lon convenience wrapper for [`DLESyMv0_ISCCP_ERA5`][earth2studio.models.px.DLESyMv0_ISCCP_ERA5].",
-    "title": "DLESyMv0_ISCCP_ERA5LatLon",
+    "signature": "DLESyMv0_ISCCP_ERA5Ocean()",
+    "summary": "Ocean component of [`DLESyMv0_ISCCP_ERA5`][earth2studio.models.px.DLESyMv0_ISCCP_ERA5], as a standalone prognostic model.",
+    "title": "DLESyMv0_ISCCP_ERA5Ocean",
     "tone": "ocean",
-    "url": "../../../modules/generated/models/px/DLESyMv0_ISCCP_ERA5LatLon"
+    "url": "../../../modules/generated/models/px/DLESyMv0_ISCCP_ERA5Ocean"
   },
   {
     "badges": [
@@ -6164,42 +6471,30 @@
     },
     "group": "Prognostic",
     "kind": "model",
-    "signature": "DataReplay(source: DataSource | ForecastSource, variable: str | list[str], domain_coords: CoordSystem, step: np.timedelta64 = np.timedelta64(6, 'h'))",
+    "signature": "DataReplay(source: DataSource | ForecastSource, variable: str | list[str], domain_coords: CoordSystem | GridDefinition | str, step: np.timedelta64 = np.timedelta64(6, 'h'))",
     "summary": "Replay a data source through the prognostic model interface.",
     "title": "DataReplay",
     "tone": "model",
     "url": "../../../modules/generated/models/px/DataReplay"
   },
   {
-    "badges": [
-      "region:global",
-      "provider:nvidia",
-      "backend:pytorch"
-    ],
+    "badges": [],
     "chips": [
-      "Prognostic",
-      "NVIDIA",
-      "PyTorch"
+      "Prognostic"
     ],
     "filters": {
-      "backend": [
-        "PyTorch"
-      ],
+      "backend": [],
       "class": [],
       "gpu": [],
       "product": [],
-      "provider": [
-        "NVIDIA"
-      ],
-      "region": [
-        "Global"
-      ],
+      "provider": [],
+      "region": [],
       "year": []
     },
     "group": "Prognostic",
     "kind": "model",
     "signature": "DiagnosticWrapper(px_model: PrognosticModel, dx_model: DiagnosticModel | list[DiagnosticModel], prepare_dx_input_coords: PrepareDxInputCoords | list[PrepareDxInputCoords] | None = None, prepare_dx_input_tensor: PrepareDxInputTensor | list[PrepareDxInputTensor] | None = None, prepare_output_coords: PrepareOutputCoords | None = None, prepare_output_tensor: PrepareOutputTensor | None = None)",
-    "summary": "Wraps a prognostic model and one or more diagnostic models into a single prognostic model. The micro-pipeline this wrapper encapsulates has the following four steps:",
+    "summary": "Compose a native DataArray prognostic with one or more diagnostics.",
     "title": "DiagnosticWrapper",
     "tone": "model",
     "url": "../../../modules/generated/models/px/DiagnosticWrapper"
@@ -6304,7 +6599,7 @@
     },
     "group": "Prognostic",
     "kind": "model",
-    "signature": "FCN3(core_model: torch.nn.Module, variables: np.array = np.array(VARIABLES), seed: int = 333)",
+    "signature": "FCN3(core_model: torch.nn.Module, variables: np.array = np.array(VARIABLES))",
     "summary": "FourCastNet 3 advances global weather modeling by implementing a scalable, geometric machine learning (ML) approach to probabilistic ensemble forecasting. The approach is designed to respect spherical geometry and to accurately model the spatially correlated probabilistic nature of the problem, resulting in stable spectra and realistic dynamics across multiple scales.",
     "title": "FCN3",
     "tone": "model",
@@ -6517,7 +6812,7 @@
     },
     "group": "Prognostic",
     "kind": "model",
-    "signature": "GenCastMini(ckpt: 'gencast.CheckPoint', diffs_stddev_by_level: xr.Dataset, mean_by_level: xr.Dataset, stddev_by_level: xr.Dataset, min_by_level: xr.Dataset, land_sea_mask: np.ndarray, geopotential_at_surface: np.ndarray, sst_nan_mask: np.ndarray, seed: int | None = 0, jit_compile: bool = True)",
+    "signature": "GenCastMini(ckpt: 'gencast.CheckPoint', diffs_stddev_by_level: xr.Dataset, mean_by_level: xr.Dataset, stddev_by_level: xr.Dataset, min_by_level: xr.Dataset, land_sea_mask: np.ndarray, geopotential_at_surface: np.ndarray, sst_nan_mask: np.ndarray, jit_compile: bool = True)",
     "summary": "GenCast Mini diffusion-based weather prediction model.",
     "title": "GenCastMini",
     "tone": "ocean",
@@ -6673,7 +6968,7 @@
     },
     "group": "Prognostic",
     "kind": "model",
-    "signature": "InterpCRPSDiT(dit: torch.nn.Module, center: torch.Tensor, scale: torch.Tensor, static_inv: torch.Tensor, lat2d: torch.Tensor, lon2d: torch.Tensor, px_model: PrognosticModel, num_interp_steps: int = 6, lon_pad: int = 128, seed: int | None = None, drop_variables: list[OptionalVariable] | None = None, amp_dtype: torch.dtype | None = None)",
+    "signature": "InterpCRPSDiT(dit: torch.nn.Module, center: torch.Tensor, scale: torch.Tensor, static_inv: torch.Tensor, lat2d: torch.Tensor, lon2d: torch.Tensor, px_model: PrognosticModel, num_interp_steps: int = 6, lon_pad: int = 128, drop_variables: list[OptionalVariable] | None = None, amp_dtype: torch.dtype | None = None)",
     "summary": "One-shot, endpoint-pinned CRPS temporal interpolation with a DiT backbone (73 variables at 0.25 degree resolution, 721x1440).",
     "title": "InterpCRPSDiT",
     "tone": "model",
@@ -6726,7 +7021,7 @@
     },
     "group": "Prognostic",
     "kind": "model",
-    "signature": "InterpModAFNO(interp_model: torch.nn.Module, center: torch.Tensor, scale: torch.Tensor, geop: torch.Tensor, lsm: torch.Tensor, px_model: PrognosticModel | None = None, num_interp_steps: int = 6)",
+    "signature": "InterpModAFNO(interp_model: torch.nn.Module, center: torch.Tensor, scale: torch.Tensor, geop: torch.Tensor, lsm: torch.Tensor, px_model: PrognosticModel | None = None, num_interp_steps: int = 6, prepare_endpoint: Callable[[xr.DataArray], xr.DataArray] | None = None)",
     "summary": "ModAFNO interpolation for global prognostic models. Interpolates a forecast model to a shorter time-step size (by default from 6 to 1 hour). Operates on 0.25 degree lat-lon equirectangular grid with 73 variables.",
     "title": "InterpModAFNO",
     "tone": "model",
@@ -6910,7 +7205,7 @@
     },
     "group": "Prognostic",
     "kind": "model",
-    "signature": "Persistence(variable: str | list[str], domain_coords: CoordSystem, history: int = 1, dt: np.timedelta64 = np.timedelta64(6, 'h'))",
+    "signature": "Persistence(variable: str | list[str], domain_coords: CoordSystem | GridDefinition | str, history: int = 1, dt: np.timedelta64 = np.timedelta64(6, 'h'))",
     "summary": "Persistence model that generates a forecast by applying the identity operator on the initial condition and indexing the lead time by 6 hours. Primarily used in testing.",
     "title": "Persistence",
     "tone": "model",
@@ -6964,31 +7259,60 @@
     "group": "Prognostic",
     "kind": "model",
     "signature": "SFNO(core_model: torch.nn.Module, variables: np.array = np.array(VARIABLES))",
-    "summary": "Spherical Fourier Operator Network global prognostic model. Consists of a single model with a time-step size of 6 hours. FourCastNet operates on 0.25 degree lat-lon grid (south-pole excluding) equirectangular grid with 73 variables.",
+    "summary": "Spherical Fourier Operator Network global prognostic model. Consists of a single model with a time-step size of 6 hours. FourCastNet operates on 0.25 degree lat-lon grid (south-pole including) equirectangular grid with 73 variables.",
     "title": "SFNO",
     "tone": "model",
     "url": "../../../modules/generated/models/px/SFNO"
   },
   {
-    "badges": [],
+    "badges": [
+      "region:global",
+      "class:climate",
+      "product:wind",
+      "product:precip",
+      "product:temp",
+      "product:atmos",
+      "product:ocean",
+      "year:2025",
+      "gpu:40gb"
+    ],
     "chips": [
-      "Prognostic"
+      "Prognostic",
+      "Climate",
+      "Surface Winds",
+      "Surface Precipitation",
+      "Surface Temperature",
+      "Atmosphere"
     ],
     "filters": {
       "backend": [],
-      "class": [],
-      "gpu": [],
-      "product": [],
+      "class": [
+        "Climate"
+      ],
+      "gpu": [
+        "40 GB VRAM (A100, L40S, H100, GH200, H200, B40, B100, B200)"
+      ],
+      "product": [
+        "Surface Winds",
+        "Surface Precipitation",
+        "Surface Temperature",
+        "Atmosphere",
+        "Ocean"
+      ],
       "provider": [],
-      "region": [],
-      "year": []
+      "region": [
+        "Global"
+      ],
+      "year": [
+        "2025"
+      ]
     },
     "group": "Prognostic",
     "kind": "model",
     "signature": "SamudrACE(stepper: CoupledStepper, forcing_data_source: DataSource)",
     "summary": "SamudrACE coupled climate emulator.",
     "title": "SamudrACE",
-    "tone": "model",
+    "tone": "ocean",
     "url": "../../../modules/generated/models/px/SamudrACE"
   },
   {
@@ -7040,7 +7364,7 @@
     },
     "group": "Prognostic",
     "kind": "model",
-    "signature": "StormCast(regression_model: torch.nn.Module, diffusion_model: torch.nn.Module, means: torch.Tensor, stds: torch.Tensor, invariants: torch.Tensor, hrrr_lat_lim: tuple[int, int] = (273, 785), hrrr_lon_lim: tuple[int, int] = (579, 1219), variables: np.array = np.array(VARIABLES), conditioning_means: torch.Tensor | None = None, conditioning_stds: torch.Tensor | None = None, conditioning_variables: np.array = np.array(CONDITIONING_VARIABLES), conditioning_data_source: DataSource | ForecastSource | None = None, sampler_steps: int = 18, sampler_args: dict[str, float | int] | None = None)",
+    "signature": "StormCast(regression_model: torch.nn.Module, diffusion_model: torch.nn.Module, means: torch.Tensor, stds: torch.Tensor, invariants: torch.Tensor, hrrr_lat_lim: tuple[int, int] = (273, 785), hrrr_lon_lim: tuple[int, int] = (579, 1219), variables: np.array = np.array(VARIABLES), conditioning_means: torch.Tensor | None = None, conditioning_stds: torch.Tensor | None = None, conditioning_variables: np.array = np.array(CONDITIONING_VARIABLES), sampler_steps: int = 18, sampler_args: dict[str, float | int] | None = None)",
     "summary": "StormCast generative convection-allowing model for regional forecasts consists of two core models: a regression and diffusion model. Model time step size is 1 hour, taking as input:",
     "title": "StormCast",
     "tone": "radar",
@@ -7097,7 +7421,7 @@
     },
     "group": "Prognostic",
     "kind": "model",
-    "signature": "StormCastCONUS(diffusion_model: torch.nn.Module, means: torch.Tensor, stds: torch.Tensor, invariants: torch.Tensor, conditioning_means: torch.Tensor, conditioning_stds: torch.Tensor, hrrr_lat_lim: tuple[int, int] = (17, 1041), hrrr_lon_lim: tuple[int, int] = (3, 1795), variables: np.ndarray = np.array(VARIABLES), conditioning_variables: np.ndarray = np.array(CONDITIONING_VARIABLES), conditioning_data_source: DataSource | ForecastSource | None = None, conditioning_init_time: datetime | list[datetime] | TimeArray | None = None, sampler_args: dict[str, float | int] | None = None, num_diffusion_steps: int = 18, num_sda_diffusion_steps: int = 36, batch_size: int = 1, time_tolerance: np.timedelta64 | tuple[np.timedelta64, np.timedelta64] | None = None, sda_std_obs: float | dict[str, float] = 0.1, sda_dps_norm: float = 2, sda_gamma: float = 0.001, use_amp: bool = True, clamp_values: bool = True)",
+    "signature": "StormCastCONUS(diffusion_model: torch.nn.Module, means: torch.Tensor, stds: torch.Tensor, invariants: torch.Tensor, conditioning_means: torch.Tensor, conditioning_stds: torch.Tensor, hrrr_lat_lim: tuple[int, int] = (17, 1041), hrrr_lon_lim: tuple[int, int] = (3, 1795), variables: np.ndarray = np.array(VARIABLES), conditioning_variables: np.ndarray = np.array(CONDITIONING_VARIABLES), sampler_args: dict[str, float | int] | None = None, num_diffusion_steps: int = 18, num_sda_diffusion_steps: int = 36, batch_size: int = 1, time_tolerance: np.timedelta64 | tuple[np.timedelta64, np.timedelta64] | None = None, sda_std_obs: float | dict[str, float] = 0.1, sda_dps_norm: float = 2, sda_gamma: float = 0.001, use_amp: bool = True, clamp_values: bool = True)",
     "summary": "StormCast-CONUS generative convection-allowing model for the full CONUS domain.",
     "title": "StormCastCONUS",
     "tone": "radar",
@@ -7145,11 +7469,59 @@
     },
     "group": "Prognostic",
     "kind": "model",
-    "signature": "StormScopeGOES(model_spec: list[dict[str, Any]], means: torch.Tensor, stds: torch.Tensor, latitudes: torch.Tensor, longitudes: torch.Tensor, variables: np.ndarray = np.array(['abi01c', 'abi02c', 'abi03c', 'abi07c', 'abi08c', 'abi09c', 'abi10c', 'abi13c']), conditioning_variables: np.ndarray = np.array(['z500']), conditioning_means: torch.Tensor | None = None, conditioning_stds: torch.Tensor | None = None, conditioning_data_source: Any | None = None, glm_mask: torch.Tensor | None = None, conditioning_glm_mask: torch.Tensor | None = None, topo: torch.Tensor | None = None, nexrad_proximity: torch.Tensor | None = None, sampler_args: dict[str, float | int] | None = {'num_steps': 100, 'S_churn': 10}, input_times: np.ndarray = np.array([np.timedelta64(0, 'h')]), output_times: np.ndarray = np.array([np.timedelta64(1, 'h')]), y_coords: np.ndarray | None = None, x_coords: np.ndarray | None = None, input_interp_max_dist_km: float = 12.0, conditioning_interp_max_dist_km: float = 26.0, amp: bool = True, compile: bool = False)",
+    "signature": "StormScopeGOES(model_spec: list[dict[str, Any]], means: torch.Tensor, stds: torch.Tensor, latitudes: torch.Tensor, longitudes: torch.Tensor, variables: np.ndarray = np.array(['abi01c', 'abi02c', 'abi03c', 'abi07c', 'abi08c', 'abi09c', 'abi10c', 'abi13c']), conditioning_variables: np.ndarray | None = None, conditioning_means: torch.Tensor | None = None, conditioning_stds: torch.Tensor | None = None, glm_mask: torch.Tensor | None = None, conditioning_glm_mask: torch.Tensor | None = None, topo: torch.Tensor | None = None, nexrad_proximity: torch.Tensor | None = None, sampler_args: dict[str, float | int] | None = {'num_steps': 100, 'S_churn': 10}, input_times: np.ndarray = np.array([np.timedelta64(0, 'h')]), output_times: np.ndarray = np.array([np.timedelta64(1, 'h')]), y_coords: np.ndarray | None = None, x_coords: np.ndarray | None = None, max_dist_km: float = 6.0, amp: bool = True, compile: bool = False)",
     "summary": "StormScope model forecasting GOES data on the HRRR grid.",
     "title": "StormScopeGOES",
     "tone": "satellite",
     "url": "../../../modules/generated/models/px/StormScopeGOES"
+  },
+  {
+    "badges": [
+      "region:na",
+      "class:nowcasting",
+      "product:sat",
+      "year:2026",
+      "gpu:80gb",
+      "provider:nvidia",
+      "backend:pytorch"
+    ],
+    "chips": [
+      "Prognostic",
+      "Nowcasting",
+      "NVIDIA",
+      "PyTorch",
+      "Satellite"
+    ],
+    "filters": {
+      "backend": [
+        "PyTorch"
+      ],
+      "class": [
+        "Nowcasting"
+      ],
+      "gpu": [
+        "80 GB VRAM (A100 80GB, H100, GH200, H200, B40, B100, B200)"
+      ],
+      "product": [
+        "Satellite"
+      ],
+      "provider": [
+        "NVIDIA"
+      ],
+      "region": [
+        "North America"
+      ],
+      "year": [
+        "2026"
+      ]
+    },
+    "group": "Prognostic",
+    "kind": "model",
+    "signature": "StormScopeGOESConditioned()",
+    "summary": "StormScope GOES forecasts conditioned on numerical weather prediction fields.",
+    "title": "StormScopeGOESConditioned",
+    "tone": "satellite",
+    "url": "../../../modules/generated/models/px/StormScopeGOESConditioned"
   },
   {
     "badges": [
@@ -7193,7 +7565,7 @@
     },
     "group": "Prognostic",
     "kind": "model",
-    "signature": "StormScopeMRMS(model_spec: list[dict[str, Any]], means: torch.Tensor, stds: torch.Tensor, latitudes: torch.Tensor, longitudes: torch.Tensor, variables: np.ndarray = np.array(['refc']), conditioning_variables: np.ndarray = np.array(['abi01c', 'abi02c', 'abi03c', 'abi07c', 'abi08c', 'abi09c', 'abi10c', 'abi13c']), conditioning_means: torch.Tensor | None = None, conditioning_stds: torch.Tensor | None = None, conditioning_data_source: Any | None = None, glm_mask: torch.Tensor | None = None, conditioning_glm_mask: torch.Tensor | None = None, topo: torch.Tensor | None = None, nexrad_proximity: torch.Tensor | None = None, mrms_coverage_mask: torch.Tensor | None = None, glm_data_source: Any | None = None, sampler_args: dict[str, float | int] | None = {'num_steps': 100, 'S_churn': 10}, y_coords: np.ndarray | None = None, x_coords: np.ndarray | None = None, input_times: np.ndarray = np.array([np.timedelta64(0, 'h')]), output_times: np.ndarray = np.array([np.timedelta64(1, 'h')]), input_interp_max_dist_km: float = 12.0, conditioning_interp_max_dist_km: float = 12.0, glm_interp_max_dist_km: float = 14.0, amp: bool = True, compile: bool = False)",
+    "signature": "StormScopeMRMS(model_spec: list[dict[str, Any]], means: torch.Tensor, stds: torch.Tensor, latitudes: torch.Tensor, longitudes: torch.Tensor, variables: np.ndarray = np.array(['refc']), conditioning_variables: np.ndarray = np.array(['abi01c', 'abi02c', 'abi03c', 'abi07c', 'abi08c', 'abi09c', 'abi10c', 'abi13c']), conditioning_means: torch.Tensor | None = None, conditioning_stds: torch.Tensor | None = None, glm_mask: torch.Tensor | None = None, conditioning_glm_mask: torch.Tensor | None = None, topo: torch.Tensor | None = None, nexrad_proximity: torch.Tensor | None = None, mrms_coverage_mask: torch.Tensor | None = None, sampler_args: dict[str, float | int] | None = {'num_steps': 100, 'S_churn': 10}, y_coords: np.ndarray | None = None, x_coords: np.ndarray | None = None, input_times: np.ndarray = np.array([np.timedelta64(0, 'h')]), output_times: np.ndarray = np.array([np.timedelta64(1, 'h')]), max_dist_km: float = 6.0, amp: bool = True, compile: bool = False)",
     "summary": "StormScope model forecasting MRMS data on the HRRR grid.",
     "title": "StormScopeMRMS",
     "tone": "radar",
@@ -7241,7 +7613,7 @@
     },
     "group": "Prognostic",
     "kind": "model",
-    "signature": "StormScopeMeteosatEU(model_spec: list[dict[str, Any]], means: torch.Tensor, stds: torch.Tensor, scale_factor: torch.Tensor, add_offset: torch.Tensor, invariants: torch.Tensor, lat: torch.Tensor, lon: torch.Tensor, earth_mask: torch.Tensor, mtg_y: np.ndarray, mtg_x: np.ndarray, mtg_ylim: tuple[int, int] = Model_FCI_BBox[0], mtg_xlim: tuple[int, int] = Model_FCI_BBox[1], inference_mtg_box: tuple[tuple[int, int], tuple[int, int]] = Model_FCI_BBox, variables: np.ndarray = np.array(VARIABLES), sampler_args: dict[str, float | int] | None = None, input_times: np.ndarray = np.arange(-5, 1) * np.timedelta64(10, 'm'), output_times: np.ndarray = np.array([np.timedelta64(10, 'm')]), ir_38_warm_scale_factor: float = 0.024222141, ir_38_warm_threshold: float = 4095.0, num_diffusion_steps: int = 48, batch_size: int = 1, use_amp: bool = True)",
+    "signature": "StormScopeMeteosatEU(model_spec: list[dict[str, Any]], means: torch.Tensor, stds: torch.Tensor, scale_factor: torch.Tensor, add_offset: torch.Tensor, invariants: torch.Tensor, latitudes: torch.Tensor, longitudes: torch.Tensor, earth_mask: torch.Tensor, y_coords: np.ndarray, x_coords: np.ndarray, variables: np.ndarray = np.array(VARIABLES), sampler_args: dict[str, float | int] | None = None, input_times: np.ndarray = np.arange(-5, 1) * np.timedelta64(10, 'm'), output_times: np.ndarray = np.array([np.timedelta64(10, 'm')]), ir_38_warm_scale_factor: float = 0.024222141, ir_38_warm_threshold: float = 4095.0, batch_size: int = 1, amp: bool = True, compile: bool = False)",
     "summary": "Generative diffusion nowcasting model for MTG-I1 FCI satellite imagery.",
     "title": "StormScopeMeteosatEU",
     "tone": "satellite",
@@ -7298,6 +7670,59 @@
     "title": "UCast",
     "tone": "ocean",
     "url": "../../../modules/generated/models/px/UCast"
+  },
+  {
+    "badges": [
+      "region:global",
+      "class:medium-range",
+      "product:wind",
+      "product:temp",
+      "product:atmos",
+      "year:2025",
+      "provider:windborne",
+      "backend:pytorch",
+      "gpu:40gb"
+    ],
+    "chips": [
+      "Prognostic",
+      "Medium Range",
+      "Windborne",
+      "PyTorch",
+      "Surface Winds",
+      "Surface Temperature"
+    ],
+    "filters": {
+      "backend": [
+        "PyTorch"
+      ],
+      "class": [
+        "Medium Range"
+      ],
+      "gpu": [
+        "40 GB VRAM (A100, L40S, H100, GH200, H200, B40, B100, B200)"
+      ],
+      "product": [
+        "Surface Winds",
+        "Surface Temperature",
+        "Atmosphere"
+      ],
+      "provider": [
+        "Windborne"
+      ],
+      "region": [
+        "Global"
+      ],
+      "year": [
+        "2025"
+      ]
+    },
+    "group": "Prognostic",
+    "kind": "model",
+    "signature": "WeatherMesh5C(core_model: torch.nn.Module, variables: Sequence[str] | None = None)",
+    "summary": "WindBorne's global weather forecast model.",
+    "title": "WeatherMesh5C",
+    "tone": "model",
+    "url": "../../../modules/generated/models/px/WeatherMesh5C"
   },
   {
     "badges": [

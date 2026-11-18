@@ -659,6 +659,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -709,6 +713,34 @@
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
             
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/components/coordinates/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data and Metadata
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
               
             
               
@@ -907,6 +939,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/components/execution/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pipelines and Runners
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -926,6 +986,12 @@
       
         
           
+        
+      
+        
+      
+        
+      
         
       
         
@@ -1005,6 +1071,62 @@
     
   
     Checkpointing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/advanced/io/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Advanced Output Handling
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/advanced/domains/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Adaptive Model Domains
   
 
     
@@ -1108,6 +1230,34 @@
   
   
   
+    <li class="md-nav__item">
+      <a href="../../../userguide/advanced/serving/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment and Serving
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
     
     
       
@@ -1128,7 +1278,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_5_6" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_5_9" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -1150,14 +1300,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_2_5_6" id="__nav_2_5_6_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_2_5_9" id="__nav_2_5_9_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_2_5_6_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_2_5_6">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_2_5_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_5_9">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -3599,11 +3749,11 @@ recent ERA5 analysis frames, 6 hours apart, and forecasts 69 variables at
      depth — fork preview, versioned deploy, or local serve — and there is
      no static URL for the site build to rewrite. -->
 <iframe id="skill-plot" title="FengWu skill"
-        style="width:100%;height:560px;border:1px solid rgba(128,128,128,.35);border-radius:10px;"
+        style="width:100%;height:600px;border:1px solid rgba(128,128,128,.35);border-radius:10px;"
         loading="lazy"></iframe>
 <script>
 document.getElementById("skill-plot").src = new URL(
-  "../../../_static/scorecard/plot.html?model=fengwu&label=FengWu&domain=Global&v=60ce8024",
+  "../../../_static/scorecard/plot.html?model=fengwu&label=FengWu&domain=Global&inits=&v=06f2be60",
   window.location.href);
 </script>
 
@@ -4086,7 +4236,9 @@ Initial conditions rotate through the 00Z/06Z/12Z/18Z hours.</p>
 </details>
 <p>All of the model's output variables that have ERA5 verification are scored.</p>
 <h2 id="data">Data<a class="headerlink" href="#data" title="Permanent link">&para;</a></h2>
-<p>The numbers behind the plot are in <a href="../../../_static/scorecard/eval_scores_fengwu.json"><code>eval_scores_fengwu.json</code></a>, exported by
+<p>The numbers behind the plot are published in the Earth2Studio assets dataset
+on Hugging Face: <a href="https://huggingface.co/datasets/nvidia/earth2studio-assets/tree/main/scorecard/fengwu"><code>scorecard/fengwu/</code></a> holds
+<code>eval_scores_fengwu.json</code> and its split files. They are exported by
 the <a href="https://github.com/NVIDIA/earth2studio/tree/main/recipes/eval">eval recipe scorecard</a>
 (<code>scorecard/export_scores.py --docs</code>) -- one value per metric, variable
 and lead time, in the variable's own units.</p>
