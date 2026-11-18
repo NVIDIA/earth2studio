@@ -18,6 +18,7 @@ from common import *
 from PIL import Image, ImageDraw
 
 W = 5400
+TITLE_SIZE, TITLE_SCALE, TITLE_TRACK = 85, 0.88, 0.5
 M, G, BAND = 30, 24, 140
 GL = 1500  # globe edge
 LEG = 120  # legend / colourbar strip under globes
@@ -54,17 +55,25 @@ def spaced(draw, xy, text, f, fill, track=0):
 
 def header(x, y, num, title, sub, width):
     """Draw a numbered panel heading and subtitle on the hero canvas."""
-    size = 90
-    while (
-        sum(d.textlength(c, font=font(bold=True, size=size)) + 3 for c in title)
-        > width - 44
-    ):
-        size -= 1
-    title_font = font(bold=True, size=size)
-    # Align the visible bottoms, keeping every title on one line above its subtitle.
-    title_y = y + 94 - title_font.getbbox(title)[3]
+    title_font = font(bold=True, size=TITLE_SIZE)
+    advance = sum(d.textlength(c, font=title_font) + TITLE_TRACK for c in title)
+    layer = Image.new("RGBA", (int(advance) + 4, 120))
+    # Use the same condensation and baseline for every single-line heading.
+    spaced(
+        ImageDraw.Draw(layer),
+        (0, 94 - title_font.getbbox(title)[3]),
+        title,
+        title_font,
+        WHITE,
+        TITLE_TRACK,
+    )
+    layer = layer.resize(
+        (round(layer.width * TITLE_SCALE), layer.height), Image.LANCZOS
+    )
+    if layer.width > width - 44:
+        raise ValueError(f"Heading exceeds panel width: {title}")
+    canvas.paste(layer, (x + 44, y), layer)
     spaced(d, (x, y + 68), num, font(mono=True, size=22), CY, 2)
-    spaced(d, (x + 44, title_y), title, title_font, WHITE, 3)
     d.text((x + 44, y + 104), sub, font=font(mono=True, size=21), fill=GREY)
 
 
@@ -107,7 +116,7 @@ header(
     x01,
     y1,
     "01",
-    "MEDIUM RANGE, S2S AND CLIMATE FORECASTING",
+    "MEDIUM-RANGE · S2S · CLIMATE",
     "SFNO · 0.25° · +144 h · 10 m wind, streamlines, MSLP · init 2026-01-15 00Z",
     GL,
 )

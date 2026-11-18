@@ -29,23 +29,8 @@ MPL = os.path.join(os.path.dirname(matplotlib.__file__), "mpl-data", "fonts", "t
 
 
 def wind_cmap():
-    """Return the NVIDIA-inspired forest-to-lime palette for globe and legend."""
-    # Anchor the ramp in NVIDIA green; yellow-green highlights avoid the vapour teal.
-    # Increasing luminance preserves the ordering of wind speed on the dark canvas.
-    return LinearSegmentedColormap.from_list(
-        "forest_nvidia_lime",
-        [
-            "#080c0b",
-            "#192b24",
-            "#284b31",
-            "#416e31",
-            "#5c9320",
-            "#76b900",
-            "#a2d548",
-            "#d1eb86",
-            "#f1fac8",
-        ],
-    )
+    """Return the cubehelix palette shared by the wind globe and its legend."""
+    return matplotlib.colormaps["cubehelix"]
 
 
 def font(bold=False, mono=False, size=20):
