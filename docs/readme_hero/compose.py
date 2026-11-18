@@ -19,7 +19,7 @@ from PIL import Image, ImageDraw
 
 W = 5400
 TITLE_SIZE, TITLE_SCALE, TITLE_TRACK = 85, 0.88, 0.5
-M, G, BAND = 30, 24, 140
+M, G, BAND = 30, 24, 152
 GL = 1500  # globe edge
 LEG = 120  # legend / colourbar strip under globes
 R1 = BAND + GL + LEG  # row-1 height
@@ -74,7 +74,7 @@ def header(x, y, num, title, sub, width):
         raise ValueError(f"Heading exceeds panel width: {title}")
     canvas.paste(layer, (x + 44, y), layer)
     spaced(d, (x, y + 68), num, font(mono=True, size=22), CY, 2)
-    d.text((x + 44, y + 104), sub, font=font(mono=True, size=21), fill=GREY)
+    d.text((x + 44, y + 116), sub, font=font(mono=True, size=21), fill=GREY)
 
 
 def place(path, box, crop=False, cover=False):
