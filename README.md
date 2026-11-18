@@ -143,4 +143,4 @@ Apache License 2.0, see the [LICENSE file][e2studio_license_url].
 
 <!-- Misc links -->
 [physicsnemo_repo_url]: https://github.com/NVIDIA/physicsnemo
-[e2studio_hero_img]: https://huggingface.co/datasets/nvidia/earth2studio-assets/resolve/933f94f32545bd0a87959467480df28fcae555cb/readme/earth2studio_hero_image.png
+[e2studio_hero_img]: https://huggingface.co/datasets/nvidia/earth2studio-assets/resolve/5a664b69b05a47ff59939b78fe7301604b24772f/readme/earth2studio_hero_image.png
