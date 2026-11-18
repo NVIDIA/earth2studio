@@ -1,3 +1,5 @@
+<!-- Contributor-only template. Use when a contribution PR is requested. -->
+
 ## Description
 
 Add `ClassName` diagnostic model for BRIEF_DESCRIPTION.

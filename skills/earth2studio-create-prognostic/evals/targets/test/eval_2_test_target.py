@@ -16,17 +16,17 @@
 
 """Tests for AdditiveModel prognostic model."""
 
-from collections import OrderedDict
-from collections.abc import Iterable
-
 import numpy as np
 import pytest
 import torch
+import xarray as xr
 
-from earth2studio.data import Random, fetch_data
 from earth2studio.models.auto import Package
+from earth2studio.models.conformance import check_prognostic_contract
 from earth2studio.models.px import AdditiveModel
-from earth2studio.utils import handshake_dim
+from earth2studio.models.px.base import PrognosticModel
+from earth2studio.utils import coord_array_like, handshake_dataarray
+from earth2studio.utils.cupy import from_torch
 
 
 class PhooAdditiveModel(torch.nn.Module):
@@ -40,152 +40,122 @@ class PhooAdditiveModel(torch.nn.Module):
 def test_package(tmp_path_factory):
     """Create dummy package with model and normalization files."""
     tmp_path = tmp_path_factory.mktemp("model_data")
-    model = PhooAdditiveModel()
-    torch.save(model, tmp_path / "model.pt")
+    torch.save(PhooAdditiveModel(), tmp_path / "model.pt")
     np.save(tmp_path / "center.npy", np.zeros(4))
     np.save(tmp_path / "scale.npy", np.ones(4))
     return Package(str(tmp_path))
 
 
+def make_input(model, batch: int = 1, device: str = "cpu") -> xr.DataArray:
+    """Concretize the configured signature with a time axis."""
+    signature = coord_array_like(model.input_coords(), {"batch": np.arange(batch)})
+    signature = signature.expand_dims(
+        time=np.array(["2024-01-01"], dtype="datetime64[ns]"), axis=1
+    )
+    return from_torch(torch.randn(signature.shape, device=device), signature)
+
+
 class TestAdditiveModelMock:
     """Mock tests using dummy model weights."""
 
-    @pytest.mark.parametrize(
-        "time",
-        [
-            np.array([np.datetime64("2024-01-01T00:00")]),
-        ],
-    )
-    @pytest.mark.parametrize(
-        "device",
-        [
-            "cpu",
-            pytest.param(
-                "cuda:0",
-                marks=pytest.mark.skipif(
-                    not torch.cuda.is_available(), reason="No GPU"
-                ),
-            ),
-        ],
-    )
-    def test_additive_call(self, test_package, time, device):
+    @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+    def test_additive_call(self, test_package, device):
         """Test single forward pass adds constant."""
-        model = AdditiveModel.load_model(test_package)
-        model = model.to(device)
+        if device == "cuda:0" and not torch.cuda.is_available():
+            pytest.skip("No GPU available")
+        model = AdditiveModel.load_model(test_package).to(device)
+        x = make_input(model, 1, device)
+        before = x.copy(deep=True)
 
-        dc = model.input_coords()
-        del dc["batch"]
-        del dc["lead_time"]
-        del dc["variable"]
-
-        ds = Random(dc)
-        lead_time = model.input_coords()["lead_time"]
-        variable = model.input_coords()["variable"]
-        x, coords = fetch_data(ds, time, variable, lead_time, device=device)
-
-        out, out_coords = model(x, coords)
+        out = model(x)
 
         assert out.shape == x.shape
-        assert isinstance(out_coords, OrderedDict)
-        # output coords order: time, lead_time, variable, lat, lon
-        handshake_dim(out_coords, "variable", 2)
-
-        # Check that output is input + 0.01
-        torch.testing.assert_close(out, x + 0.01)
-
-        expected_lead = coords["lead_time"] + np.timedelta64(6, "h")
-        np.testing.assert_array_equal(out_coords["lead_time"], expected_lead)
+        handshake_dataarray(out, model.output_coords(x))
+        np.testing.assert_allclose(
+            out.e2s.as_numpy().values,
+            x.e2s.as_numpy().values + 0.01,
+            rtol=1e-5,
+            atol=1e-6,
+        )
+        np.testing.assert_array_equal(
+            out.lead_time.values, x.lead_time.values + np.timedelta64(6, "h")
+        )
+        xr.testing.assert_identical(x.e2s.as_numpy(), before.e2s.as_numpy())
 
     @pytest.mark.parametrize("ensemble", [1, 2])
-    @pytest.mark.parametrize(
-        "device",
-        [
-            "cpu",
-            pytest.param(
-                "cuda:0",
-                marks=pytest.mark.skipif(
-                    not torch.cuda.is_available(), reason="No GPU"
-                ),
-            ),
-        ],
-    )
+    @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
     def test_additive_iter(self, test_package, ensemble, device):
         """Test iterator produces correct sequence with accumulating additions."""
+        if device == "cuda:0" and not torch.cuda.is_available():
+            pytest.skip("No GPU available")
+        model = AdditiveModel.load_model(test_package).to(device)
+        x = make_input(model, ensemble, device)
+        original = x.copy(deep=True)
+
+        iterator = model.create_iterator(x)
+        # The iterator yields forecasts only: +6h, +12h, ...
+        for i in range(5):
+            out = next(iterator)
+            assert out.sizes["batch"] == ensemble
+            np.testing.assert_array_equal(
+                out.lead_time.values, np.array([np.timedelta64((i + 1) * 6, "h")])
+            )
+            # Additive model accumulates: x + (i + 1) * 0.01
+            np.testing.assert_allclose(
+                out.e2s.as_numpy().values,
+                x.e2s.as_numpy().values + (i + 1) * 0.01,
+                rtol=1e-4,
+                atol=1e-5,
+            )
+        iterator.close()
+        xr.testing.assert_identical(x.e2s.as_numpy(), original.e2s.as_numpy())
+
+    def test_additive_step_matches_iterator(self, test_package):
+        """Test step() on the preceding forecast matches the next iterator yield."""
         model = AdditiveModel.load_model(test_package)
-        model = model.to(device)
+        x = make_input(model)
+        y, state = model.initialize(x)
+        iterator = model.create_iterator(x)
+        next(iterator)
+        expected, _ = model.step(y, state=state)
+        xr.testing.assert_identical(next(iterator), expected)
 
-        time = np.array([np.datetime64("2024-01-01T00:00")])
-        dc = model.input_coords()
-        del dc["batch"]
-        del dc["lead_time"]
-        del dc["variable"]
-        ds = Random(dc)
-        lead_time = model.input_coords()["lead_time"]
-        variable = model.input_coords()["variable"]
-        x, coords = fetch_data(ds, time, variable, lead_time, device=device)
-
-        x = x.unsqueeze(0).repeat(ensemble, *([1] * x.ndim))
-        coords["ensemble"] = np.arange(ensemble)
-        coords.move_to_end("ensemble", last=False)
-
-        iterator = model.create_iterator(x, coords)
-        assert isinstance(iterator, Iterable)
-
-        step0_x, step0_coords = next(iterator)
-        assert step0_x.shape[0] == ensemble
-        np.testing.assert_array_equal(
-            step0_coords["lead_time"], np.array([np.timedelta64(0, "h")])
-        )
-
-        for i, (step_x, step_coords) in enumerate(iterator):
-            assert step_x.shape[0] == ensemble
-            expected_lead = np.array([np.timedelta64((i + 1) * 6, "h")])
-            np.testing.assert_array_equal(step_coords["lead_time"], expected_lead)
-            # Additive model accumulates: x + (i+1) * 0.01
-            torch.testing.assert_close(step_x, x + (i + 1) * 0.01)
-            if i >= 4:
-                break
-
-    @pytest.mark.parametrize(
-        "coords",
-        [
-            OrderedDict(
-                {
-                    "batch": np.empty(0),
-                    "time": np.empty(0),
-                    "lead_time": np.array([np.timedelta64(0, "h")]),
-                    "variable": np.array(["wrong_var"]),
-                    "lat": np.linspace(90, -90, 10),
-                    "lon": np.linspace(0, 360, 20),
-                }
-            ),
-        ],
-    )
-    def test_additive_exceptions(self, test_package, coords):
-        """Test model raises on invalid coordinates."""
+    def test_additive_exceptions(self, test_package):
+        """Test model raises on invalid inputs."""
         model = AdditiveModel.load_model(test_package)
-        x = torch.randn(
-            1,
-            1,
-            1,
-            len(coords["variable"]),
-            len(coords["lat"]),
-            len(coords["lon"]),
-        )
+        x = make_input(model)
+
+        # Wrong variable names
         with pytest.raises((KeyError, ValueError)):
-            model(x, coords)
+            model(x.assign_coords(variable=["a", "b", "c", "d"]))
+
+        # Wrong dimension order
+        with pytest.raises(ValueError):
+            model(x.transpose(*reversed(x.dims)))
+
+        # Wrong grid size
+        with pytest.raises(ValueError):
+            model(x.isel(lat=slice(0, 180)))
 
     def test_additive_normalization_buffers(self, test_package):
-        """Test normalization buffers are loaded from package."""
+        """Test normalization buffers are loaded from package as buffers."""
         model = AdditiveModel.load_model(test_package)
-        assert hasattr(model, "center")
-        assert hasattr(model, "scale")
-        assert model.center.shape == (4,)
-        assert model.scale.shape == (4,)
+        assert model.center.shape == (4, 1, 1)
+        assert model.scale.shape == (4, 1, 1)
+        assert {"center", "scale"} <= {name for name, _ in model.named_buffers()}
 
-    def test_additive_grid_size(self):
+    def test_additive_grid_size(self, test_package):
         """Test grid size is 361x720 (0.5 degree)."""
-        model = AdditiveModel.load_model(AdditiveModel.load_default_package())
-        coords = model.input_coords()
-        assert len(coords["lat"]) == 361
-        assert len(coords["lon"]) == 720
+        model = AdditiveModel.load_model(test_package)
+        signature = model.input_coords()
+        assert signature.sizes["lat"] == 361
+        assert signature.sizes["lon"] == 720
+
+    def test_additive_conformance(self, test_package):
+        """Test AdditiveModel against the native prognostic contract."""
+        model = AdditiveModel.load_model(test_package)
+        assert isinstance(model, PrognosticModel)
+        assert check_prognostic_contract(model) == [
+            "P14: model does not declare itself stochastic",
+            "P21: checkpoint serialization requires component-specific tests",
+        ]

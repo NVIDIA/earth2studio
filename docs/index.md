@@ -312,10 +312,10 @@ run.deterministic(["2024-01-01"], 10, model, GFS(), ZarrBackend("fcn.zarr"))
           <strong>skills.sh</strong>
         </div>
         <div class="e2s-agent-terminal__body">
-          <span><b>$</b> npx skills add NVIDIA/skills --skill earth2studio-install</span>
-          <span><b>$</b> npx skills add NVIDIA/skills --skill earth2studio-discover</span>
-          <span><b>$</b> npx skills add NVIDIA/skills --skill earth2studio-data-fetch</span>
-          <span><b>$</b> npx skills add NVIDIA/skills --skill earth2studio-deterministic-forecast</span>
+          <span><b>$</b> npx skills add NVIDIA/earth2studio --skill earth2studio-install</span>
+          <span><b>$</b> npx skills add NVIDIA/earth2studio --skill earth2studio-discover</span>
+          <span><b>$</b> npx skills add NVIDIA/earth2studio --skill earth2studio-data-fetch</span>
+          <span><b>$</b> npx skills add NVIDIA/earth2studio --skill earth2studio-deterministic-forecast</span>
         </div>
       </div>
       <div class="e2s-agent-grid">
