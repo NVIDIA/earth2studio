@@ -5,10 +5,7 @@ ARG PYTHON_VERSION=3.13.13
 # Install uv
 COPY --from=ghcr.io/astral-sh/uv:0.11.7 /uv /uvx /bin/
 
-ENV FLASH_ATTN_CUDA_ARCHS=90 \
-    NATTEN_CUDA_ARCH=8.6;9.0;10.0 \
-    NATTEN_N_WORKERS=8 \
-    TORCH_CUDA_ARCH_LIST=8.6;9.0;10.0 \
+ENV TORCH_CUDA_ARCH_LIST=8.6;9.0;10.0 \
     UV_CACHE_DIR=/opt/uv-cache \
     UV_PYTHON=${PYTHON_VERSION}
 
@@ -30,7 +27,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libeccodes-dev \
  && rm -rf /var/lib/apt/lists/*
 
-# Installing newer version of cmake (for dm-tree and natten)
+# Installing newer version of cmake (for dm-tree)
 RUN curl -fsSL https://apt.kitware.com/keys/kitware-archive-latest.asc \
   | gpg --dearmor -o /usr/share/keyrings/kitware-archive-keyring.gpg \
   && sh -c 'echo "deb [signed-by=/usr/share/keyrings/kitware-archive-keyring.gpg] https://apt.kitware.com/ubuntu $(. /etc/os-release && echo $VERSION_CODENAME) main" > /etc/apt/sources.list.d/kitware.list' \
@@ -62,11 +59,19 @@ COPY earth2studio/__init__.py earth2studio/__init__.py
 
 # Warm uv's package/build cache into the image. CI runs use this same cache
 # directory, avoiding a large GitHub Actions uv cache archive.
+# Skip attention source builds here; cache compatible wheels below instead.
+# These wheels match the locked PyPI Torch 2.13.0 (CUDA 13.0) build.
 RUN uv venv --python="${PYTHON_VERSION}" \
-    && uv sync --locked --no-install-project \
+    && uv sync --locked --no-install-project --no-install-package flash-attn --no-install-package natten \
     && for EXTRA in all aifs aifs2 aifs2ens aifsens stormcast-conus; do \
-        uv sync --locked --no-install-project --extra "${EXTRA}"; \
+        uv sync --locked --no-install-project --no-install-package flash-attn --no-install-package natten --extra "${EXTRA}" || exit 1; \
     done \
+    && uv pip install --no-deps --only-binary :all: \
+        --index https://wheels.astral.sh/simple/cu130/ \
+        'flash-attn==2.8.3.post1+cu.13.0.torch.2.13' \
+    && uv pip install --no-deps --only-binary :all: \
+        --find-links https://whl.natten.org \
+        'natten==0.21.7+torch2130cu130' \
     && TORCH_VERSION="$(.venv/bin/python -c 'from importlib.metadata import version; print(version("torch"))')" \
     && printf 'export TORCH_VERSION=%s\n' "${TORCH_VERSION}" > /opt/earth2studio-ci-env \
     && chmod -R a+rwX "${UV_CACHE_DIR}"
