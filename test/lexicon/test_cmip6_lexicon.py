@@ -76,3 +76,20 @@ def test_cmip6_lexicon_z_modifier():
     x = np.array([1.0, 2.0, 3.5], dtype=np.float32)
     out = mod(x.copy())
     assert np.allclose(out, x * 9.80665)
+
+
+@pytest.mark.parametrize("variable,cmip6_id", [("tcc", "clt"), ("sic", "siconc")])
+def test_cmip6_lexicon_fraction_modifier(variable, cmip6_id):
+    """Cloud cover and sea ice concentration are stored in % and returned as 0-1."""
+    (var_id, level), mod = CMIP6Lexicon[variable]
+    assert (var_id, level) == (cmip6_id, -1)
+
+    # Percentage input -> divided by 100
+    x = np.array([0.0, 25.0, 100.0], dtype=np.float32)
+    out = mod(x.copy())
+    assert out.dtype == np.float32
+    assert np.allclose(out, [0.0, 0.25, 1.0])
+
+    # Some models store fractions despite the "%" units -> unchanged
+    x = np.array([0.0, 0.25, 1.0], dtype=np.float32)
+    assert np.allclose(mod(x.copy()), x)
