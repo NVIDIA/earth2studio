@@ -16,6 +16,9 @@
 
 """Prognostic test patterns for the destination project's test layout.
 
+Test modules must not import fixtures or helpers from other test files. Define
+them locally so each module collects and runs independently in isolated Tox environments.
+
 Local wrappers use relevant numerical smoke and contract checks. Only contributors
 use test/models/px/test_<model>.py, relevant regressions and repository checks.
 

@@ -16,6 +16,9 @@
 
 """Test reference skeleton for new Earth2Studio data sources.
 
+Test modules must not import fixtures or helpers from other test files. Define
+them locally so each module collects and runs independently in isolated Tox environments.
+
 This file is a TEMPLATE. Adapt relevant smoke/contract cases to the local project's
 test layout and imports. Only contributions use test/data/test_<source_name>.py
 and the component suite/coverage conventions below. Rename all ``source`` prefixes
