@@ -14,8 +14,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
+
 from common import *
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFont
 
 W = 5400
 TITLE_SIZE, TITLE_SCALE, TITLE_TRACK = 85, 0.88, 0.5
@@ -222,17 +224,10 @@ for p, lab in srcs:
     xs += th2 + gap
 # wordmark
 tx = xs + 40
-tw = W - M - tx
 d.text((tx, y2 + 6), "NVIDIA", font=font(bold=True, size=60), fill=(118, 185, 0))
 spaced(d, (tx, y2 + 60), "EARTH2STUDIO", font(bold=True, size=92), WHITE, 6)
 d.text((tx, y2 + 190), "Next-generation AI weather", font=font(size=34), fill=GREY)
 d.text((tx, y2 + 234), "and climate modeling.", font=font(size=34), fill=GREY)
-import os
-
-from PIL import ImageFont
-
-OBL = ImageFont.truetype(os.path.join(MPL, "DejaVuSans-Oblique.ttf"), 30)
-GREEN = (118, 185, 0)
 # dictionary entry
 SUB = (84, 122, 40)  # muted dark green accent
 d.line((tx, y2 + 330, tx + 1000, y2 + 330), fill=(38, 44, 58), width=2)
@@ -272,16 +267,6 @@ caps = [
 ]
 for i, c in enumerate(caps):
     d.text((tx, y2 + R2 - 118 + i * 38), c, font=font(mono=True, size=24), fill=DIM)
-print(
-    "wordmark width",
-    d.textlength("EARTH2STUDIO", font=font(bold=True, size=92)) + 11 * 6,
-)
-print(
-    "wordmark col width",
-    tw,
-    "right edge text",
-    tx + d.textlength("Next-generation AI weather", font=font(size=34)),
-)
 canvas.save(P("hero.png"), optimize=True)
 canvas.resize((W // 2, H // 2), Image.LANCZOS).save(P("hero_2700.png"), optimize=True)
 a = np.asarray(canvas).astype(float) / 255
