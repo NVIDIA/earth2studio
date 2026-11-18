@@ -6,9 +6,10 @@ Built in workflows designed to be a catalyst to help accelerate user defined inf
 use cases.
 
 !!! warning
-    The built in workflows should not be viewed as silver bullets that work for every
-    model and use case. Earth2Studio is focused on enabling users to build and extend,
-    these are starting points.
+    `deterministic`, `diagnostic`, and `ensemble` are legacy workflows limited to
+    simple cases: a single unforced prognostic model and one output store. For forced
+    or coupled models, multiple output streams, distributed runs, or resuming
+    interrupted work, use [`Pipeline` and runners](../userguide/components/execution.md).
 
 <!-- e2s-autosummary
 currentmodule: earth2studio.run

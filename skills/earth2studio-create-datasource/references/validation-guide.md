@@ -1,7 +1,11 @@
 # Validation Guide
 
-> Reference for post-implementation validation, PR submission, and automated review.
-> Load this after implementation and tests are complete.
+> Contributor-only reference for post-implementation validation, PR submission,
+> and automated review. Local wrappers need only relevant smoke/contract checks
+> in their own project. Optional local comparisons may reuse the plotting examples
+> with local imports, without repository coverage, catalog, or PR requirements.
+> Load this after implementation and tests are complete. Commit, push and open a PR
+> only when explicitly requested; contribution intent alone is not a submission request.
 
 ## Table of Contents
 
@@ -99,6 +103,14 @@ Present a summary table covering:
 Create a standalone script (do NOT commit).
 
 ### Gridded template (DataSource / ForecastSource)
+
+Before plotting, confirm the grid is recognized: `infer_grid(data)` from
+`earth2studio.grids` must succeed (projected/curvilinear output needs 2D
+`lat`/`lon` coordinates and the CRS or grid-ID attr). If the source supports
+temporal statistics, also plot or print one labeled variable such as
+`"t2m:mean:1day"` and check `data.attrs` contains `earth2studio_statistics`.
+For projected grids, `pcolormesh(arr.lon, arr.lat, ...)` still works because
+`lat`/`lon` are 2D.
 
 ```python
 """Sanity-check plot for <SourceName>."""

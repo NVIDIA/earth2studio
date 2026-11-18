@@ -1450,6 +1450,10 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         this is safe to call before or after moving the model to a device.
         Repeated calls are a no-op.
 
+        CUDA graphs are disabled with pluggable allocators (including RMM),
+        which lack the pool bookkeeping required by CUDA Graph Trees:
+        https://github.com/pytorch/pytorch/issues/163257
+
         Parameters
         ----------
         mode : str, optional
@@ -1461,10 +1465,18 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         if self._is_flash:
             self._flash_plan = None
             self._flash_plan_sources = ()
+        compile_kwargs: dict[str, Any] = {"mode": mode}
+        if (
+            torch.cuda.is_available()
+            and torch.cuda.memory.get_allocator_backend() == "pluggable"
+        ):
+            options = dict(torch._inductor.list_mode_options(mode))
+            options["triton.cudagraphs"] = False
+            compile_kwargs = {"options": options}
         for i in range(len(self.stage_models)):
             self.stage_models[i] = torch.compile(
                 self.stage_models[i],
-                mode=mode,
+                **compile_kwargs,
                 dynamic=False if self._is_flash else None,
             )
         self._experts_compiled = True

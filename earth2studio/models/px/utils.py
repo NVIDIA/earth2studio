@@ -77,7 +77,7 @@ class PrognosticMixin:
     assignment site rather than spread across every place that registered one.
 
     Wrappers must declare explicit, fixed signatures for ``__call__``,
-    ``initialize``, ``step`` and ``create_iterator`` (contract rule P24).
+    ``initialize``, ``step`` and ``create_iterator``.
     This mixin supplies no public execution methods; their fixed signatures belong
     to the concrete wrappers. The variadic methods below are private helpers.
     Explicit ``__call__`` and ``create_iterator`` methods may delegate to
@@ -89,7 +89,7 @@ class PrognosticMixin:
     """
 
     #: Whether the model draws randomness during a rollout. Stochastic models must
-    #: implement ``set_rng(seed, reset=True)``; see ``dev/spec/MODEL_CONTRACT_SPEC.md``.
+    #: implement ``set_rng(seed, reset=True)``.
     stochastic: bool = False
 
     @staticmethod

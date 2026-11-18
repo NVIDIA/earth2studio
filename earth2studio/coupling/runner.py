@@ -120,9 +120,10 @@ class CoupledRunner:
     sources : Mapping[str, SlotSource | tuple[SlotSource | None, ...]], optional
         Sources per component in input-then-forcing slot order, like
         ``default_sources()``; a single source covers the first input slot. Slots
-        left out use the model's recommendation, by default None. Connected
-        slots use their source only for frames valid at or before the item time
-        that the producer does not hold.
+        left out use the model's recommendation, by default None. If neither
+        source is available, a DataFrame slot receives None; gridded inputs
+        still need a source. Connected slots use their source only for frames
+        valid at or before the item time that the producer does not hold.
     seed : int, optional
         Base seed for per-member seeding of stochastic components, by default 0.
         Each component offsets it by a hash of its name, so components draw
@@ -566,8 +567,7 @@ class CoupledRunner:
 class _Requests:
     """Planning executor recording every ``fetch_data`` call a run would make.
 
-    DataFrame slots are fetched with ``fetch_dataframe``, which ``DataRequest``
-    does not describe; they are checked for a source but not recorded.
+    DataFrame slots are not recorded: ``DataRequest`` describes gridded fetches.
     """
 
     def __init__(self, runner: CoupledRunner, item: WorkItem | None = None) -> None:
@@ -578,9 +578,9 @@ class _Requests:
         self.requests: list[DataRequest] = []
 
     def _add(self, node: _Node, slot: _Slot, labels: Sequence[str], leads: Any) -> None:
-        source = _source(self.runner, node, slot)
         if slot.frame:
             return
+        source = _source(self.runner, node, slot)
         self.requests.append(
             DataRequest(
                 source,
@@ -633,6 +633,8 @@ class _Execution:
         lead_time = np.asarray(leads, dtype=np.int64).astype("timedelta64[ns]")
         device = self.runner.device_of(node.name)
         if slot.frame:
+            if source is None:
+                return None
             frame = fetch_dataframe(
                 source,  # type: ignore[arg-type]
                 time,
@@ -950,8 +952,8 @@ def _source(runner: CoupledRunner, node: _Node, slot: _Slot) -> Any:
             runner._recommended[node.name] = tuple(recommended)
         recommended = runner._recommended[node.name]
         source = recommended[position] if position < len(recommended) else None
-    if source is None:
-        hint = " or connect the slot" if slot.forcing and not slot.frame else ""
+    if source is None and not slot.frame:
+        hint = " or connect the slot" if slot.forcing else ""
         raise CouplingError(
             f"Component {node.name!r} {slot} needs a source: pass one in sources" + hint
         )

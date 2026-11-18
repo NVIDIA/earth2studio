@@ -9,7 +9,7 @@
 
 **Status (2026-10-26):** Tasks 1–4 and 6 implemented on
 `pzharrington/coupler-integration`; Task 5 (GPU real-model checks) not started.
-Deviations from this plan, all reflected in `dev/spec/COUPLING_SPEC.md`:
+Deviations from this plan, all reflected in `docs/specs/E2S-12_COUPLING_SPEC.md`:
 
 - Scheduling is dataflow: a component waiting on a frame published later (for
   example inside a producer's multi-lead chunk) runs at a later tick instead of
@@ -53,9 +53,9 @@ DSL or application layer.
 
 ## Sources consulted
 
-- `dev/spec/MODEL_CONTRACT_SPEC.md`, `DA_MODEL_CONTRACT_SPEC.md`,
-  `EXECUTION_CONTRACT_SPEC.md`, `REGRID_SPEC.md`, `TIME_STATISTICS_SPEC.md`,
-  `FETCH_DATA_SPEC.md`.
+- `docs/specs/E2S-06_MODEL_CONTRACT_SPEC.md`, `E2S-07_DA_MODEL_CONTRACT_SPEC.md`,
+  `E2S-11_EXECUTION_CONTRACT_SPEC.md`, `E2S-04_REGRID_SPEC.md`, `E2S-03_TIME_STATISTICS_SPEC.md`,
+  `E2S-05_FETCH_DATA_SPEC.md`.
 - `earth2studio/run/{runner,pipeline,_fields,work}.py` and
   `dev/examples/{06_runner,09_pipeline}.py`.
 - PR #1229 (`nvcoupler-rebased-1.0.0-rc`): `driver.py`, `sequence.py`,
@@ -82,7 +82,7 @@ DSL or application layer.
 | Narrow public API; one `CouplingError(ValueError)` | `__all__ = ["Connector", "CoupledRunner", "CouplingError"]`. |
 | Defer `vertical.py` | Not ported. |
 | Multi-lead-time chunks, ensembles, irregular cadence, devices | Buffer keyed by valid time handles chunks; leading dims pass through connectors; irregular cadence is a source wrapper; one `to(device)` with per-model staging. |
-| Rename to `earth2studio.coupling`; docs to `dev/spec` + `dev/examples`; `testing.py` into fixtures | Done as laid out below. |
+| Rename to `earth2studio.coupling`; docs to `docs/specs` + `dev/examples`; `testing.py` into fixtures | Done as laid out below. |
 
 ## Design
 
@@ -304,19 +304,19 @@ No CHANGELOG edit. Open the PR with the `developer-open-refactor-pr` skill.
 
 ### Task 1: Spec
 
-**Files:** `dev/spec/COUPLING_SPEC.md` (new), `EXECUTION_CONTRACT_SPEC.md`
-(edit), `DA_MODEL_CONTRACT_SPEC.md` (edit).
+**Files:** `docs/specs/E2S-12_COUPLING_SPEC.md` (new), `E2S-11_EXECUTION_CONTRACT_SPEC.md`
+(edit), `E2S-07_DA_MODEL_CONTRACT_SPEC.md` (edit).
 
-- [ ] Write `COUPLING_SPEC.md` from the Design section: goal, component
+- [ ] Write `E2S-12_COUPLING_SPEC.md` from the Design section: goal, component
   derivation and cadence rule, `Connector` and resolution rules, scheduling
   rules, runner interface and stream rules, rule table `C1`–`Cn`, out of
   scope, and a short lineage paragraph linking #1229 and the impact-modeling
-  docs. Match the register of `REGRID_SPEC.md`.
-- [ ] In `EXECUTION_CONTRACT_SPEC.md`, update the coupled-runner paragraph and
+  docs. Match the register of `E2S-04_REGRID_SPEC.md`.
+- [ ] In `E2S-11_EXECUTION_CONTRACT_SPEC.md`, update the coupled-runner paragraph and
   the illustrative `Pipeline(driver.to_runner(...))` line to
   `Pipeline(CoupledRunner(components, connectors), output=...)`, and point
   phase 3 at the new spec.
-- [ ] In `DA_MODEL_CONTRACT_SPEC.md`, add the cadence rule for stateful models
+- [ ] In `E2S-07_DA_MODEL_CONTRACT_SPEC.md`, add the cadence rule for stateful models
   and how a source reports "no observation at this time" for optional slots.
 
 ### Task 2: Buffer and connector
@@ -377,7 +377,7 @@ No CHANGELOG edit. Open the PR with the `developer-open-refactor-pr` skill.
 ### Task 5: Real-model checks (GPU, may land as a follow-up PR)
 
 - [ ] StormScope GOES to MRMS as two components with default sources, compared
-  against the explicit loop in `MODEL_CONTRACT_SPEC.md` and the eval
+  against the explicit loop in `E2S-06_MODEL_CONTRACT_SPEC.md` and the eval
   `stormscope` pipeline. Use `Region` views to keep it small.
 - [ ] FCN plus `PrecipitationAFNO` feeding the example's soil model at 0.25°,
   reproducing the impact docs' 15-day run shape.
@@ -391,7 +391,7 @@ No CHANGELOG edit. Open the PR with the `developer-open-refactor-pr` skill.
 make format && make lint
 ```
 
-Rule identifiers in `COUPLING_SPEC.md` must match error messages and test
+Rule identifiers in `E2S-12_COUPLING_SPEC.md` must match error messages and test
 names. PR title prefix `[E2S 1.0]`, label `1.0.0`, base `1.0.0-rc`.
 
 ## Size estimate

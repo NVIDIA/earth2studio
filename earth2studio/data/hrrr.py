@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
 import functools
 import hashlib
 import os
@@ -37,6 +38,7 @@ from earth2studio.data.utils import (
     cancellable_to_thread,
     datasource_cache_root,
     decode_grib_message,
+    fetch_once,
     map_with_concurrency,
     obstore_fetch_to_cache,
     obstore_store_from_url,
@@ -86,8 +88,9 @@ class HRRR:
     ```
     Note
     ----
-    This data source supports the following temporal statistics: ``mean``,
-    ``sum``, ``min``, and ``max``. The temporal sampling cadence is one hour.
+    Temporal statistics: ``mean``, ``sum``, ``min`` and ``max`` at hourly cadence
+    (see the time statistics spec). ``tp`` is the lead-0 record, not an hourly
+    accumulation; use :py:class:`HRRR_FX` for precipitation totals.
 
     Parameters
     ----------
@@ -207,6 +210,7 @@ class HRRR:
 
         # Object store is lazily initialized on first call
         self.store: ObjectStore | None = None
+        self._inflight_downloads: dict[str, asyncio.Future[str]] = {}
 
     async def _async_init(self) -> None:
         """Async initialization of the object store
@@ -533,14 +537,23 @@ class HRRR:
 
         # Strip the bucket / url prefix to get the store-relative key
         key = path.removeprefix(self.uri_prefix).lstrip("/")
+        store = self.store
+        # Index files are fetched once per variable, concurrently. Share one
+        # in-flight download per cache file and publish it atomically, so a
+        # concurrent reader never parses a half-written index.
         try:
-            return await obstore_fetch_to_cache(
-                self.store,
-                key,
-                self.cache,
-                byte_offset=byte_offset,
-                byte_length=byte_length,
-                cache_key=filename,
+            return await fetch_once(
+                self._inflight_downloads,
+                filename,
+                lambda: obstore_fetch_to_cache(
+                    store,
+                    key,
+                    self.cache,
+                    byte_offset=byte_offset,
+                    byte_length=byte_length,
+                    cache_key=filename,
+                    atomic=True,
+                ),
             )
         except FileNotFoundError as e:
             logger.error(f"Failed to download file {path}, not found")
@@ -666,9 +679,9 @@ class HRRR_FX(HRRR):
 
     Note
     ----
-    This data source supports the following temporal statistics: ``mean``,
-    ``sum``, ``min``, and ``max``. The temporal sampling cadence is one hour
-    over forecast lead times.
+    Temporal statistics: ``mean``, ``sum``, ``min`` and ``max`` at hourly lead-time
+    cadence (see the time statistics spec). ``tp:sum:6h`` at lead ``L`` is the
+    accumulation over the six hours ending at ``L``.
 
     Parameters
     ----------

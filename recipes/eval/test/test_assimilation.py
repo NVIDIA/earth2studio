@@ -292,6 +292,20 @@ def test_requests_cover_enabled_slots_only() -> None:
     assert list(requests[0].variable) == ["u", "v", "t"]
 
 
+def test_variable_is_a_requested_column_only_of_long_frames() -> None:
+    # A wide frame names each variable in its columns; a wide-layout source
+    # rejects a "variable" field even though its long SCHEMA lists one.
+    wide = OrderedDict(
+        (k, v) for k, v in _schema(["u", "v"]).items() if k != "observation"
+    )
+    wide["observation_u"] = np.empty(0, dtype=np.float32)
+    obs = ObsSources([FakeObsSource(), FakeObsSource()], [_schema(["t"]), wide])
+    long_request, wide_request = obs.requests(np.array([T0]))
+    assert "variable" in list(long_request.fields)
+    assert "variable" not in list(wide_request.fields)
+    assert "observation_u" in list(wide_request.fields)
+
+
 # -- AssimilationRunner -------------------------------------------------------
 
 
@@ -392,6 +406,25 @@ def test_analysis_source_runs_one_analysis_per_time() -> None:
     assert request.name == "conv"
 
 
+def test_analysis_source_hands_its_analyses_to_share() -> None:
+    model = FakeDA()
+    source = AnalysisSource(model, _obs(model, conv=FakeObsSource()))
+    shared = []
+
+    def share(compute):
+        shared.append(compute)
+        return compute()
+
+    source.share = share
+    field = source(np.array([T0, T1]), ["z500"])
+    assert len(shared) == 1 and len(model.calls) == 2
+    # The other ranks of a group receive the field without running the model.
+    model.calls.clear()
+    source.share = lambda compute: field
+    assert source(np.array([T0, T1]), ["z500"]) is field
+    assert model.calls == []
+
+
 def _da_forecast_cfg(tmp_path, variables, fill=True, source_grid=None):
     cfg = compose_cfg(tmp_path, ["nsteps=1", "runner=assimilation_forecast"])
     lat = (SMALL_LAT if source_grid is None else source_grid[0]).tolist()
@@ -479,6 +512,31 @@ def test_forecast_fills_missing_variables_from_data_source(tmp_path) -> None:
 def test_forecast_fill_disabled_raises(tmp_path) -> None:
     cfg = _da_forecast_cfg(tmp_path, ["t2m", "sst"], fill=False)
     with pytest.raises(ValueError, match="fill_missing_variables"):
+        assimilation_forecast(cfg)
+
+
+def test_fill_variables_come_from_the_data_source(tmp_path) -> None:
+    # The analysis provides z500, but the campaign takes it from the data
+    # source, even with filling of missing variables turned off.
+    cfg = _da_forecast_cfg(tmp_path, ["t2m", "z500"], fill=False)
+    with open_dict(cfg):
+        cfg.model.fill_variables = ["z500"]
+    runner = assimilation_forecast(cfg)
+    assert isinstance(runner.source, CompositeSource)
+    assert runner.source.variables == {"analysis": ("t2m",), "fill": ("z500",)}
+    item = work_items([T0], H6)[0]
+    (request,) = runner.data_requests(item)  # predownload caches it too
+    assert list(request.variable) == ["z500"]
+    field = runner.source(np.array([T0]), ["t2m", "z500"])
+    assert float(field.isel(time=0, variable=0, lat=0, lon=0)) == analysis_value(T0, 0)
+    assert float(field.isel(time=0, variable=1, lat=0, lon=0)) != analysis_value(T0, 1)
+
+
+def test_fill_variables_must_be_prognostic_inputs(tmp_path) -> None:
+    cfg = _da_forecast_cfg(tmp_path, ["t2m"])
+    with open_dict(cfg):
+        cfg.model.fill_variables = ["sst"]
+    with pytest.raises(ValueError, match="fill_variables"):
         assimilation_forecast(cfg)
 
 

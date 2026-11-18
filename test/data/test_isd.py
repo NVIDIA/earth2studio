@@ -267,6 +267,14 @@ class TestISDExtractors:
             (["100"], [np.nan], [np.nan]),  # insufficient parts
             (["999,0,C,0000,0"], [0.0], [0.0]),  # calm -> 0
             (["090,0,X,0100,0"], [-10.0], [0.0]),  # 10 m/s from 90 deg
+            (["999,9,9,0000,1"], [0.0], [0.0]),  # type 9 with zero speed is calm
+            (["999,9,V,0040,5"], [np.nan], [np.nan]),  # variable, direction missing
+            (["999,9,N,0060,5"], [np.nan], [np.nan]),  # direction missing, speed valid
+            (
+                ["009,1,N,0100,1"],
+                [-1.5643447],
+                [-9.8768834],
+            ),  # 9 deg is a valid direction
         ],
     )
     def test_extract_uv(self, wnd, expected_u, expected_v):

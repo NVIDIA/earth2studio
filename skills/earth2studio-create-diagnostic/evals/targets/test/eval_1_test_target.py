@@ -16,54 +16,41 @@
 
 """Tests for WindSpeed diagnostic model."""
 
-from collections import OrderedDict
-
 import numpy as np
 import pytest
 import torch
+import xarray as xr
 
+from earth2studio.models.conformance import check_diagnostic_contract
 from earth2studio.models.dx import WindSpeed
-from earth2studio.utils import handshake_dim
+from earth2studio.models.dx.base import DiagnosticModel
+from earth2studio.utils import coord_array_like, handshake_dataarray
+from earth2studio.utils.cupy import from_torch
 
 
-@pytest.mark.parametrize(
-    "x",
-    [
-        torch.randn(1, 2, 721, 1440),
-        torch.randn(2, 2, 721, 1440),
-    ],
-)
+def make_input(model, batch: int = 1, device: str = "cpu") -> xr.DataArray:
+    signature = coord_array_like(model.input_coords(), {"batch": np.arange(batch)})
+    return from_torch(torch.randn(signature.shape, device=device), signature)
+
+
+@pytest.mark.parametrize("batch", [1, 2])
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_windspeed_call(x, device):
+def test_windspeed_call(batch, device):
     """Test forward pass of WindSpeed diagnostic."""
     if device == "cuda:0" and not torch.cuda.is_available():
         pytest.skip("No GPU available")
 
     dx = WindSpeed().to(device)
-    x = x.to(device)
+    x = make_input(dx, batch, device)
+    before = x.copy(deep=True)
 
-    coords = OrderedDict(
-        {
-            "batch": np.ones(x.shape[0]),
-            "variable": dx.input_coords()["variable"],
-            "lat": dx.input_coords()["lat"],
-            "lon": dx.input_coords()["lon"],
-        }
-    )
+    out = dx(x)
 
-    out, out_coords = dx(x, coords)
-
-    # Validate output shape: [batch, 1, 721, 1440]
-    assert out.shape == torch.Size([x.shape[0], 1, 721, 1440])
-
-    # Validate output variable
-    assert np.array_equal(out_coords["variable"], np.array(["ws10m"]))
-
-    # Validate dimension ordering
-    handshake_dim(out_coords, "lon", 3)
-    handshake_dim(out_coords, "lat", 2)
-    handshake_dim(out_coords, "variable", 1)
-    handshake_dim(out_coords, "batch", 0)
+    assert out.shape == (batch, 1, 721, 1440)
+    assert list(out.coords["variable"].values) == ["ws10m"]
+    assert out.dims == x.dims
+    handshake_dataarray(out, dx.output_coords(x))
+    xr.testing.assert_identical(x.e2s.as_numpy(), before.e2s.as_numpy())
 
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
@@ -73,69 +60,41 @@ def test_windspeed_computation(device):
         pytest.skip("No GPU available")
 
     dx = WindSpeed().to(device)
+    signature = coord_array_like(dx.input_coords(), {"batch": [0]})
+    # Known input: u=3, v=4 -> ws=5
+    data = torch.zeros(signature.shape, device=device)
+    data[:, 0] = 3.0
+    data[:, 1] = 4.0
+    x = from_torch(data, signature)
 
-    # Create known input: u=3, v=4 -> ws=5
-    x = torch.zeros(1, 2, 721, 1440, device=device)
-    x[:, 0, :, :] = 3.0  # u10m
-    x[:, 1, :, :] = 4.0  # v10m
+    out = dx(x)
 
-    coords = OrderedDict(
-        {
-            "batch": np.ones(1),
-            "variable": dx.input_coords()["variable"],
-            "lat": dx.input_coords()["lat"],
-            "lon": dx.input_coords()["lon"],
-        }
-    )
-
-    out, _ = dx(x, coords)
-
-    # Wind speed should be 5.0 everywhere
-    expected = torch.full((1, 1, 721, 1440), 5.0, device=device)
-    torch.testing.assert_close(out, expected)
+    expected = torch.full((1, 1, 721, 1440), 5.0)
+    torch.testing.assert_close(torch.as_tensor(out.e2s.as_numpy().values), expected)
 
 
-@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_windspeed_exceptions(device):
-    """Test WindSpeed raises on invalid coordinates."""
-    if device == "cuda:0" and not torch.cuda.is_available():
-        pytest.skip("No GPU available")
+def test_windspeed_exceptions():
+    """Test WindSpeed raises on invalid inputs."""
+    dx = WindSpeed()
+    x = make_input(dx)
 
-    dx = WindSpeed().to(device)
-    x = torch.randn(1, 2, 721, 1440).to(device)
-
-    # Test 1: Wrong variable name
-    wrong_coords = OrderedDict(
-        {
-            "batch": np.ones(1),
-            "variable": np.array(["wrong_var"]),
-            "lat": dx.input_coords()["lat"],
-            "lon": dx.input_coords()["lon"],
-        }
-    )
+    # Wrong variable name
     with pytest.raises((KeyError, ValueError)):
-        dx(x, wrong_coords)
+        dx(x.assign_coords(variable=["wrong_u", "wrong_v"]))
 
-    # Test 2: Wrong dimension order
-    wrong_coords = OrderedDict(
-        {
-            "batch": np.ones(1),
-            "variable": dx.input_coords()["variable"],
-            "lon": dx.input_coords()["lon"],
-            "lat": dx.input_coords()["lat"],
-        }
-    )
+    # Wrong dimension order
     with pytest.raises(ValueError):
-        dx(x, wrong_coords)
+        dx(x.transpose(*reversed(x.dims)))
 
-    # Test 3: Wrong lat values
-    wrong_coords = OrderedDict(
-        {
-            "batch": np.ones(1),
-            "variable": dx.input_coords()["variable"],
-            "lat": np.linspace(-90, 90, 721),  # Wrong direction
-            "lon": dx.input_coords()["lon"],
-        }
-    )
+    # Wrong grid size (matching grid IDs skip spatial value comparisons)
     with pytest.raises(ValueError):
-        dx(x, wrong_coords)
+        dx(x.isel(lat=slice(0, 360)))
+
+
+def test_windspeed_conformance():
+    """Test WindSpeed against the native diagnostic contract."""
+    dx = WindSpeed()
+    assert isinstance(dx, DiagnosticModel)
+    assert check_diagnostic_contract(dx) == [
+        "D10: model does not declare itself stochastic"
+    ]
