@@ -61,9 +61,9 @@ class DataSource(Protocol):
         -------
         xr.DataArray
             An xarray data-array with the dimensions [time, variable, ....]. The coords
-            should be provided. Time coordinate should be a datetime array and the
-            variable coordinate should be array of strings with Earth2Studio variable
-            ids.
+            should be provided. Time coordinate should be a datetime array holding
+            the requested times, and the variable coordinate should be array of
+            strings with Earth2Studio variable ids.
         """
         pass
 
@@ -86,9 +86,9 @@ class DataSource(Protocol):
         -------
         xr.DataArray
             An xarray data-array with the dimensions [time, variable, ....]. The coords
-            should be provided. Time coordinate should be a datetime array and the
-            variable coordinate should be array of strings with Earth2Studio variable
-            ids.
+            should be provided. Time coordinate should be a datetime array holding
+            the requested times, and the variable coordinate should be array of
+            strings with Earth2Studio variable ids.
         """
         pass
 

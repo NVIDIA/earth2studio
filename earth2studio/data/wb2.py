@@ -325,8 +325,10 @@ class WB2ERA5(_WB2Base):
 
     Note
     ----
-    This data source supports the following temporal statistics: ``mean``,
-    ``sum``, ``min``, and ``max``. The temporal sampling cadence is six hours.
+    Temporal statistics: ``mean``, ``sum``, ``min`` and ``max`` at six-hourly
+    cadence (see the time statistics spec). Precipitation is stored as trailing
+    accumulations (``tp06``, ``tp12``, ``tp24``); request them directly rather than
+    summing a window of them.
 
     Parameters
     ----------
@@ -380,8 +382,10 @@ class WB2ERA5_121x240(_WB2Base):
 
     Note
     ----
-    This data source supports the following temporal statistics: ``mean``,
-    ``sum``, ``min``, and ``max``. The temporal sampling cadence is six hours.
+    Temporal statistics: ``mean``, ``sum``, ``min`` and ``max`` at six-hourly
+    cadence (see the time statistics spec). Precipitation is stored as trailing
+    accumulations (``tp06``, ``tp12``, ``tp24``); request them directly rather than
+    summing a window of them.
 
     Parameters
     ----------
@@ -435,8 +439,10 @@ class WB2ERA5_32x64(_WB2Base):
 
     Note
     ----
-    This data source supports the following temporal statistics: ``mean``,
-    ``sum``, ``min``, and ``max``. The temporal sampling cadence is six hours.
+    Temporal statistics: ``mean``, ``sum``, ``min`` and ``max`` at six-hourly
+    cadence (see the time statistics spec). Precipitation is stored as trailing
+    accumulations (``tp06``, ``tp12``, ``tp24``); request them directly rather than
+    summing a window of them.
 
     Parameters
     ----------

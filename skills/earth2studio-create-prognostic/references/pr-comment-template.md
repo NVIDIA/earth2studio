@@ -1,3 +1,5 @@
+<!-- Contributor-only template. Post only when PR commenting is requested. -->
+
 ## Reference Comparison Validation
 
 **Model:** `ClassName`

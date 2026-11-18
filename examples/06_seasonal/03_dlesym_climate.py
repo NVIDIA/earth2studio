@@ -33,7 +33,7 @@ are worth highlighting:
   applies a per-day-of-year moment-matching transform to convert it to OLR
   internally (controlled by the ``use_ttr`` flag).
 - A separate [`earth2studio.models.dx.DLESyMv0_ISCCP_ERA5Precip`][earth2studio.models.dx.DLESyMv0_ISCCP_ERA5Precip]
-  diagnostic predicts 6-hourly accumulated precipitation (``tp:sum:6h``) from the
+  diagnostic predicts 6-hourly accumulated precipitation (``tp06``) from the
   full coupled state.
 
 In this example you will learn:
@@ -55,15 +55,13 @@ In this example you will learn:
 # Set Up
 # ------
 # As with the base DLESyM model, the upstream checkpoints run on a HEALPix
-# ``nside=64`` grid internally and there are two ways to drive them:
-#
-# - Use [`earth2studio.models.px.DLESyMv0_ISCCP_ERA5LatLon`][earth2studio.models.px.DLESyMv0_ISCCP_ERA5LatLon]. This
-#   variant accepts ERA5 inputs on the lat/lon grid, regrids them to HEALPix
-#   internally, and returns lat/lon outputs. This is the recommended entry point
-#   and is what we use throughout this example.
-# - Use [`earth2studio.models.px.DLESyMv0_ISCCP_ERA5`][earth2studio.models.px.DLESyMv0_ISCCP_ERA5] directly with
-#   HEALPix inputs, handling the regridding and derived-variable preparation
-#   yourself (see the base DLESyM example for that lower-level pattern).
+# ``nside=64`` grid, with derived input variables that no data source provides.
+# [`earth2studio.models.px.DLESyMv0_ISCCP_ERA5`][earth2studio.models.px.DLESyMv0_ISCCP_ERA5]
+# recommends a source that prepares them: `DLESyMInputSource` fetches the base
+# variables from a lat/lon source (ARCO ERA5 by default), computes the derived
+# variables, fills the sea surface temperature over land and regrids onto HEALPix.
+# The model, the precipitation diagnostic and their outputs all stay on the native
+# grid; we regrid onto lat/lon only for plotting.
 #
 
 # %%
@@ -76,22 +74,20 @@ load_dotenv()  # TODO: make common example prep function
 import numpy as np
 import torch
 
-from earth2studio.data import ARCO_ERA5
 from earth2studio.data.utils import fetch_data
 from earth2studio.models.dx import DLESyMv0_ISCCP_ERA5Precip
-from earth2studio.models.px import DLESyMv0_ISCCP_ERA5LatLon
+from earth2studio.models.px import DLESyMv0_ISCCP_ERA5
 
 device = "cuda"
 if not torch.cuda.is_available():
     raise RuntimeError("GPU/CUDA required for DLESyM")
 
-# Create the data source
-data = ARCO_ERA5()
+# Load the coupled prognostic and the precip diagnostic.
+package = DLESyMv0_ISCCP_ERA5.load_default_package()
+model = DLESyMv0_ISCCP_ERA5.load_model(package).to(device)
 
-# Load the coupled prognostic (lat/lon variant) and the precip diagnostic.
-package = DLESyMv0_ISCCP_ERA5LatLon.load_default_package()
-model = DLESyMv0_ISCCP_ERA5LatLon.load_model(package).to(device)
-
+# The model's recommended source: ARCO ERA5 prepared as native HEALPix inputs
+data = model.default_sources()
 
 # The prognostic output is already in OLR space, so we load the precip
 # diagnostic with ``use_ttr=False`` -- no further TTR -> OLR transform is needed
@@ -105,7 +101,7 @@ precip = DLESyMv0_ISCCP_ERA5Precip.load_model(package, use_ttr=False).to(device)
 # Note that ``ttr`` appears in the prognostic input variables (the wrapper
 # converts it to OLR internally), while the output variables report ``rlut``
 # (OLR) -- the model variable space. The precip diagnostic consumes the full
-# 10-variable coupled state and emits a single ``tp:sum:6h`` field.
+# 10-variable coupled state and emits a single ``tp06`` field.
 
 # %%
 in_coords = model.input_coords()
@@ -117,10 +113,11 @@ print("Precip input variables:     ", precip.input_coords()["variable"])
 # %%
 # Making a Coupled Prediction
 # ---------------------------
-# We fetch an ERA5 initial condition on the lat/lon grid and run the model
-# directly. As with the base DLESyM model, the atmosphere is predicted every
-# 6 hours while the ocean only advances every 48 hours, so we use the
-# ``retrieve_valid_*`` helpers to select the valid lead times for each component.
+# We fetch an ERA5 initial condition, prepared on the HEALPix grid by the
+# source, and run the model directly. As with the base DLESyM model, the
+# atmosphere is predicted every 6 hours while the ocean only advances every
+# 48 hours, so we use the ``retrieve_valid_*`` helpers to select the valid lead
+# times for each component.
 
 # %%
 ic_date = np.datetime64("2021-06-15")
@@ -133,9 +130,8 @@ x = fetch_data(
     device=device,
 )
 
-# Run a single coupled step (lat/lon in, lat/lon out)
+# Run a single coupled step on the native grid
 from earth2studio.run import _dimension_coords, map_field
-from earth2studio.utils.cupy import from_torch
 
 x = map_field(x, in_coords)
 y = model(x)
@@ -191,8 +187,8 @@ print(
 # consecutive 6-hourly atmosphere timesteps of the full coupled state. The
 # 16-day prognostic output ``y`` already contains exactly the 10 coupled
 # variables the diagnostic expects (in OLR / ``rlut`` space), so we take its
-# last two atmosphere lead times as the ``[-6, 0]`` history window and regrid
-# them onto the HEALPix grid using the prognostic's regridding helpers.
+# last two atmosphere lead times as the ``[-6, 0]`` history window. Both models
+# are on the same HEALPix grid, so no regridding is needed.
 
 # %%
 # The prognostic output carries the coupled variables in the prognostic's
@@ -205,16 +201,8 @@ precip_vars = precip.input_coords().coords["variable"].values
 # diagnosed valid time; relative spacing is what the diagnostic validates.
 precip_in = y.isel(lead_time=slice(-2, None)).sel(variable=precip_vars)
 
-# Regrid the coupled state onto HEALPix using the prognostic's regridder
-precip_in_hpx = from_torch(
-    model.to_hpx(precip_in.e2s.to_torch()[0]), model.coords_to_hpx(precip_in)
-)
-
-tp = precip(precip_in_hpx)
+tp = precip(precip_in)
 tp_coords = _dimension_coords(tp)
-
-# Regrid the precip output back to lat/lon for plotting
-tp_ll = from_torch(model.to_ll(tp.e2s.to_torch()[0]), model.coords_to_ll(tp))
 print(
     "Precip output (variable, valid lead_time [hrs]):",
     tp_coords["variable"],
@@ -225,7 +213,8 @@ print(
 # Plotting the Outputs
 # --------------------
 # We plot a forecasted atmosphere field, the ocean SST, and the diagnosed
-# precipitation.
+# precipitation, regridded from HEALPix onto a 1 degree lat/lon grid with a
+# standalone [`earth2studio.grids.NearestRegridder`][earth2studio.grids.NearestRegridder].
 
 # %%
 import cartopy.crs as ccrs
@@ -233,8 +222,13 @@ import cartopy.feature as cfeature
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
 
-lat = y_coords["lat"]
-lon = y_coords["lon"]
+from earth2studio.grids import LatLonGrid, NearestRegridder
+
+lat = np.linspace(90, -90, 181)
+lon = np.linspace(0, 360, 360, endpoint=False)
+to_latlon = NearestRegridder(
+    in_coords.attrs["earth2studio_grid_id"], LatLonGrid(lat, lon)
+)
 atmos_var, atmos_units = "ws10m", "m/s"
 ocean_var, ocean_units = "sst", "K"
 atmos_idx = list(y_atmos_coords["variable"]).index(atmos_var)
@@ -249,7 +243,7 @@ atmos_lead = y_atmos_coords["lead_time"][-1]
 im = axs[0].pcolormesh(
     lon,
     lat,
-    y_atmos[0, -1, atmos_idx].e2s.as_numpy().values,
+    to_latlon(y_atmos[0, -1, atmos_idx].e2s.as_numpy()).values,
     transform=ccrs.PlateCarree(),
     cmap="cividis",
 )
@@ -264,7 +258,7 @@ ocean_lead = y_ocean_coords["lead_time"][-1]
 im = axs[1].pcolormesh(
     lon,
     lat,
-    y_ocean[0, -1, ocean_idx].e2s.as_numpy().values,
+    to_latlon(y_ocean[0, -1, ocean_idx].e2s.as_numpy()).values,
     transform=ccrs.PlateCarree(),
     cmap="Spectral_r",
 )
@@ -281,7 +275,7 @@ cbar.set_label(f"{ocean_var} [{ocean_units}]")
 # grid-scale outliers, and an auto-scaled norm would chase those and wash out
 # the real field. Values are clipped into the window for display only.
 precip_lead = tp_coords["lead_time"][-1]
-precip_field = np.clip(tp_ll[0, 0, 0].e2s.as_numpy().values, 0.0, None)
+precip_field = np.clip(to_latlon(tp[0, 0, 0].e2s.as_numpy()).values, 0.0, None)
 vmin, vmax = 1e-4, 5e-2  # metres of accumulated precip over 6 h
 im = axs[2].pcolormesh(
     lon,
@@ -291,11 +285,11 @@ im = axs[2].pcolormesh(
     cmap="GnBu",
     norm=LogNorm(vmin=vmin, vmax=vmax),
 )
-axs[2].set_title(f"tp:sum:6h @ {precip_lead.astype('timedelta64[h]')}")
+axs[2].set_title(f"tp06 @ {precip_lead.astype('timedelta64[h]')}")
 axs[2].coastlines()
 axs[2].gridlines()
 cbar = fig.colorbar(im, ax=axs[2], orientation="horizontal", pad=0.05, extend="both")
-cbar.set_label("tp:sum:6h [m] (log scale)")
+cbar.set_label("tp06 [m] (log scale)")
 
 plt.suptitle(f"Upstream DLESyM forecast - Initialization: {ic_date}")
 plt.tight_layout()

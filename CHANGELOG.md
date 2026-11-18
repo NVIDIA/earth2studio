@@ -7,24 +7,64 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.20.1a0] - 2026-11-xx
+## [1.0.0] - 2026-11-xx
+
+Breaking API changes; see [MIGRATION.md](MIGRATION.md) for upgrade instructions.
 
 ### Added
 
+- Grid definitions, registry, regions, and nearest/bilinear regridders.
+- `Pipeline` orchestration with runners, output streams, distributed work, and resume.
+- `CoupledRunner` and connectors for multi-model coupling.
+- WeatherMesh-5c forecasting, AIDA assimilation, and `StormCastConusSDA`.
+- Standalone DLESyM atmosphere/ocean components and `DLESyMInputSource`.
+- `StormScopeGOESConditioned` and `DerivedPressureLevels` models.
+- Lazy STAC access, OISST, composite sources, and `RegriddedSource`.
+- Ensemble-aware source protocols, member selection, and member batching.
+- Native temporal statistics for ARCO ERA5, WB2 ERA5, GFS, and HRRR.
+- NNJA raw conventional dumps, GPS-RO profile metadata, and IASI radiances.
+- NumPy/CuPy field backends, an autograd-preserving Torch backend, and `.e2s` accessors.
+- Model contract checks and component specifications.
+
 ### Changed
 
-### Deprecated
+- Replaced tensor/coordinate pairs with DataArrays across models, fetching, IO,
+  perturbations, and statistics; signatures use `CoordinateSystem` instead of `CoordSystem`.
+- Models support multiple input/output slots, explicit forcing, and default data sources.
+- Prognostic/stateful assimilation models use explicit `initialize`/`step` state and
+  model-local RNG; iterators yield forecasts first.
+- Regional models use `DomainAdaptable.with_region`; CorrDiff ERA5-HRRR supports subdomains.
+- IO uses metadata templates, label-based writes, and explicit `flush`/`close`.
+- `fetch_data` uses `target_grid`/`regridder`; returned time labels must match requests.
+- Metrics require aligned truth coordinates without implicit broadcasting.
+- Temporal windows are right-closed and propagate missing samples as NaN.
+- HRRR spatial axes are now `y`/`x`; ORBIT-2 uses temporal-statistic labels and ARCO ERA5.
+- `PrecipitationAFNO` v1 and DLESyM v1.1 output `tp06`; DLESyM precipitation is in meters.
+- Torch/CuPy share RMM memory on Linux CUDA; opt out with `EARTH2STUDIO_DISABLE_RMM=1`.
+- Migrated examples, eval, HENS, S2S, and scorecards to the new APIs; added HealDA scorecards.
 
 ### Removed
 
+- `DLESyMLatLon` and `DLESyMv0_ISCCP_ERA5LatLon`; use `DLESyMInputSource` and regridders.
+- Beta serving package, extra, and deployment scripts; use
+  [PhysicsNeMo Serve](https://github.com/NVIDIA/physicsnemo-serve).
+
 ### Fixed
 
+- HRRR snow depth and GEFS 0.25° precipitation now use meters.
+- ISD wind components remain NaN when wind direction is missing.
+- Corrected longitude-bound selection and rejected source grids with insufficient coverage.
 - Fixed `ISD` returning multi-hour (3, 6, 12, 24 hour) precipitation totals as
   hourly `tp`.
 
 ### Security
 
+- Updated vulnerable dependencies and regenerated dependency locks.
+
 ### Dependencies
+
+- Added core CuPy (Linux/Windows), RMM (Linux), and pyproj dependencies.
+- Added `weathermesh5c` and `da-aida` extras; updated HealDA.
 
 ## [0.20.0] - 2026-10-29
 

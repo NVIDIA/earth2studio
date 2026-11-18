@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -23,7 +24,13 @@ import xarray as xr
 
 from earth2studio.models.auto import Package
 from earth2studio.models.px.base import PrognosticModel
-from earth2studio.models.px.dlesym import DLESyM, DLESyMLatLon
+from earth2studio.models.px.dlesym import (
+    DLESyM,
+    DLESyMAtmos,
+    DLESyMOcean,
+    _load_package_config,
+    _PackageConfig,
+)
 from earth2studio.utils.coords import coord_array_like
 from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
@@ -33,12 +40,10 @@ from earth2studio.utils.imports import (
 from earth2studio.utils.type import CoordinateSystem, CoordSystem
 
 try:
-    from omegaconf import OmegaConf
-    from physicsnemo import Module
+    import omegaconf  # noqa: F401
+    import physicsnemo  # noqa: F401
 except ImportError:
     OptionalDependencyFailure("dlesym")
-    Module = None
-    OmegaConf = None
 
 
 # Climatology file names + the (mean, std) data-variable names inside each
@@ -137,8 +142,140 @@ def _load_clim_nc(
     return mean, std
 
 
+def _load_climatology(package: Package, use_ttr: bool) -> dict[str, np.ndarray]:
+    """Climatology arguments of the TTR -> OLR transform, empty without it."""
+    if not use_ttr:
+        return {}
+    ttr_mean, ttr_std = _load_clim_nc(
+        Path(package.resolve(_TTR_CLIM_FILE)), _TTR_CLIM_VARS
+    )
+    olr_mean, olr_std = _load_clim_nc(
+        Path(package.resolve(_OLR_CLIM_FILE)), _OLR_CLIM_VARS
+    )
+    return {
+        "ttr_clim_mean": ttr_mean,
+        "ttr_clim_std": ttr_std,
+        "olr_clim_mean": olr_mean,
+        "olr_clim_std": olr_std,
+    }
+
+
+def _check_history(cfg: _PackageConfig, component: str, core: torch.nn.Module) -> None:
+    """Check the config lists the history a core consumes.
+
+    The recurrent atmos model (HEALPixRecUNet) warms up its hidden state on
+    ``presteps`` extra input windows, so it consumes
+    ``(presteps + 1) * input_time_dim`` history timesteps. A config that lists
+    too few input times otherwise fails deep inside the first convolution with
+    an opaque channel-count mismatch.
+    """
+    times = cfg.input_times[component]
+    presteps = getattr(core, "presteps", 0)
+    expected = (presteps + 1) * core.input_time_dim
+    if len(times) != expected:
+        raise ValueError(
+            f"config.yaml lists {len(times)} {component}_input_times "
+            f"({times.astype(int).tolist()}), but the {component} model has "
+            f"presteps={presteps} and input_time_dim={core.input_time_dim}, which "
+            f"requires {expected} history timesteps. Rebuild the package with "
+            "tools/convert_dlesym_upstream.py."
+        )
+
+
+class _TTRInput:
+    """ERA5 ``ttr`` accepted as input and converted to ISCCP-distributed OLR.
+
+    Shared by the fused model and its atmosphere component: with ``use_ttr`` the
+    public input signature advertises ``ttr`` in place of ``rlut``, and the
+    initial history is converted once, before the first forward pass.
+    """
+
+    use_ttr: bool
+    nside: int
+    olr_floor: float
+    center: torch.Tensor
+    ttr_clim_mean: torch.Tensor
+    ttr_clim_std: torch.Tensor
+    olr_clim_mean: torch.Tensor
+    olr_clim_std: torch.Tensor
+    register_buffer: Callable[..., None]
+
+    def _register_climatology(
+        self,
+        ttr_clim_mean: np.ndarray | None,
+        ttr_clim_std: np.ndarray | None,
+        olr_clim_mean: np.ndarray | None,
+        olr_clim_std: np.ndarray | None,
+        olr_floor: float,
+    ) -> None:
+        self.olr_floor = float(olr_floor)
+        if not self.use_ttr:
+            return
+        for name, arr in (
+            ("ttr_clim_mean", ttr_clim_mean),
+            ("ttr_clim_std", ttr_clim_std),
+            ("olr_clim_mean", olr_clim_mean),
+            ("olr_clim_std", olr_clim_std),
+        ):
+            if arr is None:
+                raise ValueError(
+                    "use_ttr=True requires all four climatology arrays "
+                    "(ttr_clim_mean, ttr_clim_std, olr_clim_mean, olr_clim_std)."
+                )
+            if arr.ndim != 4 or arr.shape[1:] != (12, self.nside, self.nside):
+                raise ValueError(
+                    f"{name} has shape {arr.shape}; expected "
+                    f"(D, 12, {self.nside}, {self.nside}) where D is days-per-year."
+                )
+            self.register_buffer(name, torch.from_numpy(np.asarray(arr)).float())
+
+    def _public_input_coords(self, coords: CoordinateSystem) -> CoordinateSystem:
+        """Advertise ``ttr`` in place of ``rlut`` when ``use_ttr`` is set."""
+        if not self.use_ttr:
+            return coords
+        variables = list(coords["variable"].values)
+        variables[variables.index("rlut")] = "ttr"
+        return coord_array_like(coords, {"variable": np.array(variables)})
+
+    def _apply_ttr_to_olr(self, x: torch.Tensor, coords: CoordSystem) -> torch.Tensor:
+        """Replace the TTR channel in ``x`` with ISCCP-distributed OLR.
+
+        Delegates to :func:`apply_ttr_to_olr` after locating the TTR channel
+        in ``coords["variable"]``. No-op if ``coords`` already advertises
+        ``rlut`` (the model output space) at the radiation slot.
+        """
+        variables = list(coords["variable"])
+        if "ttr" not in variables:
+            return x  # already in OLR space (model output or rerun)
+        return apply_ttr_to_olr(
+            x,
+            coords,
+            ttr_idx=variables.index("ttr"),
+            ttr_clim_mean=self.ttr_clim_mean,
+            ttr_clim_std=self.ttr_clim_std,
+            olr_clim_mean=self.olr_clim_mean,
+            olr_clim_std=self.olr_clim_std,
+            olr_floor=self.olr_floor,
+        )
+
+    def _initial_state(self, x: xr.DataArray) -> xr.DataArray:
+        if not self.use_ttr:
+            return x
+        tensor, coords = x.e2s.to_torch()
+        shape = tensor.shape
+        tensor = tensor.to(self.center.device).reshape(-1, *shape[-6:])
+        tensor = self._apply_ttr_to_olr(tensor, coords).reshape(shape)
+        variables = list(x["variable"].values)
+        variables[variables.index("ttr")] = "rlut"
+        result = from_torch(
+            tensor, coord_array_like(x, {"variable": np.array(variables)})
+        )
+        result.encoding = x.encoding.copy()
+        return result
+
+
 @check_optional_dependencies()
-class DLESyMv0_ISCCP_ERA5(DLESyM):
+class DLESyMv0_ISCCP_ERA5(_TTRInput, DLESyM):
     """DLESyMv0_ISCCP_ERA5 prognostic model for climate-timescale rollouts.
 
     This model packages the atmosphere and ocean checkpoints distributed by
@@ -251,37 +388,9 @@ class DLESyMv0_ISCCP_ERA5(DLESyM):
         self.use_ttr = use_ttr
         super().__init__(*args, **kwargs)
 
-        self.olr_floor = float(olr_floor)
-
-        if use_ttr:
-            for name, arr in (
-                ("ttr_clim_mean", ttr_clim_mean),
-                ("ttr_clim_std", ttr_clim_std),
-                ("olr_clim_mean", olr_clim_mean),
-                ("olr_clim_std", olr_clim_std),
-            ):
-                if arr is None:
-                    raise ValueError(
-                        "use_ttr=True requires all four climatology arrays "
-                        "(ttr_clim_mean, ttr_clim_std, olr_clim_mean, olr_clim_std)."
-                    )
-                if arr.ndim != 4 or arr.shape[1:] != (12, self.nside, self.nside):
-                    raise ValueError(
-                        f"{name} has shape {arr.shape}; expected "
-                        f"(D, 12, {self.nside}, {self.nside}) where D is days-per-year."
-                    )
-            self.register_buffer(
-                "ttr_clim_mean", torch.from_numpy(np.asarray(ttr_clim_mean)).float()
-            )
-            self.register_buffer(
-                "ttr_clim_std", torch.from_numpy(np.asarray(ttr_clim_std)).float()
-            )
-            self.register_buffer(
-                "olr_clim_mean", torch.from_numpy(np.asarray(olr_clim_mean)).float()
-            )
-            self.register_buffer(
-                "olr_clim_std", torch.from_numpy(np.asarray(olr_clim_std)).float()
-            )
+        self._register_climatology(
+            ttr_clim_mean, ttr_clim_std, olr_clim_mean, olr_clim_std, olr_floor
+        )
 
     def input_coords(self) -> CoordinateSystem:
         """Input coordinate system of the prognostic model.
@@ -291,12 +400,7 @@ class DLESyMv0_ISCCP_ERA5(DLESyM):
         CoordinateSystem
             Allocation-free DataArray input signature.
         """
-        coords = super().input_coords()
-        if self.use_ttr:
-            variables = list(coords["variable"].values)
-            variables[variables.index("rlut")] = "ttr"
-            coords = coord_array_like(coords, {"variable": np.array(variables)})
-        return coords
+        return self._public_input_coords(super().input_coords())
 
     @classmethod
     def load_default_package(cls) -> Package:
@@ -339,237 +443,182 @@ class DLESyMv0_ISCCP_ERA5(DLESyM):
         PrognosticModel
             Loaded ``DLESyMv0_ISCCP_ERA5`` instance.
         """
-        cfg_file = Path(package.resolve("config.yaml"))
-        cfg = OmegaConf.load(cfg_file)
-        nside = cfg.data.nside
-
-        atmos_ckpt = package.resolve(
-            cfg.models.atmos_model_checkpoints[atmos_model_idx]
-        )
-        ocean_ckpt = package.resolve(
-            cfg.models.ocean_model_checkpoints[ocean_model_idx]
-        )
-        atmos_model = Module.from_checkpoint(atmos_ckpt)
-        ocean_model = Module.from_checkpoint(ocean_ckpt)
-        atmos_model.output_time_dim = len(cfg.io.atmos_output_times)
-        ocean_model.output_time_dim = len(cfg.io.ocean_output_times)
-
-        # The recurrent atmos model (HEALPixRecUNet) warms up its hidden state on
-        # ``presteps`` extra input windows, so it consumes
-        # ``(presteps + 1) * input_time_dim`` history timesteps. A config that
-        # lists too few ``atmos_input_times`` otherwise fails deep inside the
-        # first convolution with an opaque channel-count mismatch.
-        for name, model, times in (
-            ("atmos", atmos_model, cfg.io.atmos_input_times),
-            ("ocean", ocean_model, cfg.io.ocean_input_times),
-        ):
-            expected = (getattr(model, "presteps", 0) + 1) * model.input_time_dim
-            if len(times) != expected:
-                raise ValueError(
-                    f"config.yaml lists {len(times)} {name}_input_times "
-                    f"({list(times)}), but the {name} model has "
-                    f"presteps={getattr(model, 'presteps', 0)} and "
-                    f"input_time_dim={model.input_time_dim}, which requires "
-                    f"{expected} history timesteps. Rebuild the package with "
-                    "tools/convert_dlesym_upstream.py."
-                )
-
-        ctr = np.array(
-            [cfg.data.scaling[var]["mean"] for var in cfg.io.atmos_variables]
-            + [cfg.data.scaling[var]["mean"] for var in cfg.io.ocean_variables]
-        )
-        scl = np.array(
-            [cfg.data.scaling[var]["std"] for var in cfg.io.atmos_variables]
-            + [cfg.data.scaling[var]["std"] for var in cfg.io.ocean_variables]
-        )
-        center = ctr[None, None, None, :, None, None, None]
-        scale = scl[None, None, None, :, None, None, None]
-
-        hpx_lat = np.load(package.resolve("hpx_lat.npy"))
-        hpx_lon = np.load(package.resolve("hpx_lon.npy"))
-        atmos_constants = np.stack(
-            [np.load(package.resolve(f"{c}.npy")) for c in cfg.io.atmos_constants],
-            axis=1,
-        )
-        ocean_constants = np.stack(
-            [np.load(package.resolve(f"{c}.npy")) for c in cfg.io.ocean_constants],
-            axis=1,
-        )
-
-        ttr_clim_mean = ttr_clim_std = None
-        olr_clim_mean = olr_clim_std = None
-        if use_ttr:
-            ttr_path = Path(package.resolve(_TTR_CLIM_FILE))
-            olr_path = Path(package.resolve(_OLR_CLIM_FILE))
-            ttr_clim_mean, ttr_clim_std = _load_clim_nc(ttr_path, _TTR_CLIM_VARS)
-            olr_clim_mean, olr_clim_std = _load_clim_nc(olr_path, _OLR_CLIM_VARS)
-
-        return cls(
-            atmos_model,
-            ocean_model,
-            center=center,
-            scale=scale,
-            atmos_constants=atmos_constants,
-            ocean_constants=ocean_constants,
-            hpx_lat=hpx_lat,
-            hpx_lon=hpx_lon,
-            nside=nside,
-            atmos_input_times=np.array(
-                cfg.io.atmos_input_times, dtype="timedelta64[h]"
-            ),
-            ocean_input_times=np.array(
-                cfg.io.ocean_input_times, dtype="timedelta64[h]"
-            ),
-            atmos_output_times=np.array(
-                cfg.io.atmos_output_times, dtype="timedelta64[h]"
-            ),
-            ocean_output_times=np.array(
-                cfg.io.ocean_output_times, dtype="timedelta64[h]"
-            ),
-            atmos_variables=list(cfg.io.atmos_variables),
-            ocean_variables=list(cfg.io.ocean_variables),
-            atmos_coupling_variables=list(cfg.io.atmos_coupling_variables),
-            ocean_coupling_variables=list(cfg.io.ocean_coupling_variables),
-            use_ttr=use_ttr,
-            ttr_clim_mean=ttr_clim_mean,
-            ttr_clim_std=ttr_clim_std,
-            olr_clim_mean=olr_clim_mean,
-            olr_clim_std=olr_clim_std,
-        )
-
-    def _apply_ttr_to_olr(self, x: torch.Tensor, coords: CoordSystem) -> torch.Tensor:
-        """Replace the TTR channel in ``x`` with ISCCP-distributed OLR.
-
-        Delegates to :func:`apply_ttr_to_olr` after locating the TTR channel
-        in ``coords["variable"]``. No-op if ``coords`` already advertises
-        ``rlut`` (the model output space) at the radiation slot.
-        """
-        variables = list(coords["variable"])
-        if "ttr" not in variables:
-            return x  # already in OLR space (model output or rerun)
-        return apply_ttr_to_olr(
-            x,
-            coords,
-            ttr_idx=variables.index("ttr"),
-            ttr_clim_mean=self.ttr_clim_mean,
-            ttr_clim_std=self.ttr_clim_std,
-            olr_clim_mean=self.olr_clim_mean,
-            olr_clim_std=self.olr_clim_std,
-            olr_floor=self.olr_floor,
-        )
-
-    def _initial_state(self, x: xr.DataArray) -> xr.DataArray:
-        if not self.use_ttr:
-            return super()._initial_state(x)
-        tensor, coords = x.e2s.to_torch()
-        shape = tensor.shape
-        tensor = tensor.to(self.center.device).reshape(-1, *shape[-6:])
-        tensor = self._apply_ttr_to_olr(tensor, coords).reshape(shape)
-        variables = list(x["variable"].values)
-        variables[variables.index("ttr")] = "rlut"
-        result = from_torch(
-            tensor, coord_array_like(x, {"variable": np.array(variables)})
-        )
-        result.encoding = x.encoding.copy()
-        return result
+        cfg = _load_package_config(package)
+        kwargs = cfg.fused_kwargs(atmos_model_idx, ocean_model_idx)
+        _check_history(cfg, "atmos", kwargs["atmos_model"])
+        _check_history(cfg, "ocean", kwargs["ocean_model"])
+        return cls(**kwargs, use_ttr=use_ttr, **_load_climatology(package, use_ttr))
 
 
 @check_optional_dependencies()
-class DLESyMv0_ISCCP_ERA5LatLon(DLESyMv0_ISCCP_ERA5, DLESyMLatLon):
-    """Lat/lon convenience wrapper for
-    [`DLESyMv0_ISCCP_ERA5`][earth2studio.models.px.DLESyMv0_ISCCP_ERA5].
+class DLESyMv0_ISCCP_ERA5Atmos(_TTRInput, DLESyMAtmos):
+    """Atmosphere component of
+    [`DLESyMv0_ISCCP_ERA5`][earth2studio.models.px.DLESyMv0_ISCCP_ERA5], as a
+    standalone prognostic model.
 
-    Combines the DLESyMv0_ISCCP_ERA5 climate checkpoints (see
-    [`DLESyMv0_ISCCP_ERA5`][earth2studio.models.px.DLESyMv0_ISCCP_ERA5]) with
-    the lat/lon regridding interface of
-    [`DLESyMLatLon`][earth2studio.models.px.DLESyMLatLon]. Inputs are accepted
-    on the equiangular lat/lon grid (so any ERA5-compatible
-    [`DataSource`][earth2studio.data.DataSource] works directly), regridded to
-    HEALPix ``nside=64`` internally, and the outputs are regridded back to
-    lat/lon before being returned. This is the recommended entry point for
-    most users of the upstream checkpoints, including climate-timescale
-    rollouts.
-
-    Like :class:`DLESyMv0_ISCCP_ERA5`, when ``use_ttr=True`` (default) the
-    wrapper advertises ERA5 ``ttr`` as the radiative input variable and applies
-    the per-day-of-year moment-matching TTR -> OLR transform internally. The
-    transform is applied *after* the initial condition is regridded to HEALPix;
-    subsequent rollout steps reuse the model's own OLR output, so it is only
-    applied once. Derived variables (``ws10m`` from ``u10m``/``v10m`` and
-    ``tau300-700`` from ``z300``/``z700``) and SST NaN-interpolation are
-    handled identically to [`DLESyMLatLon`][earth2studio.models.px.DLESyMLatLon].
+    Couples with
+    [`DLESyMv0_ISCCP_ERA5Ocean`][earth2studio.models.px.DLESyMv0_ISCCP_ERA5Ocean]
+    under :class:`~earth2studio.coupling.CoupledRunner` the way
+    [`DLESyMAtmos`][earth2studio.models.px.DLESyMAtmos] couples with its ocean.
+    Like the fused model, when ``use_ttr=True`` (default) it accepts ERA5
+    ``ttr`` in its initial history and converts it to ISCCP-distributed OLR
+    before the first forward pass; outputs report ``rlut``.
 
     Parameters
     ----------
     *args
-        Positional arguments forwarded to :class:`DLESyMv0_ISCCP_ERA5`.
+        Positional arguments forwarded to :class:`DLESyMAtmos`.
+    use_ttr : bool, optional
+        If True, declare ``ttr`` as the radiative input variable and apply
+        the TTR -> OLR transform internally. If False, declare ``rlut``
+        directly. Defaults to True.
+    ttr_clim_mean : np.ndarray | None, optional
+        Per-day-of-year mean of ERA5 TTR, shape ``(D, F, H, W)``. Required when
+        ``use_ttr=True``.
+    ttr_clim_std : np.ndarray | None, optional
+        Per-day-of-year std of ERA5 TTR (same shape as ``ttr_clim_mean``).
+    olr_clim_mean : np.ndarray | None, optional
+        Per-day-of-year mean of ISCCP OLR (same shape).
+    olr_clim_std : np.ndarray | None, optional
+        Per-day-of-year std of ISCCP OLR (same shape).
+    olr_floor : float, optional
+        Lower bound applied to the transformed OLR. Defaults to 0.0.
     **kwargs
-        Keyword arguments forwarded to :class:`DLESyMv0_ISCCP_ERA5` (including
-        ``use_ttr`` and the climatology arrays).
+        Keyword arguments forwarded to :class:`DLESyMAtmos`.
 
     Note
     ----
-    For more information see the following references:
+    See [`DLESyMv0_ISCCP_ERA5`][earth2studio.models.px.DLESyMv0_ISCCP_ERA5] for
+    more information about the model.
 
-    - https://huggingface.co/nvidia/dlesym-v0-isccp-era5
-
-    See [`DLESyMv0_ISCCP_ERA5`][earth2studio.models.px.DLESyMv0_ISCCP_ERA5] and
-    [`DLESyMLatLon`][earth2studio.models.px.DLESyMLatLon] for details. Model
-    hooks applied during iteration receive public lat/lon DataArrays, as with
-    [`DLESyMLatLon`][earth2studio.models.px.DLESyMLatLon].
-
-    Example
-    -------
-    ```python
-    pkg = DLESyMv0_ISCCP_ERA5LatLon.load_default_package()
-    model = DLESyMv0_ISCCP_ERA5LatLon.load_model(pkg, use_ttr=True)
-
-    # x comes from an ERA5 data source on the configured lat/lon grid
-    x = fetch_data(...)
-    y = model(x)
-
-    atmos = model.retrieve_valid_atmos_outputs(y)
-    ocean = model.retrieve_valid_ocean_outputs(y)
-
-    ```
     Badges
     ------
-    region:global class:climate product:wind product:temp product:atmos product:ocean year:2024
+    region:global class:climate product:wind product:temp product:atmos year:2024
     gpu:40gb
     provider:nvidia backend:pytorch
     """
 
-    def _ttr_to_olr_hpx(self, x: torch.Tensor, coords_hpx: CoordSystem) -> torch.Tensor:
-        """Apply the TTR -> OLR transform on a HEALPix tensor.
-
-        The radiation channel has already been renamed ``ttr`` -> ``rlut`` in
-        ``coords_hpx`` (so derived-variable prep treats it as a passthrough) but
-        still carries raw ERA5 TTR values; locate it by the ``rlut`` name.
-        """
-        return apply_ttr_to_olr(
-            x,
-            coords_hpx,
-            ttr_idx=list(coords_hpx["variable"]).index("rlut"),
-            ttr_clim_mean=self.ttr_clim_mean,
-            ttr_clim_std=self.ttr_clim_std,
-            olr_clim_mean=self.olr_clim_mean,
-            olr_clim_std=self.olr_clim_std,
-            olr_floor=self.olr_floor,
+    def __init__(
+        self,
+        *args: Any,
+        use_ttr: bool = True,
+        ttr_clim_mean: np.ndarray | None = None,
+        ttr_clim_std: np.ndarray | None = None,
+        olr_clim_mean: np.ndarray | None = None,
+        olr_clim_std: np.ndarray | None = None,
+        olr_floor: float = 0.0,
+        **kwargs: Any,
+    ):
+        self.use_ttr = use_ttr
+        super().__init__(*args, **kwargs)
+        if "rlut" not in self.variables:
+            raise ValueError(
+                "DLESyMv0_ISCCP_ERA5Atmos expects 'rlut' to be present in variables. "
+                f"Got {self.variables}. Check the package's config.yaml."
+            )
+        self._register_climatology(
+            ttr_clim_mean, ttr_clim_std, olr_clim_mean, olr_clim_std, olr_floor
         )
 
-    def _initial_state(self, x: xr.DataArray) -> xr.DataArray:
-        variables = list(x["variable"].values)
-        if self.use_ttr:
-            variables[variables.index("ttr")] = "rlut"
-            x = x.assign_coords(variable=variables)
-        state = DLESyMLatLon._initial_state(self, x)
-        if self.use_ttr:
-            tensor, coords = state.e2s.to_torch()
-            shape = tensor.shape
-            tensor = self._ttr_to_olr_hpx(
-                tensor.reshape(-1, *shape[-6:]), coords
-            ).reshape(shape)
-            result = from_torch(tensor, coord_array_like(state))
-            result.encoding = state.encoding.copy()
-            state = result
-        return state
+    def input_coords(self) -> CoordinateSystem:
+        """Input coordinate system of the atmosphere.
+
+        Returns
+        -------
+        CoordinateSystem
+            Allocation-free DataArray input signature.
+        """
+        return self._public_input_coords(super().input_coords())
+
+    @classmethod
+    def load_default_package(cls) -> Package:
+        """Default DLESyMv0_ISCCP_ERA5 model package on HuggingFace."""
+        return DLESyMv0_ISCCP_ERA5.load_default_package()
+
+    @classmethod
+    @check_optional_dependencies()
+    def load_model(  # type: ignore[override]
+        cls,
+        package: Package,
+        use_ttr: bool = True,
+        atmos_model_idx: int = 0,
+    ) -> PrognosticModel:
+        """Load the atmosphere component from a package.
+
+        Parameters
+        ----------
+        package : Package
+            Model package, the one :class:`DLESyMv0_ISCCP_ERA5` loads.
+        use_ttr : bool, optional
+            See :class:`DLESyMv0_ISCCP_ERA5Atmos`. Defaults to True.
+        atmos_model_idx : int, optional
+            Index into ``cfg.models.atmos_model_checkpoints``. Defaults to 0.
+
+        Returns
+        -------
+        PrognosticModel
+            Loaded ``DLESyMv0_ISCCP_ERA5Atmos`` instance.
+        """
+        cfg = _load_package_config(package)
+        kwargs = cfg.atmos_kwargs(atmos_model_idx)
+        _check_history(cfg, "atmos", kwargs["core"])
+        return cls(**kwargs, use_ttr=use_ttr, **_load_climatology(package, use_ttr))
+
+
+@check_optional_dependencies()
+class DLESyMv0_ISCCP_ERA5Ocean(DLESyMOcean):
+    """Ocean component of
+    [`DLESyMv0_ISCCP_ERA5`][earth2studio.models.px.DLESyMv0_ISCCP_ERA5], as a
+    standalone prognostic model.
+
+    Identical to [`DLESyMOcean`][earth2studio.models.px.DLESyMOcean] but loaded
+    from the DLESyMv0_ISCCP_ERA5 package, whose ocean is also forced with the
+    window mean of the atmosphere's ``rlut``.
+
+    Parameters
+    ----------
+    *args
+        Positional arguments forwarded to :class:`DLESyMOcean`.
+    **kwargs
+        Keyword arguments forwarded to :class:`DLESyMOcean`.
+
+    Note
+    ----
+    See [`DLESyMv0_ISCCP_ERA5`][earth2studio.models.px.DLESyMv0_ISCCP_ERA5] for
+    more information about the model.
+
+    Badges
+    ------
+    region:global class:climate product:ocean year:2024
+    gpu:40gb
+    provider:nvidia backend:pytorch
+    """
+
+    @classmethod
+    def load_default_package(cls) -> Package:
+        """Default DLESyMv0_ISCCP_ERA5 model package on HuggingFace."""
+        return DLESyMv0_ISCCP_ERA5.load_default_package()
+
+    @classmethod
+    @check_optional_dependencies()
+    def load_model(  # type: ignore[override]
+        cls, package: Package, ocean_model_idx: int = 0
+    ) -> PrognosticModel:
+        """Load the ocean component from a package.
+
+        Parameters
+        ----------
+        package : Package
+            Model package, the one :class:`DLESyMv0_ISCCP_ERA5` loads.
+        ocean_model_idx : int, optional
+            Index into ``cfg.models.ocean_model_checkpoints``. Defaults to 0.
+
+        Returns
+        -------
+        PrognosticModel
+            Loaded ``DLESyMv0_ISCCP_ERA5Ocean`` instance.
+        """
+        cfg = _load_package_config(package)
+        kwargs = cfg.ocean_kwargs(ocean_model_idx)
+        _check_history(cfg, "ocean", kwargs["core"])
+        return cls(**kwargs)
