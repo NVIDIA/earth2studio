@@ -521,6 +521,7 @@ nav:
     - Perturbations: userguide/components/perturbation.md
     - IO Backends: userguide/components/io.md
     - Statistics: userguide/components/statistics.md
+    - Pipelines and Runners: userguide/components/execution.md
   - Advanced Usage:
     - userguide/advanced/index.md
     - Checkpointing: userguide/advanced/checkpointing.md
