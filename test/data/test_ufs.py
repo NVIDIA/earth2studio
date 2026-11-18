@@ -26,9 +26,7 @@ import pytest
 from earth2studio.data import UFSObsConv, UFSObsSat
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(60)
+@pytest.mark.live(timeout=60)
 @pytest.mark.parametrize(
     "time",
     [
@@ -66,9 +64,7 @@ def test_ufsobsconv_fetch(time, variable, tol):
     assert time_union["time"].all()
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(60)
+@pytest.mark.live(timeout=60)
 @pytest.mark.parametrize(
     "time",
     [
@@ -98,9 +94,7 @@ def test_ufsobsconv_cache(time, variable, cache):
         pass
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(60)
+@pytest.mark.live(timeout=60)
 def test_ufsobsconv_schema_fields():
     time = datetime(year=2024, month=1, day=1, hour=0)
     tol = timedelta(hours=1)
@@ -222,9 +216,7 @@ def test_ufsobs_all_files_missing_returns_empty(cls):
     assert list(df.columns) == schema.names
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(60)
+@pytest.mark.live(timeout=60)
 @pytest.mark.parametrize(
     "time",
     [
@@ -267,9 +259,7 @@ def test_ufsobssat_fetch(time, variable, satellites, tol):
         assert set(df["satellite"].unique()).issubset(set(satellites))
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(60)
+@pytest.mark.live(timeout=60)
 @pytest.mark.parametrize(
     "time",
     [
@@ -299,9 +289,7 @@ def test_ufsobssat_cache(time, variable, cache):
         pass
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(60)
+@pytest.mark.live(timeout=60)
 def test_ufsobssat_schema_fields():
     time = datetime(year=2024, month=1, day=1, hour=0)
     tol = timedelta(hours=1)

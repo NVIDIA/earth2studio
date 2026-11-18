@@ -84,6 +84,10 @@ class GOES:
         - Full Disk (F): Entire Earth view
         - Continental US (C): Continental US (20°N-50°N, 125°W-65°W)
 
+    - Native grids are registered as ``goes-east-conus``, ``goes-east-fulldisk``,
+      ``goes-west-conus`` and ``goes-west-fulldisk``, labelled by the scan angles
+      this source returns (see :func:`earth2studio.grids.resolve_grid`).
+
     Missing data:
 
     Some pixels are ``_FillValue`` in NOAA's source file (e.g. calibration
@@ -367,7 +371,7 @@ class GOES:
             coros,
             max_workers=self._max_workers,
             desc="Fetching GOES data",
-            verbose=(not self._verbose),
+            verbose=self._verbose,
         )
 
         # Add the grid coords to the data array

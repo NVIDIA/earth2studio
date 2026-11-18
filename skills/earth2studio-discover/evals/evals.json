@@ -68,5 +68,20 @@
       "Identifies what observation variables or formats are supported",
       "Points to at least one data assimilation example from the gallery"
     ]
+  },
+  {
+    "id": "discover-eval-006-precipitation",
+    "question": "What models do you have that support predicting precipitation? Check what they actually output, and follow model-card references if precipitation definitions or accumulation intervals are unclear.",
+    "expected_skill": "earth2studio-discover",
+    "expected_script": null,
+    "ground_truth": "Finds candidates in the prognostic and diagnostic catalogs using badges, verifies precipitation outputs in source and docstrings, and follows References to linked model cards on Hugging Face when needed. Distinguishes precipitation amounts or rates from radar reflectivity and direct predictions from diagnostic chains. Cites evidence and flags unresolved details rather than inferring support from inputs or badges.",
+    "expected_behavior": [
+      "Consults model catalogs and badges to identify relevant prognostic and diagnostic candidates",
+      "Checks output_coords and variable definitions in model source rather than relying on input variables",
+      "Follows docstring or API References to linked model cards when definitions or accumulation intervals are unclear",
+      "Distinguishes precipitation amounts or rates from radar reflectivity",
+      "Explains whether precipitation is predicted directly or requires a diagnostic chain",
+      "Cites sources for recommendations and flags any unverified details"
+    ]
   }
 ]

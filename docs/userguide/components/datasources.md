@@ -1,148 +1,151 @@
 # Data and Forecast Sources { #datasources_userguide }
 
-Datasources are objects that offer a simple API to access a "dataset" of weather/climate
-data at a certain index.
-Many implemented in the package provide access to data generated from numerical models,
-data assimilation results or even generative AI models.
-These typically serve as an initial state for inference of an AI model or some other
-downstream task or target data to evaluate the accuracy of a particular model.
-Data sources may be remote cloud-based data stores or files on your local machine.
-The list of data sources that are already built into Earth2Studio can be found in
-the API documentation [earth2studio.data.analysis](../../modules/datasources_analysis.md).
+Sources fetch weather and climate data from remote services or local files. They
+provide initial conditions, conditioning fields, observations, and verification
+targets. Browse the [analysis](../../modules/datasources_analysis.md),
+[forecast](../../modules/datasources_forecast.md), and
+[tabular](../../modules/datasources_dataframe.md) source APIs.
 
-| Source type | Interface | Return type |
-| --- | --- | --- |
-| Data source | `(time, variable)` | `xr.DataArray` |
-| Forecast source | `(time, lead_time, variable)` | `xr.DataArray` |
-| DataFrame source | `(time, variable)` | `pd.DataFrame` |
-| ForecastFrame source | `(time, lead_time, variable)` | `pd.DataFrame` |
-
-!!! note
-    Earth2Studio has data and forecast sources. The only difference being the latter
-    has a lead time input. Some data stores may have both implemented where the data source
-    provides the initial states and data-assimilated data, while the forecast source provides
-    results from a predictive model.
-
-## Data Source Interface
+## Interface
 
 <!-- markdownlint-disable-next-line MD042 -->
 [](){ #earth2studio.data.DataSource }
 
-The full requirements for a standard diagnostic model are defined explicitly in the
-`earth2studio/models/dx/base.py`.
+| Source | Call | Output |
+| --- | --- | --- |
+| `DataSource` | `source(time, variable)` | DataArray: `time, variable, ...` |
+| `ForecastSource` | `source(time, lead_time, variable)` | Forecast DataArray |
+| `DataFrameSource` | `source(time, variable, fields=None)` | Observation DataFrame |
+| `ForecastFrameSource` | `source(time, lead_time, variable, fields=None)` | DataFrame |
+
+Forecast DataArrays have dimensions `time, lead_time, variable, ...`.
+Forecast `time` is the initialization time; `lead_time` selects offsets from that
+initialization. Analysis `time` selects valid times directly. Tabular sources expose
+`SCHEMA`; `fields` selects observation columns. The protocols are in
+[`earth2studio.data.base`][interface]. Some sources also offer an async `fetch` with equivalent
+arguments and results.
+
+### Ensemble Members
+
+<!-- markdownlint-disable-next-line MD042 -->
+[](){ #earth2studio.data.EnsembleDataSource }
+
+`EnsembleDataSource` and `EnsembleForecastSource` add a `member` keyword. It selects
+source-native member labels and returns a leading `ensemble` dimension, including
+for a single requested member. Omitting it returns the source's configured member
+without adding that dimension.
+
+See [E2S-05: Data Fetching][fetch-spec] for request handling, output assembly,
+ensemble selection, and device-placement requirements.
+
+[fetch-spec]: ../../specs/E2S-05_FETCH_DATA_SPEC.md
+[interface]: https://github.com/NVIDIA/earth2studio/blob/1.0.0-rc/earth2studio/data/base.py
+
+## Usage
+
+### Fetch Gridded Fields
+
+`fetch_data` assembles a field with dimensions `time, lead_time, variable, ...`,
+optionally preceded by `ensemble`. It accepts both analysis and forecast sources:
+analysis sources are queried at `time + lead_time`, while forecast sources retain
+their initialization cycle. Floating values are converted to float32.
+
+Choose variable names and physical units using the source's
+[lexicon](../advanced/lexicon.md#lexicon_userguide). Set `device` on the source
+constructor to choose where it returns data; `fetch_data` can then move gridded
+fields to the model's execution device.
 
 ```python
---8<-- "earth2studio/data/base.py:data-source-interface"
+import numpy as np
+
+from earth2studio.data import GFS, fetch_data
+
+times = np.array(["2024-01-01T00"], dtype="datetime64[ns]")
+variables = np.array(["t2m", "u10m", "v10m"])
+field = fetch_data(
+    GFS(), times, variables,
+    lead_time=np.array([0], dtype="timedelta64[h]"),
+    device="cpu",
+)
 ```
 
-!!! note
-    While not a requirement, built-in remote data sources offer local caching when fetching
-    data which is stored in the Earth2Studio cache. Refer to
-    [Configuration](../about/install.md#configuration_userguide) for details on
-    how to customize this location.
+Use nonempty, one-dimensional datetime and timedelta arrays with finite labels.
+The result is a field DataArray: access values through `.data` and coordinates
+through `.coords`. Remote sources commonly cache downloads; see
+[Configuration](../about/install.md#configuration_userguide).
 
-### Beyond N-D Array Data
+### Match a Model Grid
 
-Earth2Studio attempts to stick with N-D array data structures when possible,
-however this is not always possible or practical.
-As a result, Earth2Studio also supports remote data sources for tabular data, which is
-typically used when sparse observations or measurements are involved.
-
-- `earth2studio.data.base.DataFrameSource`
-- `earth2studio.data.base.ForecastFrameSource`
-
-The call signatures mirror data/forecast sources; the difference is the return type: a
-pandas DataFrame (tabular) instead of an Xarray DataArray.
-
-## Data Source Usage
-
-The `__call__` function is the way data is fetched from the data source and placed
-into an in-memory Xarray data array.
-You must provide both the times and variables for the data source to fetch.
-Variables can differ between data-sources and models.
-The package lexicon is used as the source of truth and translator for data sources
-discussed in more detail in the [Lexicon](../advanced/lexicon.md#lexicon_userguide) section.
-
-This data array can then be used on the CPU for postprocessing and saving to file.
-However, to use this as an initial state for inference with a model this Xarray data
-array will need to get moved to the GPU and follow the standard data movement pattern
-of Earth2Studio detailed in the [Data Movement](../about/overview.md#data_userguide) section.
-There are a few utility functions inside Earth2Studio to make this process easy.
-These utility functions are commonly used in workflows.
-
-!!! warning
-    Each data source has its own methods for serving or calculating each variable.
-    Users should be aware that the same variable across multiple data sources will
-    potentially not be identical.
-    Refer to each data source's documentation for details.
-
-For async use cases some data/forecast sources support an async `fetch` function
-that is available.
-In these data sources, the `__call__` function is just a synchronous wrapper
-around the async function.
-The functionality is identical between the two.
-Use the synchronous `__call__` for most workflows; use async `fetch` when batching
-many requests or optimizing download performance.
-Not all data sources have an async implementation, reference
-[earth2studio.data.analysis](../../modules/datasources_analysis.md) for more
-information.
-Async-based data sources provide extremely fast download speeds compared to others,
-so users should explore and test different ones if possible.
-
-### `earth2studio.data.fetch_data`
-
-The `fetch_data` function is useful for getting a PyTorch tensor and
-coordinate system for a given model.
-This utility fetches data for an array of times and lead times for the specified
-variables.
-For example, in the deterministic workflow `earth2studio.run.deterministic`, it is
-used to get the initial state for the provided prognostic.
+For a single-input model, request its declared variables, history, and geometry:
 
 ```python
---8<-- "earth2studio/run.py:fetch-data"
+from earth2studio.grids import infer_grid
+
+signature = model.input_coords()
+x = fetch_data(
+    GFS(), times, signature.coords["variable"].values,
+    lead_time=signature.coords["lead_time"].values,
+    target_grid=infer_grid(signature),
+    device="cuda:0",
+)
 ```
 
-### `earth2studio.data.fetch_dataframe` and `earth2studio.data.fetch_dataframes`
+Matching grids pass through; exact crops are selected. Otherwise `target_grid`
+uses nearest-neighbor regridding and rejects targets outside source coverage.
+For repeated requests or another method, build a compatible regridder once and
+pass `regridder=...`; `list_regridders(source_grid, target_grid)` lists available
+methods. Temporal reductions happen on the source grid, followed by device
+placement and regridding.
 
-`fetch_dataframe` is the DataFrame counterpart of `fetch_data`: it fetches the
-requested variables and fields from a DataFrame source and records the request time
-in the frame's `attrs["request_time"]`, which data assimilation models read.
-`fetch_dataframes` runs several such requests concurrently. Each request is a source
-and a schema, for example an entry of a data assimilation model's `input_coords()`:
-the schema's `variable` entry lists the variables and its other keys are the fields.
-A list of `(source, schema)` pairs returns a list of frames in the same order, and a
-dict of named pairs returns a dict.
+`RegriddedSource` combines a source and reusable regridder. `CompositeSource` joins
+analysis sources supplying different variables on a shared grid;
+`CompositeForecastSource` also supports forecast sources.
+
+### Temporal Statistics
+
+For a source supporting the requested statistic:
 
 ```python
+field = fetch_data(source, times, np.array(["t2m:mean:24h"]))
+```
+
+Windows are left-open and right-closed: a six-hourly source includes samples at
+`T-18h`, `T-12h`, `T-6h`, and `T` for a 24-hour mean ending at `T`. NaN samples
+propagate. Forecast windows must stay within the requested initialization's
+available leads. Summing stored accumulations with overlapping windows can
+double-count totals; check the source's temporal-statistics documentation.
+The output's `earth2studio_statistics` metadata describes the reduction performed.
+See [E2S-03: Time Statistics](../../specs/E2S-03_TIME_STATISTICS_SPEC.md) for label
+syntax, supported sources, and calendar-day windows.
+
+### Tabular Observations
+
+`fetch_dataframe` fetches requested variables and fields and records
+`attrs["request_time"]` for assimilation models. `fetch_dataframes` makes multiple
+requests concurrently. For a model whose inputs are all observation schemas:
+
+```python
+from earth2studio.data import fetch_dataframes
+
 schemas = model.input_coords()
-obs = fetch_dataframes(list(zip(sources, schemas)), time)
-analysis = model(*obs)
+observations = fetch_dataframes(list(zip(sources, schemas)), times)
+analysis = model(*observations)
 ```
 
-### `earth2studio.data.prep_data_array`
+Each `(source, schema)` pair uses the schema's `variable` entry for variables and
+other keys for fields. A list returns frames in the same order; a dictionary of
+named requests returns a dictionary. Prepare mixed gridded/tabular slots separately.
 
-The `prep_data_array` function is another useful utility when interacting more directly
-with a data source.
-This function takes an Xarray data array and returns a tensor and coordinate system to
-be used with other components.
-Typically, it is used as part of various utils in Earth2Studio, but may prove
-useful to users implementing custom data sources where greater control is needed.
+## Create Your Own Source
 
-## Custom Data Sources
+Wrap a local dataset or service in a callable that follows the appropriate source
+interface. Translate variable names and units, preserve request order and grid
+metadata, and report unsupported times or variables explicitly. Accept `device`
+in the constructor and expose the configured device on the instance.
 
-Custom data sources are often essential when working with large or on-prem
-datasets.
-So long as the data source can satisfy the API outlined in the interface above, it can
-integrate seamlessly into Earth2Studio.
-We recommend that you review the [extension examples](../../examples/index.md#extend)
-examples, which will step you through the basic process of implementing your own
-data source.
+The [earth2studio-create-datasource skill][datasource-skill] provides templates for
+all four source types. Ask your agent to create a wrapper in your project, using
+sample files or service responses to verify indexing, units, coordinates, and
+device placement. See the [extension examples](../../examples/index.md#extend).
 
-## Contributing a Datasource
-
-We are always looking for new remote data stores that our users may be interested in for
-running inference.
-It's essential to make sure data sources can be accessed by all users and allow the
-partial downloads of the data based on the users requests.
-If you happen to manage a data source or have a data source in mind,
-[open an issue](https://github.com/NVIDIA/earth2studio/issues) on the repo and we can discuss.
+[datasource-skill]: https://github.com/NVIDIA/earth2studio/tree/1.0.0-rc/skills/earth2studio-create-datasource

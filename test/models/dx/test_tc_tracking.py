@@ -17,12 +17,40 @@
 import numpy as np
 import pytest
 import torch
+import xarray as xr
 
+import earth2studio.models.dx.tc_tracking as tracking
+from earth2studio.models.conformance import (
+    check_diagnostic_contract,
+)
 from earth2studio.models.dx import (
     TCTrackerVitart,
     TCTrackerWuDuan,
 )
-from earth2studio.utils.coords import CoordSystem
+from earth2studio.utils import coord_array_like
+from earth2studio.utils.cupy import from_torch
+from earth2studio.utils.imports import OptionalDependencyFailure
+
+
+@pytest.fixture(autouse=True)
+def optional_backend(request, monkeypatch):
+    if (
+        "device" in request.fixturenames
+        and request.getfixturevalue("device").startswith("cuda")
+        and not torch.cuda.is_available()
+    ):
+        pytest.skip("CUDA unavailable")
+    if tracking.KDTree is None:
+        if request.node.name.startswith(
+            "test_cyclone_tracking"
+        ) or request.node.name.startswith("test_get_local_max"):
+            pytest.skip("Cyclone image-processing dependencies unavailable")
+        monkeypatch.delitem(
+            OptionalDependencyFailure.failures, tracking.__file__, raising=False
+        )
+        from scipy.spatial import KDTree
+
+        monkeypatch.setattr(tracking, "KDTree", KDTree)
 
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
@@ -289,7 +317,7 @@ def test_cyclone_tracking_wuduan(num_timesteps, tc_included, device):
     lons = np.linspace(0, 360, width, endpoint=False)
 
     # Initialize the CycloneTrackingVorticity model
-    ct = TCTrackerWuDuan()
+    ct = TCTrackerWuDuan().to(device)
 
     for t in range(num_timesteps):
         current_center_lat = initial_center_lat + lat_movement[t]
@@ -372,17 +400,17 @@ def test_cyclone_tracking_wuduan(num_timesteps, tc_included, device):
         x[t, 2] = 100 * msl  # msl
 
     # Set up mock coordinates dictionary
-    coords = CoordSystem(
+    coords = coord_array_like(
+        ct.input_coords().rename(batch="time"),
         {
             "time": np.array([1]),
-            "variable": ct.input_coords()["variable"],
-            "lat": lats,
-            "lon": lons,
-        }
+        },
     )
     # Forward pass through the model
     for t in range(x.shape[0]):
-        y, c = ct(x[t : t + 1], coords)
+        output = ct(from_torch(x[t : t + 1], coords))
+        y, _ = output.e2s.to_torch()
+        c = output.coords
 
     if not tc_included:
         assert torch.all(y.isnan())
@@ -406,6 +434,26 @@ def test_cyclone_tracking_wuduan(num_timesteps, tc_included, device):
             y[0, 0, t, 3].cpu(), np.sqrt([max_10m**2 + max_10m**2]), rtol=1e-1
         )
     assert y.device == torch.device(device)
+
+
+def test_tc_tracker_wu_duan_conformance(monkeypatch):
+    model = TCTrackerWuDuan()
+    signature = model.input_coords()
+    assert isinstance(signature, xr.DataArray)
+    assert signature.data.nbytes == 0
+    assert signature.attrs["earth2studio_grid_id"] == "latlon-0.25deg"
+    output = model.output_coords(signature)
+    assert output.dims == ("batch", "path_id", "step", "variable")
+    assert output.data.nbytes == 0
+    assert "earth2studio_grid_id" not in output.attrs
+    # Track counts are data-dependent; exercise fields in _check_track_field.
+    assert check_diagnostic_contract(model, forward=False) == [
+        "D10: model does not declare itself stochastic",
+        "D5: forward check disabled",
+        "D6: forward check disabled",
+        "D9: forward check disabled",
+    ]
+    _check_track_field(model, monkeypatch)
 
 
 @pytest.mark.parametrize("num_timesteps", [1, 2])
@@ -442,7 +490,7 @@ def test_cyclone_tracking_vitart(num_timesteps, tc_included, device):
     lons = np.linspace(0, 360, width, endpoint=False)
 
     # Initialize the CycloneTracking model
-    ct = TCTrackerVitart()
+    ct = TCTrackerVitart().to(device)
 
     for t in range(num_timesteps):
         current_center_lat = initial_center_lat + lat_movement[t]
@@ -553,18 +601,18 @@ def test_cyclone_tracking_vitart(num_timesteps, tc_included, device):
         x[t, 7] = z200
 
     # Set up mock coordinates dictionary
-    coords = CoordSystem(
+    coords = coord_array_like(
+        ct.input_coords().rename(batch="time"),
         {
-            "time": np.array(list(range(0, num_timesteps))),
-            "variable": ct.input_coords()["variable"],
-            "lat": lats,
-            "lon": lons,
-        }
+            "time": np.array([1]),
+        },
     )
 
     # Forward pass through the model
     for t in range(x.shape[0]):
-        y, c = ct(x[t : t + 1], coords)
+        output = ct(from_torch(x[t : t + 1], coords))
+        y, _ = output.e2s.to_torch()
+        c = output.coords
 
     if not tc_included:
         assert torch.all(y.isnan())
@@ -588,3 +636,72 @@ def test_cyclone_tracking_vitart(num_timesteps, tc_included, device):
             y[0, 0, t, 3].cpu(), np.sqrt([max_10m**2 + max_10m**2]), rtol=1e-1
         )  # z
     assert y.device == torch.device(device)
+
+
+def test_tc_tracker_vitart_conformance(monkeypatch):
+    model = TCTrackerVitart()
+    signature = model.input_coords()
+    assert isinstance(signature, xr.DataArray)
+    assert signature.data.nbytes == 0
+    output = model.output_coords(signature)
+    assert output.dims == ("batch", "path_id", "step", "variable")
+    assert output.data.nbytes == 0
+    # Track counts are data-dependent; exercise fields in _check_track_field.
+    assert check_diagnostic_contract(model, forward=False) == [
+        "D10: model does not declare itself stochastic",
+        "D5: forward check disabled",
+        "D6: forward check disabled",
+        "D9: forward check disabled",
+    ]
+    _check_track_field(model, monkeypatch)
+
+
+def _check_track_field(model, monkeypatch):
+    if tracking.skimage_peak_local_max is None:
+        monkeypatch.setattr(
+            model,
+            "_find_centers",
+            lambda *args, **kwargs: torch.tensor(
+                [[20.0, 80.0, 98000.0, 30.0]], device=args[0].device
+            ),
+        )
+    device = "cuda:0" if torch.cuda.is_available() else "cpu"
+    model.to(device)
+    signature = coord_array_like(model.input_coords(), {"batch": [0]}).isel(
+        batch=0, drop=True
+    )
+    field = from_torch(torch.zeros(signature.shape), signature).expand_dims(
+        member=["a", "b"], time=[np.datetime64("2024-01-01")]
+    )
+    field = field.assign_coords(
+        valid_time=("time", [np.datetime64("2024-01-01")]),
+        units=("variable", ["input"] * field.sizes["variable"]),
+    )
+    field.name = "cyclones"
+    field.attrs["nested"] = {"owner": ["caller"]}
+    field.encoding = {"nested": {"owner": ["caller"]}}
+    before = field.copy(deep=True)
+    planned = model.output_coords(field)
+    assert planned.data.nbytes == 0
+    first = model(field)
+    frozen = first.copy(deep=True)
+    second = model(field)
+    assert second.sizes["step"] == 2
+    assert first.dims == (*field.dims[:-3], "path_id", "step", "variable")
+    assert first.coords["variable"].values.tolist() == [
+        "tclat",
+        "tclon",
+        "tcmsl",
+        "tcw10m",
+    ]
+    assert "units" not in first.coords and "lat" not in first.coords
+    assert "earth2studio_grid_id" not in first.attrs
+    assert first.name == field.name and first.encoding == field.encoding
+    np.testing.assert_array_equal(first.valid_time, field.valid_time)
+    xr.testing.assert_identical(first, frozen)
+    second.attrs["nested"]["owner"].append("output")
+    second.encoding["nested"]["owner"].append("output")
+    xr.testing.assert_identical(field, before)
+    assert field.encoding == before.encoding
+    model.reset_path_buffer()
+    assert model.path_buffer.device == torch.device(device)

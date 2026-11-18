@@ -157,15 +157,34 @@ io_unperturbed = ensemble(
 # To switch out the model, consider removing the `unsqueeze` .
 
 # %%
-model.front_hook = lambda x, coords: (
-    x
-    - 0.1
-    * x.var(dim=0)
-    * (x - model.center.unsqueeze(-1))
-    / (model.scale.unsqueeze(-1)) ** 2
-    + 0.1 * (x - x.mean(dim=0)),
-    coords,
+import xarray as xr
+
+center = xr.DataArray(
+    model.center.detach().cpu().numpy().reshape(-1),
+    dims="variable",
+    coords={"variable": model.input_coords().coords["variable"]},
 )
+scale = xr.DataArray(
+    model.scale.detach().cpu().numpy().reshape(-1),
+    dims="variable",
+    coords={"variable": model.input_coords().coords["variable"]},
+)
+if model.center.is_cuda:
+    center = center.e2s.as_cupy(device=model.center.device.index)
+    scale = scale.e2s.as_cupy(device=model.scale.device.index)
+
+
+def perturb_model(x: xr.DataArray) -> xr.DataArray:
+    """Perturb the labelled ensemble history seen by the iterator hook."""
+    with xr.set_options(keep_attrs=True):
+        return (
+            x
+            - 0.1 * x.var("ensemble", ddof=1) * (x - center) / scale**2
+            + 0.1 * (x - x.mean("ensemble"))
+        )
+
+
+model.front_hook = perturb_model
 # Also could use model.rear_hook = ...
 
 io_perturbed = ZarrBackend(

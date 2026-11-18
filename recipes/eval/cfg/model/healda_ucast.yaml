@@ -1,4 +1,6 @@
 # HealDA-initialized UCast forecast — the DA analysis becomes the forecast IC.
+# Used with `runner: assimilation_forecast` (src.runners.assimilation): the
+# forecast runner reads its initial condition from the DA analyses.
 #
 # The UCast sibling of healda_dlwp: UCast is a 12-hour-step, 1.5-degree (240×121)
 # history model (inputs at t-12h and t), so each IC assembles TWO HealDA analyses.
@@ -10,8 +12,8 @@
 # that fill set.  `fill_missing_variables: true` enables this fallback (pure-DA ICs
 # would require false).
 #
-# Obs are predownloaded to obs_*.parquet stores (see cfg/model/healda.yaml for the
-# cache rationale).
+# Obs are predownloaded to <slot>.parquet stores (see cfg/model/healda.yaml for
+# the cache rationale).
 da:
     architecture: earth2studio.models.da.HealDA
     load_args:

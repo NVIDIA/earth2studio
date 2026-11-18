@@ -18,7 +18,7 @@
 
 These are construction-based (no real package / no GPU forward): they exercise
 the metadata-driven plumbing — per-mode parsing, the output->lexicon coord
-mapping, the inline-constraint parsing, and crucially that ``set_domain()``
+mapping, the inline-constraint parsing, and crucially that ``with_region()``
 preserves the full per-resolution/per-mode config.
 """
 
@@ -37,9 +37,72 @@ import numpy as np
 import pytest
 import torch
 import xarray as xr
+from test_corrdiff import _input_field
 
+import earth2studio.models.dx.corrdiff_cosmo_era5 as cosmo_module
+from earth2studio.grids import Region
 from earth2studio.models.auto import Package
+from earth2studio.models.base import DomainAdaptable
+from earth2studio.models.conformance import (
+    check_diagnostic_contract,
+)
 from earth2studio.models.dx.corrdiff_cosmo_era5 import CorrDiffCosmoEra5
+from earth2studio.utils.coords import handshake_dataarray
+from earth2studio.utils.imports import OptionalDependencyFailure
+
+
+@pytest.fixture(autouse=True)
+def offline_cosmo(monkeypatch):
+    if cosmo_module.cos_zenith_angle is not None:
+        return
+    monkeypatch.delitem(
+        OptionalDependencyFailure.failures, cosmo_module.__file__, raising=False
+    )
+    monkeypatch.setattr(
+        cosmo_module,
+        "cos_zenith_angle",
+        lambda dt, lon, lat: np.full_like(lat, 1 if dt.hour == 12 else -1),
+    )
+
+    class Scheduler:
+        def __init__(self, sigma_min, sigma_max, rho):
+            self.sigma_min, self.sigma_max, self.rho = sigma_min, sigma_max, rho
+
+        def get_denoiser(self, x0_predictor=None, score_predictor=None):
+            return x0_predictor
+
+    def sample(denoiser, x, scheduler, num_steps, solver):
+        steps = (
+            torch.linspace(
+                scheduler.sigma_max ** (1 / scheduler.rho),
+                scheduler.sigma_min ** (1 / scheduler.rho),
+                num_steps,
+                device=x.device,
+                dtype=x.dtype,
+            )
+            ** scheduler.rho
+        )
+        steps = torch.cat((steps, steps.new_zeros(1)))
+        for t, nxt in zip(steps[:-1], steps[1:]):
+            d = (x - denoiser(x, t)) / t
+            trial = x + (nxt - t) * d
+            if solver == "heun" and nxt > 0:
+                d2 = (trial - denoiser(trial, nxt)) / nxt
+                trial = x + (nxt - t) * (d + d2) / 2
+            x = trial
+        return x
+
+    monkeypatch.setattr(cosmo_module, "EDMNoiseScheduler", Scheduler, raising=False)
+    monkeypatch.setattr(cosmo_module, "sample", sample, raising=False)
+    monkeypatch.setattr(
+        cosmo_module, "DiT", types.SimpleNamespace(from_checkpoint=None), raising=False
+    )
+    monkeypatch.setattr(
+        cosmo_module,
+        "EDMPreconditioner",
+        types.SimpleNamespace(from_checkpoint=None),
+        raising=False,
+    )
 
 
 class PhooNet(torch.nn.Module):
@@ -214,12 +277,21 @@ def test_corrdiff_cosmo_era5_call():
         }
     )
     x = torch.randn(1, 2, len(ERA5_VARIABLES), len(ic["lat"]), len(ic["lon"]))
-    out, out_coords = dx(x, coords)
+    field = dx(_input_field(dx, x, coords))
+    declaration = dx.output_coords(dx.input_coords())
+    assert declaration.data.nbytes == 0
+    assert declaration.attrs["earth2studio_dynamic_dims"] == ("batch", "time")
+    handshake_dataarray(field, declaration)
+    assert field.dims == ("batch", "time", "sample", "variable", "y", "x")
+    out_coords = field.coords
+    out = field.transpose(
+        "batch", "sample", "time", "variable", "y", "x"
+    ).e2s.to_torch()[0]
 
     H, W = dx.lat_output_numpy.shape
     assert out.shape == (1, 2, 2, len(OUTPUT_VARIABLES), H, W)
     assert torch.isfinite(out).all()
-    assert list(out_coords["variable"]) == [
+    assert out_coords["variable"].values.tolist() == [
         "u10m",
         "t2m",
         "tp",
@@ -237,6 +309,19 @@ def test_corrdiff_cosmo_era5_call():
     assert out[0, 0, 1, sw].abs().max() < 1e-3
 
 
+def test_corrdiff_cosmo_era5_conformance():
+    ov = OUTPUT_VARIABLES
+    dx = _build(
+        mode="diffusion",
+        regression_model=None,
+        diffusion_model=PhooDiffusionDiT(len(ov), gain=0.5),
+        number_of_samples=1,
+        channel_transforms={},
+        constraints={},
+    )
+    assert check_diagnostic_contract(dx) == []
+
+
 @pytest.mark.parametrize("number_of_samples", [1, 3])
 def test_corrdiff_cosmo_era5_samples(number_of_samples):
     """Generative sample dim + diffusion __call__ plumbing with a mock EDM net."""
@@ -246,18 +331,20 @@ def test_corrdiff_cosmo_era5_samples(number_of_samples):
         regression_model=None,
         diffusion_model=PhooDiffusionDiT(len(ov), gain=0.5),
         number_of_samples=number_of_samples,
-        seed=0,
         channel_transforms={},
         constraints={},
     )
+    dx.set_rng(0)
     x, coords = _diffusion_coords(dx)
-    out, oc = dx(x, coords)
+    field = dx(_input_field(dx, x, coords))
+    oc = field.coords
+    out = field.e2s.to_torch()[0]
     H, W = dx.lat_output_numpy.shape
     assert "sample" in oc and len(oc["sample"]) == number_of_samples
-    assert out.shape == (1, number_of_samples, 1, len(ov), H, W)
+    assert out.shape == (1, 1, number_of_samples, len(ov), H, W)
     assert torch.isfinite(out).all()
     if number_of_samples > 1:
-        assert not torch.allclose(out[0, 0], out[0, 1])
+        assert not torch.allclose(out[0, 0, 0], out[0, 0, 1])
 
 
 def test_diffusion_euler_differs_from_heun():
@@ -270,7 +357,6 @@ def test_diffusion_euler_differs_from_heun():
             regression_model=None,
             diffusion_model=PhooDiffusionDiT(len(ov), gain=0.5),
             number_of_samples=1,
-            seed=0,
             solver=solver,
             channel_transforms={},
             constraints={},
@@ -278,9 +364,11 @@ def test_diffusion_euler_differs_from_heun():
 
     dx_heun = _build_solver("heun")
     dx_euler = _build_solver("euler")
+    dx_heun.set_rng(0)
+    dx_euler.set_rng(0)
     x, coords = _diffusion_coords(dx_heun)
-    out_heun, _ = dx_heun(x, coords)
-    out_euler, _ = dx_euler(x, coords)
+    out_heun = dx_heun(_input_field(dx_heun, x, coords)).e2s.to_torch()[0]
+    out_euler = dx_euler(_input_field(dx_euler, x, coords)).e2s.to_torch()[0]
     H, W = dx_heun.lat_output_numpy.shape
     assert out_euler.shape == (1, 1, 1, len(ov), H, W)
     assert torch.isfinite(out_euler).all()
@@ -300,18 +388,20 @@ def test_call_end_to_end_with_hub():
         lon=ic["lon"],
     )
     x = torch.randn(1, 1, len(ERA5_VARIABLES), len(ic["lat"]), len(ic["lon"]))
-    out, oc = dx(x, coords)
+    field = dx(_input_field(dx, x, coords))
+    oc = field.coords
+    out = field.e2s.to_torch()[0]
     H, W = dx.lat_output_numpy.shape
-    assert out.shape == (1, dx.number_of_samples, 1, len(ov) + 2, H, W)
-    assert list(oc["variable"])[-2:] == ["u35m", "v35m"]
+    assert out.shape == (1, 1, dx.number_of_samples, len(ov) + 2, H, W)
+    assert oc["variable"].values.tolist()[-2:] == ["u35m", "v35m"]
     assert torch.isfinite(out).all()
 
 
-# ── set_domain tests ────────────────────────────────────────────────────────
+# ── regional view tests ────────────────────────────────────────────────────────
 
 
-def test_set_domain_preserves_config():
-    """set_domain() must carry through EVERY per-mode/per-resolution field."""
+def test_with_region_preserves_config():
+    """with_region() must carry through EVERY per-mode/per-resolution field."""
     dx = _build(
         number_of_steps=12,
         sigma_min=0.01,
@@ -321,9 +411,11 @@ def test_set_domain_preserves_config():
         number_of_samples=3,
         amp=True,
         physical_clamp=False,
-        seed=42,
     )
-    cr = dx.set_domain(lat_min=48.0, lat_max=52.0, lon_min=8.0, lon_max=13.0)
+    dx.set_rng(42)
+    cr = dx.with_region(Region.box(8.0, 48.0, 13.0, 52.0))
+    assert cr._rng_generator is not dx._rng_generator
+    assert torch.equal(cr._rng_generator.get_state(), dx._rng_generator.get_state())
 
     assert cr._has_constraints == dx._has_constraints
     assert sorted(cr._bound_lo) == sorted(dx._bound_lo)
@@ -343,7 +435,6 @@ def test_set_domain_preserves_config():
         "number_of_samples",
         "amp",
         "physical_clamp",
-        "seed",
     ):
         assert getattr(cr, attr) == getattr(dx, attr), attr
     assert cr.output_variables == dx.output_variables
@@ -357,20 +448,22 @@ def test_set_domain_preserves_config():
     assert cr.static_invariants.shape[-2:] == cr.lat_output_grid.shape
 
 
-def test_set_domain_halo_clamps_at_grid_edge():
+def test_with_region_halo_clamps_at_grid_edge():
     """When the halo would extend past the grid edge it is clamped."""
     dx = _build()
+    dx.region_halo = 2
     with pytest.warns(UserWarning, match="clamped at the grid edge"):
-        cr = dx.set_domain(47.5, 50.0, 9.0, 11.0, halo=2)
-    assert cr._halo == (1, 2, 2, 2)
+        cr = dx.with_region(Region.box(9.0, 47.5, 11.0, 50.0))
+    # The bracketed block starts at the top row and one column in from the left
+    assert cr._halo == (0, 2, 1, 2)
 
 
-def test_set_domain_snaps_run_grid_to_patch():
-    """For a real DiT (patch_size>1) set_domain snaps the RUN grid to a multiple
+def test_with_region_snaps_run_grid_to_patch():
+    """For a real DiT (patch_size>1) with_region snaps the RUN grid to a multiple
     of patch_size."""
     dx = _build()
     dx._patch_size = 2
-    cr = dx.set_domain(49.5, 51.3, 9.5, 11.5)
+    cr = dx.with_region(Region.box(9.5, 49.5, 11.5, 51.3))
     rg = tuple(cr.lat_output_grid.shape)
     assert rg[0] % 2 == 0 and rg[1] % 2 == 0
     top, bot, left, right = cr._halo
@@ -396,35 +489,151 @@ def _attach_extended_grid(
     return dx
 
 
-def test_set_domain_extended_footprint():
-    """set_domain uses extended grid for OOD margins."""
+def test_with_region_extended_footprint():
+    """with_region uses extended grid for OOD margins."""
     inside = _attach_extended_grid(_build())
-    sub = inside.set_domain(49.0, 51.0, 9.0, 11.0)
+    sub = inside.with_region(Region.box(9.0, 49.0, 11.0, 51.0))
     assert isinstance(sub, CorrDiffCosmoEra5)
     assert sub.lat_output_grid.shape[0] < inside.lat_output_grid.shape[0]
     margin = _attach_extended_grid(_build())
-    sub2 = margin.set_domain(53.3, 54.0, 9.0, 11.0)
+    sub2 = margin.with_region(Region.box(9.0, 53.3, 11.0, 54.0))
     assert isinstance(sub2, CorrDiffCosmoEra5)
     assert sub2.lat_output_numpy.max() > 53.0
 
 
-def test_set_domain_extended_state_guards():
+def test_with_region_extended_state_guards():
     """Extended grid state guards fire when arrays are incomplete."""
     dx = _attach_extended_grid(_build())
     dx._ext_lon_numpy = None
     with pytest.raises(RuntimeError, match="extended grid arrays are not set"):
-        dx.set_domain(49.0, 51.0, 9.0, 11.0)
+        dx.with_region(Region.box(9.0, 49.0, 11.0, 51.0))
     dx2 = _attach_extended_grid(_build())
     dx2._ext_static_numpy = None
     with pytest.raises(RuntimeError, match="extended static array is not set"):
-        dx2.set_domain(49.0, 51.0, 9.0, 11.0)
+        dx2.with_region(Region.box(9.0, 49.0, 11.0, 51.0))
+
+
+# ── with_region (DomainAdaptable) tests ─────────────────────────────────────
+
+
+def _output_grid(dx: CorrDiffCosmoEra5) -> tuple[np.ndarray, np.ndarray]:
+    out = dx.output_coords(dx.input_coords())
+    return np.asarray(out["lat"]), np.asarray(out["lon"])
+
+
+def test_with_region_view():
+    """A view covers the box, shares the network and leaves the parent unchanged."""
+    dx = _build()
+    assert isinstance(dx, DomainAdaptable)
+    dx.set_rng(7)
+    before = dx.output_coords(dx.input_coords())
+    view = dx.with_region(Region.box(9.2, 49.0, 11.5, 51.2))
+
+    assert isinstance(view, CorrDiffCosmoEra5)
+    assert view.regression_model is dx.regression_model
+    lat, lon = _output_grid(view)
+    # Cells bracketing the box: its edges lie within the view's grid.
+    assert lat.min() <= 49.0 and lat.max() >= 51.2
+    assert lon.min() <= 9.2 and lon.max() >= 11.5
+    assert lat.size < dx.lat_output_numpy.size
+    assert view.static_invariants.shape[-2:] == lat.shape
+    # Independent copy of the parent's noise stream
+    assert view._rng_generator is not dx._rng_generator
+    assert torch.equal(view._rng_generator.get_state(), dx._rng_generator.get_state())
+    # The parent is unchanged
+    after = dx.output_coords(dx.input_coords())
+    np.testing.assert_array_equal(after["lat"], before["lat"])
+    np.testing.assert_array_equal(after["lon"], before["lon"])
+    assert dx.lat_output_numpy.shape == (8, 8)
+
+    # A view reaches the full footprint, outside its own crop
+    far = Region.box(12.5, 47.5, 13.5, 48.5)
+    from_view, from_root = view.with_region(far), dx.with_region(far)
+    for a, b in zip(_output_grid(from_view), _output_grid(from_root)):
+        np.testing.assert_array_equal(a, b)
+    assert _output_grid(from_root)[1].max() > lon.max()
+
+
+@pytest.mark.parametrize(
+    "region",
+    [
+        Region.band(48.0, 50.0),
+        Region.rectangle(50.0, 10.0, 1e5),
+        Region.circle(50.0, 10.0, 1e5),
+        Region.box(170.0, 48.0, -170.0, 50.0),
+        Region.box(0.0, 48.0, 10.0, 50.0),
+        Region.box(9.0, 48.0, 10.0, 60.0),
+    ],
+)
+def test_with_region_rejects(region):
+    with pytest.raises(ValueError):
+        _build().with_region(region)
+
+
+def test_with_region_halo_and_margin():
+    """region_halo and region_margin_deg configure the views with_region makes."""
+    dx = _build()
+    box = Region.box(9.2, 49.0, 11.5, 51.2)
+    plain = dx.with_region(box)
+    dx.region_halo = 1
+    dx.region_margin_deg = 2.0
+    haloed = dx.with_region(box)
+    assert plain._halo == (0, 0, 0, 0)
+    assert haloed._halo == (1, 1, 1, 1)
+    assert haloed.region_halo == 1 and haloed.region_margin_deg == 2.0
+    # The halo is run, then trimmed: same reported grid
+    for a, b in zip(_output_grid(haloed), _output_grid(plain)):
+        np.testing.assert_array_equal(a, b)
+    assert haloed.lat_output_grid.shape[0] == plain.lat_output_grid.shape[0] + 2
+    # The input grid keeps the margin around the (halo-expanded) run grid
+    assert haloed.lat_input_numpy.min() <= np.floor(haloed.lat_output_numpy.min()) - 2
+    assert plain.lat_input_numpy.min() > haloed.lat_input_numpy.min()
+
+
+def test_with_region_extended_margin():
+    """Boxes in the extended margin warn; beyond it they raise."""
+    from loguru import logger
+
+    dx = _attach_extended_grid(_build())
+    messages: list[str] = []
+    sink = logger.add(lambda m: messages.append(str(m)), level="WARNING")
+    try:
+        inside = dx.with_region(Region.box(9.0, 49.0, 11.0, 51.0))
+        assert not messages
+        view = dx.with_region(Region.box(9.0, 53.3, 11.0, 54.0))
+    finally:
+        logger.remove(sink)
+    assert any("out-of-distribution" in m for m in messages)
+    assert view.lat_output_numpy.max() >= 54.0
+    assert inside.static_invariants.shape[-2:] == inside.lat_output_grid.shape
+    # A view still reaches the extended margin
+    np.testing.assert_array_equal(
+        inside.with_region(Region.box(9.0, 53.3, 11.0, 54.0)).lat_output_numpy,
+        view.lat_output_numpy,
+    )
+    with pytest.raises(ValueError, match="footprint"):
+        dx.with_region(Region.box(9.0, 53.0, 11.0, 55.0))
+
+
+def test_with_region_views_follow_shared_network():
+    """Moving a view moves the shared network; the parent follows it."""
+    dx = _build(regression_model=PhooRegDiT(len(OUTPUT_VARIABLES)))
+    dx.regression_model.register_parameter("weight", torch.nn.Parameter(torch.zeros(1)))
+    view = dx.with_region(Region.box(9.2, 49.0, 11.5, 51.2))
+    view.to("meta")
+    assert dx.regression_model.weight.device.type == "meta"
+    assert dx.era5_center.device.type == "cpu"
+    dx._follow_network()
+    assert dx.era5_center.device.type == dx.lat_output_grid.device.type == "meta"
 
 
 def test_forward_core_halo_trims_border():
     """Halo-expanded run grid is trimmed back to the bbox in the output."""
     dx = _build(regression_model=PhooRegDiT(len(OUTPUT_VARIABLES)))
-    plain = dx.set_domain(48.0, 52.0, 8.0, 13.0, halo=0)
-    haloed = dx.set_domain(48.0, 52.0, 8.0, 13.0, halo=1)
+    box = Region.box(8.0, 48.0, 13.0, 52.0)
+    plain = dx.with_region(box)
+    dx.region_halo = 1
+    haloed = dx.with_region(box)
     assert haloed._halo != (0, 0, 0, 0)
     Hp, Wp = plain.lat_output_numpy.shape
 
@@ -437,7 +646,7 @@ def test_forward_core_halo_trims_border():
         lon=ic["lon"],
     )
     x = torch.randn(1, 1, len(ERA5_VARIABLES), len(ic["lat"]), len(ic["lon"]))
-    out, _ = haloed(x, coords)
+    out = haloed(_input_field(haloed, x, coords)).e2s.to_torch()[0]
     assert out.shape[-2:] == (Hp, Wp)
     assert torch.isfinite(out).all()
 
@@ -632,8 +841,8 @@ def test_corrdiff_cosmo_era5_exceptions():
         lat=ic["lat"],
         lon=ic["lon"],
     )
-    with pytest.raises((KeyError, ValueError), match="required dim variable"):
-        dx(x, bad_var)
+    with pytest.raises((KeyError, ValueError)):
+        dx(_input_field(dx, x, bad_var))
     bad_order = OrderedDict(
         batch=np.array([0]),
         time=t,
@@ -641,8 +850,12 @@ def test_corrdiff_cosmo_era5_exceptions():
         lon=ic["lon"],
         lat=ic["lat"],
     )
-    with pytest.raises((KeyError, ValueError), match="index -2"):
-        dx(x, bad_order)
+    with pytest.raises((KeyError, ValueError)):
+        dx(
+            _input_field(dx, x, bad_order).transpose(
+                "batch", "time", "variable", "lon", "lat"
+            )
+        )
 
 
 # ── load_model assembly tests (synthetic local package) ─────────────────────
@@ -993,12 +1206,14 @@ def test_corrdiff_cosmo_era5_package(mode, resolution):
     x = torch.randn(
         1, 1, len(ic["variable"]), len(ic["lat"]), len(ic["lon"]), device=device
     )
-    out, oc = dx(x, coords)
+    field = dx(_input_field(dx, x, coords))
+    oc = field.coords
+    out = field.e2s.to_torch()[0]
     H, W = dx.lat_output_numpy.shape
     assert out.shape == (
         1,
-        dx.number_of_samples,
         1,
+        dx.number_of_samples,
         len(dx._output_coord_variables),
         H,
         W,
@@ -1010,7 +1225,7 @@ def test_corrdiff_cosmo_era5_package(mode, resolution):
         if ch not in dx.output_variables:
             continue
         i = dx.output_variables.index(ch)
-        sl = out[0, :, 0, i]
+        sl = out[0, 0, :, i]
         if b.get("min") is not None:
             assert sl.min().item() >= b["min"] - 1e-4, f"{ch} below min in {mode}"
         if b.get("max") is not None:

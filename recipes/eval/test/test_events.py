@@ -17,8 +17,8 @@
 """Events: a time window paired with a region (``scoring.events``).
 
 Covers the config parser and its region merge, the initial conditions an
-event adds to a campaign, the wiring into both scoring pathways, and the
-scorecard exporter's event windows on a synthetic score store.
+event adds to a campaign, the wiring into the offline scoring metrics, and
+the scorecard exporter's event windows on a synthetic score store.
 """
 
 from __future__ import annotations
@@ -32,7 +32,7 @@ import numpy as np
 import pytest
 import xarray as xr
 from omegaconf import OmegaConf
-from src.online import parse_online_settings
+from src.campaign import event_initial_times, initial_times
 from src.regions import (
     event_region_name,
     events_from_attrs,
@@ -41,7 +41,6 @@ from src.regions import (
     scoring_regions,
 )
 from src.scoring import instantiate_metrics
-from src.work import build_work_items, event_initial_times
 
 from .conftest import SMALL_LAT, SMALL_LON
 
@@ -262,36 +261,25 @@ class TestEventInitialTimes:
         assert times.count(np.datetime64("2025-01-24T00:00:00")) == 1
 
 
-class TestBuildWorkItemsWithEvents:
+class TestInitialTimesWithEvents:
     def test_events_only(self):
         cfg = OmegaConf.create(
-            {
-                "start_times": None,
-                "ensemble_size": 1,
-                "random_seed": 0,
-                "scoring": {"events": {"storm": _event()}},
-            }
+            {"start_times": None, "scoring": {"events": {"storm": _event()}}}
         )
-        items = build_work_items(cfg)
-        assert [i.time for i in items] == EXPECTED_ICS
+        assert initial_times(cfg) == EXPECTED_ICS
 
     def test_union_with_start_times(self):
         cfg = OmegaConf.create(
             {
                 # One duplicate of an event IC and one IC far away.
                 "start_times": ["2025-03-01 00:00:00", "2025-01-22 00:00:00"],
-                "ensemble_size": 2,
-                "random_seed": 0,
                 "scoring": {"events": {"storm": _event()}},
             }
         )
-        items = build_work_items(cfg)
-        times = sorted({i.time for i in items})
+        times = initial_times(cfg)
+        assert times == sorted(set(times))
         assert len(times) == len(EXPECTED_ICS) + 1
         assert times[-1] == np.datetime64("2025-03-01T00:00:00")
-        assert len(items) == 2 * len(times)
-        # Work items stay time-major, member-minor.
-        assert [i.ensemble_id for i in items[:4]] == [0, 1, 0, 1]
 
     def test_union_with_ic_block(self):
         cfg = OmegaConf.create(
@@ -303,57 +291,26 @@ class TestBuildWorkItemsWithEvents:
                 "scoring": {"events": {"storm": _event()}},
             }
         )
-        times = [i.time for i in build_work_items(cfg)]
-        assert len(times) == len(EXPECTED_ICS) + 2
+        assert len(initial_times(cfg)) == len(EXPECTED_ICS) + 2
 
     def test_no_source_at_all_raises(self):
         cfg = OmegaConf.create(
             {"start_times": None, "scoring": {"events": {"storm": _event(ics=None)}}}
         )
         with pytest.raises(ValueError, match="scoring.events"):
-            build_work_items(cfg)
+            initial_times(cfg)
 
     def test_no_scoring_block_still_works(self):
         cfg = OmegaConf.create({"start_times": ["2025-01-01 00:00:00"]})
-        assert len(build_work_items(cfg)) == 1
+        assert len(initial_times(cfg)) == 1
 
 
 # ---------------------------------------------------------------------------
-# Both scoring pathways see the event's box as a region
+# The offline metrics see the event's box as a region
 # ---------------------------------------------------------------------------
 
 
 class TestPathwayWiring:
-    def test_online_settings(self, tmp_path):
-        cfg = OmegaConf.create(
-            {
-                "output": {"path": str(tmp_path)},
-                "scoring": {
-                    "lat_weights": True,
-                    "regions": {"global": None, "north": NORTH},
-                    "events": {"storm": _event(), "named": _event(region="north")},
-                    "online": {"lsd": True},
-                    "output": {"store_name": "scores.zarr"},
-                },
-            }
-        )
-        settings = parse_online_settings(cfg)
-        assert list(settings.regions) == ["global", "north", "storm"]
-
-    def test_online_settings_events_without_regions(self, tmp_path):
-        cfg = OmegaConf.create(
-            {
-                "output": {"path": str(tmp_path)},
-                "scoring": {
-                    "events": {"storm": _event()},
-                    # LSD needs a whole-grid region; the merge supplies it.
-                    "online": {"lsd": True},
-                    "output": {"store_name": "scores.zarr"},
-                },
-            }
-        )
-        assert list(parse_online_settings(cfg).regions) == ["global", "storm"]
-
     def test_offline_metrics(self):
         cfg = OmegaConf.create(
             {
@@ -371,7 +328,38 @@ class TestPathwayWiring:
         )
         coords = OrderedDict({"lat": SMALL_LAT, "lon": SMALL_LON})
         metrics = instantiate_metrics(cfg, coords)
-        assert list(metrics["rmse"]._per_region) == ["global", "north_event"]
+        assert metrics["rmse"].regions == ["global", "north_event"]
+
+    def test_offline_metrics_from_signature(self):
+        from earth2studio.utils.coords import coord_array
+
+        cfg = OmegaConf.create(
+            {
+                "scoring": {
+                    "lat_weights": True,
+                    "events": {"north_event": _event(region=NORTH)},
+                    "metrics": {
+                        "rmse": {
+                            "_target_": "earth2studio.statistics.rmse",
+                            "reduction_dimensions": ["lat", "lon"],
+                        }
+                    },
+                }
+            }
+        )
+        signature = coord_array(
+            ("lead_time", "variable", "lat", "lon"),
+            {
+                "lead_time": np.array([0], dtype="timedelta64[h]"),
+                "variable": np.array(["t2m"]),
+                "lat": SMALL_LAT,
+                "lon": SMALL_LON,
+            },
+        )
+        metrics = instantiate_metrics(cfg, signature)
+        out = metrics["rmse"].output_coords(signature)
+        assert tuple(out.dims) == ("region", "lead_time", "variable")
+        assert list(out["region"].values) == ["global", "north_event"]
 
 
 # ---------------------------------------------------------------------------
@@ -680,9 +668,6 @@ class TestDropUnscoredTimes:
 
 class TestSubHourlyEvents:
     def test_half_hour_step_gives_a_30_minute_grid(self):
-        from src.regions import parse_events
-        from src.work import event_initial_times
-
         events = parse_events(
             {
                 "storm": _event(
@@ -697,29 +682,7 @@ class TestSubHourlyEvents:
 
     @pytest.mark.parametrize("bad", [0.34, True, "6"])
     def test_non_minute_values_rejected(self, bad):
-        from src.regions import parse_events
-
         with pytest.raises(ValueError, match="ics.step_hours"):
             parse_events(
                 {"storm": _event(ics={"step_hours": bad, "lookback_hours": 1})}
             )
-
-
-class TestSubHourlySteps:
-    def test_verification_times_keep_minutes(self):
-        from src.predownload_utils import compute_verification_times
-
-        t0 = np.datetime64("2025-06-15T12:00")
-        times = compute_verification_times([t0], 3, 10 / 60)
-        assert [str(np.datetime64(t, "m"))[-5:] for t in sorted(times)] == [
-            "12:00",
-            "12:10",
-            "12:20",
-            "12:30",
-        ]
-
-    def test_whole_hours_unchanged(self):
-        from src.predownload_utils import compute_verification_times
-
-        t0 = np.datetime64("2025-06-15T12:00")
-        assert len(compute_verification_times([t0], 2, 6)) == 3

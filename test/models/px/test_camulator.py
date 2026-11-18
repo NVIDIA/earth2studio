@@ -20,9 +20,11 @@ from collections.abc import Iterable
 import numpy as np
 import pytest
 import torch
+import xarray as xr
 
-from earth2studio.data import Random, fetch_data
+from earth2studio.data import Random
 from earth2studio.data.camulator import CAMULATOR_GRID_LAT, CAMULATOR_GRID_LON
+from earth2studio.models.conformance import check_prognostic_contract
 from earth2studio.models.nn.camulator import CamulatorNet
 from earth2studio.models.nn.camulator_physics import (
     GRAVITY,
@@ -35,11 +37,14 @@ from earth2studio.models.px.camulator import (
     _N_STATE,
     _TRACERS,
     DIAGNOSTIC_VARIABLES,
+    FORCING_VARIABLES,
     OUTPUT_VARIABLES,
     PROGNOSTIC_VARIABLES,
     CAMulator,
 )
 from earth2studio.utils import handshake_dim
+from earth2studio.utils.coords import coord_array, coord_array_like
+from earth2studio.utils.cupy import from_torch
 
 H, W = len(CAMULATOR_GRID_LAT), len(CAMULATOR_GRID_LON)
 CUDA = pytest.param(
@@ -102,15 +107,11 @@ def build_model(
     )
 
 
-def random_input(
-    model: CAMulator, time: np.ndarray, device: str
-) -> tuple[torch.Tensor, OrderedDict]:
-    dc = model.input_coords()
-    for key in ("batch", "time", "lead_time", "variable"):
-        del dc[key]
-    lead_time = model.input_coords()["lead_time"]
-    variable = model.input_coords()["variable"]
-    return fetch_data(Random(dc), time, variable, lead_time, device=device)
+def random_input(model: CAMulator, time: np.ndarray, device: str) -> xr.DataArray:
+    signature = coord_array_like(model.input_coords(), {"batch": [0], "time": time})
+    return from_torch(torch.randn(signature.shape, device=device), signature).isel(
+        batch=0, drop=True
+    )
 
 
 def physical_state(device: str) -> torch.Tensor:
@@ -127,6 +128,13 @@ def physical_state(device: str) -> torch.Tensor:
     return x.to(device)
 
 
+def forcing_input(model, x):
+    signature = coord_array_like(x, {"variable": FORCING_VARIABLES})
+    return from_torch(
+        torch.zeros(signature.shape, device=model.device_buffer.device), signature
+    )
+
+
 @pytest.mark.parametrize(
     "time",
     [
@@ -140,26 +148,27 @@ def physical_state(device: str) -> torch.Tensor:
 def test_camulator_call(time, device):
     torch.cuda.empty_cache()
     p = build_model(PhooCamulatorNet()).to(device)
-    x, coords = random_input(p, time, device)
-    x_ref = x.clone()
+    x = random_input(p, time, device)
+    x_ref = x.copy(deep=True)
 
-    out, out_coords = p(x, coords)
+    result = p(x, forcing_input(p, x))
+    out, out_coords = result.e2s.to_torch()
 
     if not isinstance(time, Iterable):
         time = [time]
 
-    assert torch.equal(x, x_ref), "input tensor must not be modified in place"
+    xr.testing.assert_identical(x, x_ref)
     assert out.shape == (len(time), 1, _N_OUT, H, W)
     assert torch.isfinite(out).all()
     # Identity stats and a pass-through core: prognostic output equals the input,
     # except that the tracer fixer clips total water at zero
-    expected = x.clone()
+    expected = x.e2s.to_torch()[0].clone()
     expected[:, :, 96:128].clamp_(min=0.0)
     torch.testing.assert_close(out[:, :, :_N_STATE], expected)
     assert (out_coords["variable"] == np.array(OUTPUT_VARIABLES)).all()
     assert (out_coords["time"] == time).all()
     np.testing.assert_array_equal(
-        out_coords["lead_time"], coords["lead_time"] + np.timedelta64(6, "h")
+        out_coords["lead_time"], x.lead_time.values + np.timedelta64(6, "h")
     )
     handshake_dim(out_coords, "lon", 4)
     handshake_dim(out_coords, "lat", 3)
@@ -178,24 +187,13 @@ def test_camulator_iter(ensemble, device):
     torch.cuda.empty_cache()
     time = np.array([np.datetime64("2001-01-01T00:00")])
     p = build_model(PhooCamulatorNet()).to(device)
-    x, coords = random_input(p, time, device)
-
-    x = x.unsqueeze(0).repeat(ensemble, 1, 1, 1, 1, 1)
-    coords.update({"ensemble": np.arange(ensemble)})
-    coords.move_to_end("ensemble", last=False)
-
-    p_iter = p.create_iterator(x, coords)
+    x = random_input(p, time, device).expand_dims(ensemble=np.arange(ensemble))
+    p_iter = p.create_iterator(x, forcing_input(p, x))
     assert isinstance(p_iter, Iterable)
 
-    # Step 0: initial condition in the output schema, diagnostics NaN-filled
-    out, out_coords = next(p_iter)
-    assert out.shape == (ensemble, 1, 1, _N_OUT, H, W)
-    assert out_coords["lead_time"][0] == np.timedelta64(0, "h")
-    assert (out_coords["variable"] == np.array(OUTPUT_VARIABLES)).all()
-    torch.testing.assert_close(out[:, :, :, :_N_STATE], x)
-    assert torch.isnan(out[:, :, :, _N_STATE:]).all()
-
-    for i, (out, out_coords) in enumerate(p_iter):
+    result = next(p_iter)
+    for i in range(3):
+        out, out_coords = result.e2s.to_torch()
         assert out.shape == (ensemble, 1, 1, _N_OUT, H, W)
         assert torch.isfinite(out).all()
         assert (out_coords["variable"] == np.array(OUTPUT_VARIABLES)).all()
@@ -204,8 +202,9 @@ def test_camulator_iter(ensemble, device):
         assert out_coords["lead_time"][0] == np.timedelta64(6 * (i + 1), "h")
         np.testing.assert_array_equal(out_coords["lat"], CAMULATOR_GRID_LAT)
         np.testing.assert_array_equal(out_coords["lon"], CAMULATOR_GRID_LON)
-        if i > 1:
-            break
+        if i < 2:
+            result = p_iter.send(forcing_input(p, result))
+    p_iter.close()
 
 
 @pytest.mark.parametrize(
@@ -262,7 +261,8 @@ def test_camulator_exceptions(coords):
     shape = [len(v) for v in coords.values()]
     x = torch.randn(*shape)
     with pytest.raises((KeyError, ValueError)):
-        p(x, coords)
+        field = from_torch(x, coord_array(tuple(coords), coords))
+        p(field, forcing_input(p, field))
 
 
 @pytest.mark.parametrize("device", ["cpu", CUDA])
@@ -273,11 +273,12 @@ def test_camulator_postprocess(device):
     p = build_model(PhooCamulatorNet(), conservation_fixers=True, wind_filter=True)
     p = p.to(device)
     x = physical_state(device)
-    coords = p.input_coords()
-    coords["batch"] = np.array([0])
-    coords["time"] = np.array([np.datetime64("2001-01-01T00:00")])
-
-    out, out_coords = p(x, coords)
+    coords = coord_array_like(
+        p.input_coords(),
+        {"batch": [0], "time": np.array([np.datetime64("2001-01-01T00:00")])},
+    )
+    field = from_torch(x, coords)
+    out, out_coords = p(field, forcing_input(p, field)).e2s.to_torch()
     assert out.shape == (1, 1, 1, _N_OUT, H, W)
     assert torch.isfinite(out).all()
 
@@ -300,23 +301,21 @@ def test_camulator_hooks(device):
     the modified state into the next step."""
     torch.cuda.empty_cache()
     p = build_model(PhooCamulatorNet()).to(device)
-    x, coords = random_input(p, np.array([np.datetime64("2001-01-01T00:00")]), device)
-    x = x.unsqueeze(0)
-    coords.update({"batch": np.array([0])})
-    coords.move_to_end("batch", last=False)
+    x = random_input(p, np.array([np.datetime64("2001-01-01T00:00")]), device)
 
-    def rear_hook(y, c):
+    def rear_hook(y):
         # In place, returning the same object. Yielded tensors are inference
         # tensors, so in-place updates must happen under inference mode.
         with torch.inference_mode():
-            y[:, :, :, OUTPUT_VARIABLES.index("t2m")] += 1.0
-        return y, c
+            y.data[:, :, OUTPUT_VARIABLES.index("t2m")] += 1.0
+        return y
 
     p.rear_hook = rear_hook
-    it = p.create_iterator(x, coords)
-    next(it)
-    y1, _ = next(it)
-    y2, _ = next(it)
+    it = p.create_iterator(x, forcing_input(p, x))
+    first = next(it)
+    y1 = first.e2s.to_torch()[0]
+    y2 = it.send(forcing_input(p, first)).e2s.to_torch()[0]
+    x = x.e2s.to_torch()[0]
     t2m = OUTPUT_VARIABLES.index("t2m")
     # Pass-through core: step 2 must see the hooked step-1 state (+1 K), then +1 K again
     torch.testing.assert_close(y1[..., t2m, :, :], x[..., t2m, :, :] + 1.0)
@@ -339,6 +338,26 @@ def test_camulator_water_fix_zero_precip():
     assert torch.isfinite(out).all()
     torch.testing.assert_close(out[0], precip[0])  # unchanged, no NaN
     assert not torch.equal(out[1], precip[1])  # fixer still acts on the other member
+
+
+def test_camulator_conformance(monkeypatch):
+    import earth2studio.models.px.camulator as module
+
+    lat, lon = np.linspace(90, -90, 4), np.arange(8) * 45.0
+    monkeypatch.setattr(module, "CAMULATOR_GRID_LAT", lat)
+    monkeypatch.setattr(module, "CAMULATOR_GRID_LON", lon)
+    p = CAMulator.__new__(CAMulator)
+    torch.nn.Module.__init__(p)
+    p.register_buffer("device_buffer", torch.empty(0))
+    p._dt = np.timedelta64(6, "h")
+    p._normalize_state = lambda x: x[:, :, 0].clone()
+    p.forcing_data_source = None
+    p._prepare_forcing = lambda forcing: forcing.e2s.to_torch()[0][:, :, 0]
+    p._step = lambda x, forcing: torch.cat(
+        [x, torch.zeros(*x.shape[:2], len(DIAGNOSTIC_VARIABLES), 4, 8)], dim=2
+    )
+    p._denormalize_output = lambda x: x.unsqueeze(2)
+    check_prognostic_contract(p)
 
 
 @pytest.mark.parametrize("device", [CUDA])
@@ -365,11 +384,12 @@ def test_camulator_package(device):
     # Random fields are not a valid atmosphere for the real checkpoint; use the
     # normalization center (normalized zero state) as a neutral finite input.
     x = torch.flip(p.center[:_N_STATE], dims=(-2,))[None, None, None]
-    coords = p.input_coords()
-    coords["batch"] = np.array([0])
-    coords["time"] = np.array([np.datetime64("1981-01-01T00:00")])
-
-    out, out_coords = p(x, coords)
+    coords = coord_array_like(
+        p.input_coords(),
+        {"batch": [0], "time": np.array([np.datetime64("1981-01-01T00:00")])},
+    )
+    field = from_torch(x, coords)
+    out, out_coords = p(field, forcing_input(p, field)).e2s.to_torch()
 
     assert out.shape == (1, 1, 1, _N_OUT, H, W)
     assert torch.isfinite(out).all()

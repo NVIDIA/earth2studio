@@ -575,7 +575,7 @@ class GHCNDaily(_GHCNBase):
             coros,
             max_workers=self._async_workers,
             desc="Fetching NOAA GHCN data",
-            verbose=(not self._verbose),
+            verbose=self._verbose,
         )
 
         # Group fetched partitions by product; the date/station masks below
@@ -1141,7 +1141,7 @@ class GHCNHourly(_GHCNBase):
             coros,
             max_workers=self._async_workers,
             desc="Fetching NOAA GHCNh data",
-            verbose=(not self._verbose),
+            verbose=self._verbose,
         )
 
         # Map results back to (station, year)

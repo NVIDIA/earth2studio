@@ -19,13 +19,14 @@ from collections import OrderedDict
 import numpy as np
 import pytest
 import torch
+import xarray as xr
 
 import earth2studio.run as run
 from earth2studio.data import Random
 from earth2studio.io import ZarrBackend
 from earth2studio.models.dx import Identity
 from earth2studio.models.px import Persistence
-from earth2studio.utils.type import CoordSystem
+from earth2studio.utils.coords import coord_array, coord_array_like
 
 
 class PhooDiagnostic(torch.nn.Module):
@@ -36,21 +37,16 @@ class PhooDiagnostic(torch.nn.Module):
         self.in_variable = np.array(in_variable)
         self.out_variable = np.array(out_variable)
 
-    def input_coords(self) -> CoordSystem:
-        return OrderedDict({"batch": np.empty(0), "variable": self.in_variable})
+    def input_coords(self) -> xr.DataArray:
+        return coord_array(
+            ("batch", "variable"), {"variable": self.in_variable}, dynamic=("batch",)
+        )
 
-    def output_coords(self, input_coords: CoordSystem | None = None) -> CoordSystem:
-        return OrderedDict({"batch": np.empty(0), "variable": self.out_variable})
+    def output_coords(self, input_coords: xr.DataArray) -> xr.DataArray:
+        return coord_array_like(input_coords, {"variable": self.out_variable})
 
-    def __call__(self, x, coords):
-        dim = list(coords).index("variable")
-        indexes = np.argwhere(
-            (coords["variable"][:, None] == self.out_variable[None]).sum(axis=1)
-        )[:, 0]
-        out = torch.index_select(x, dim, torch.IntTensor(indexes).to(x.device))
-        out_coords = coords.copy()
-        out_coords["variable"] = self.out_variable
-        return out, out_coords
+    def __call__(self, x):
+        return x.sel(variable=self.out_variable)
 
 
 # This class is used to verify the workflow moved the model onto the right device
@@ -61,11 +57,10 @@ class TestPersistence(Persistence):
 
     def _forward(
         self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
-        assert x.device == self.target_device
-        return super()._forward(x, coords)
+        x: xr.DataArray,
+    ) -> xr.DataArray:
+        assert x.e2s.to_torch()[0].device == self.target_device
+        return super()._forward(x)
 
 
 @pytest.mark.parametrize(

@@ -37,6 +37,8 @@ class GFSLexicon(metaclass=LexiconType):
     https://www.nco.ncep.noaa.gov/pmb/products/gfs/gfs.t00z.pgrb2.0p25.f003.shtml
     """
 
+    TIME_STATISTICS: tuple[str, ...] = ("mean", "sum", "min", "max")
+
     VOCAB = {
         "u10m": "UGRD::10 m above ground",
         "v10m": "VGRD::10 m above ground",
@@ -50,6 +52,7 @@ class GFSLexicon(metaclass=LexiconType):
         "msl": "PRMSL::mean sea level",
         "tcwv": "PWAT::entire atmosphere (considered as a single layer)",
         "tp": "APCP::surface",  # accumulation over the current 6 h bucket; window length grows 1 h to 6 h then restarts
+        "tp06": "APCP::surface",  # trailing six-hour total reconstructed by the data source
         "2d": "DPT::2 m above ground",
         "fg10m": "GUST::surface",  # Surface
         "refc": "REFC::entire atmosphere",
@@ -298,7 +301,7 @@ class GFSLexicon(metaclass=LexiconType):
                 """Modify data value (if necessary)."""
                 return x * 9.81
 
-        elif val == "tp":
+        elif val in ("tp", "tp06"):
 
             # TP in GFS is (kg m-2) param id 228228, convert to (m) param id 228
             def mod(x: np.ndarray) -> np.ndarray:

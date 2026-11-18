@@ -1,63 +1,71 @@
 # Perturbations { #perturbation_userguide }
 
-Perturbations add controlled noise to initial conditions for ensemble generation.
-They are an integral part of ensembling workflows and a variety are built into
-Earth2Studio. These can range from standard noise perturbations to more complex methods
-such as Bred Vector.
+Perturbations generate alternative initial conditions for ensemble forecasts, from
+simple Gaussian noise to spatially correlated noise and bred vectors. Browse the
+[perturbation API](../../modules/perturbation.md) for available methods.
 
-The list of perturbation methods that are already built into Earth2Studio can be found
-in the API documentation [earth2studio.perturbation](../../modules/perturbation.md).
-For complete workflows that use perturbations refer to examples
-`03_ensemble_workflow` and `05_ensemble_workflow_extend`.
-
-## Perturbation Interface
-
-The full requirements for a perturbation method are defined explicitly in the
-`earth2studio/perturbation/base.py`.
+## Interface
 
 ```python
---8<-- "earth2studio/perturbation/base.py:perturbation-interface"
+perturbed = perturbation(x)  # DataArray -> DataArray
 ```
 
-!!! note
-    Perturbation methods modify the input tensor directly. They are not functions that just
-    generate noise.
+A perturbation accepts a field and returns the **perturbed field**, not just noise.
+The [`earth2studio.perturbation.base.Perturbation`][interface] protocol requires only this call;
+inheritance is optional. Built-in methods accept NumPy-, CuPy-, or Torch-backed
+DataArrays and use PyTorch for computation.
 
-## Perturbation Usage
+See [E2S-08: Perturbations][perturbation-spec] for field preservation,
+method-specific dimensions, and backend behavior.
 
-All perturbation methods provide a `__call__` function, which takes in
-a data tensor with coordinate system and returns the perturbed output.
+[perturbation-spec]: ../../specs/E2S-08_PERTURBATION_SPEC.md
+[interface]: https://github.com/NVIDIA/earth2studio/blob/1.0.0-rc/earth2studio/perturbation/base.py
+
+## Usage
+
+Given a `t2m` field `x` in kelvin, construct four members with independent noise:
 
 ```python
-# Assume perturb is an instance of a Perturbation
-x = torch.Tensor(...)  # Input tensor
-coords = CoordSystem(...)  # Coordinate system
-x, coords = perturb(x, coords)  # Apply perturbation
+import numpy as np
+
+from earth2studio.perturbation import Gaussian
+
+ensemble = x.expand_dims(ensemble=np.arange(4))
+perturbation = Gaussian(noise_amplitude=0.1, seed=42)  # 0.1 K for this field
+perturbed = perturbation(ensemble)
 ```
 
-## Normalization in Perturbations
+`Gaussian` uses a private random generator: pass `seed` for reproducible runs, or
+call `perturbation.set_rng(42)` to restart its stream. `torch.manual_seed` does not
+control every perturbation; check the selected method's seeding interface.
 
-As discussed in the [Data Movement](../about/overview.md#data_userguide) section,
-data is always moved between components with physical units.
-This implies that all perturbation methods will apply noise onto unnormalized data.
-This is not ideal for many perturbation methods and it is recommended that you
-extend the perturbation methods to include the normalization (and subsequent
-denormalization).
+Choose amplitudes in the field's physical units. For multiple variables, a
+broadcastable tensor can assign a different scale to each variable. Check the
+selected method's grid and dimension requirements before applying it; Gaussian
+does not impose a spatial layout.
 
-## Custom Perturbation Methods
+The built-in `earth2studio.run.ensemble` workflow expands the ensemble dimension
+and applies the perturbation once to the initial input. For bred vectors, provide
+a model-like callable accepting and returning DataArrays; see the method's API
+for its integration and rescaling options.
 
-Integrating your own perturbation only requires implementing the interface above.
-We recommend that you review [extension examples](../../examples/index.md#extend),
-which will step you through the basic process of implementing your own
-perturbation method.
+## Create Your Own Perturbation
 
-!!! warning
-    TODO: 🚧 Under construction 🚧
+Implement a callable in your own project. For example, a multiplicative perturbation
+can preserve metadata and leave its input untouched:
 
-## Contributing a Perturbation Method
+```python
+import xarray as xr
 
-Want to add your perturbation to the package? We are happy to work with you.
-At a minimum, we expect the perturbation to abide by the defined interface and to meet
-the requirements set forth in our contribution guide.
 
-Open an issue when you have an initial implementation you would like us to review.
+class Scale:
+    def __init__(self, factor: float):
+        self.factor = factor
+
+    def __call__(self, x: xr.DataArray) -> xr.DataArray:
+        return x.copy(data=x.data * self.factor)
+```
+
+Check that your method preserves coordinates and attributes, does not modify its
+input, and produces the intended amplitude in physical units. See the
+[extension examples](../../examples/index.md#extend) for workflow integrations.

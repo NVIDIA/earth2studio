@@ -14,14 +14,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import annotations
+
 from collections.abc import Callable
 
 import torch
+import xarray as xr
 from loguru import logger
 
+from earth2studio.models.utils import fork_rng
 from earth2studio.perturbation.base import Perturbation
 from earth2studio.perturbation.brown import Brown
-from earth2studio.utils.type import CoordSystem
+from earth2studio.utils.cupy import from_torch
 
 
 class BredVector:
@@ -30,8 +34,9 @@ class BredVector:
 
     Parameters
     ----------
-    model : Callable[[torch.Tensor], torch.Tensor]
-        Dynamical model, typically this is the prognostic AI model.
+    model : Callable[[xr.DataArray], xr.DataArray]
+        Dynamical model that maps a DataArray to a DataArray of the same shape,
+        typically this is the prognostic AI model.
         TODO: Update to prognostic looper
     noise_amplitude : float | Tensor, optional
         Noise amplitude, by default 0.05. If a tensor,
@@ -40,8 +45,9 @@ class BredVector:
         Number of integration steps to use in forward call, by default 20
     ensemble_perturb : bool, optional
         Perturb the ensemble in an interacting fashion, by default False
-    seeding_perturbation_method : Perturbation, optional
-        Method to seed the Bred Vector perturbation, by default Brown Noise
+    seeding_perturbation_method : Perturbation | None, optional
+        Method to seed the Bred Vector perturbation. None creates a fresh Brown
+        noise instance so its mutable RNG state is not shared between bred vectors.
 
     Note
     ----
@@ -53,14 +59,11 @@ class BredVector:
 
     def __init__(
         self,
-        model: Callable[
-            [torch.Tensor, CoordSystem],
-            tuple[torch.Tensor, CoordSystem],
-        ],
+        model: Callable[[xr.DataArray], xr.DataArray],
         noise_amplitude: float | torch.Tensor = 0.05,
         integration_steps: int = 20,
         ensemble_perturb: bool = False,
-        seeding_perturbation_method: Perturbation = Brown(),
+        seeding_perturbation_method: Perturbation | None = None,
     ):
         self.model = model
         self.noise_amplitude = (
@@ -70,49 +73,65 @@ class BredVector:
         )
         self.ensemble_perturb = ensemble_perturb
         self.integration_steps = integration_steps
-        self.seeding_perturbation_method = seeding_perturbation_method
+        self.seeding_perturbation_method = (
+            Brown()
+            if seeding_perturbation_method is None
+            else seeding_perturbation_method
+        )
+        self._seed: int | None = None
+        self._rng_states: dict[str, torch.Tensor] = {}
+
+    def set_rng(self, seed: int, reset: bool = True) -> None:
+        """Seed the noise stream; preserve an existing stream when reset is False.
+
+        The caller owns seeding the dynamical model, which may be shared with a
+        forecast runner. Seeded noise draws leave global Torch RNG unchanged.
+        """
+        if reset or self._seed is None:
+            self._seed = seed
+            self._rng_states = {}
+        set_rng = getattr(self.seeding_perturbation_method, "set_rng", None)
+        if callable(set_rng):
+            set_rng(seed, reset=reset)
 
     @torch.inference_mode()
-    def __call__(
-        self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+    def __call__(self, x: xr.DataArray) -> xr.DataArray:
         """Apply perturbation method
 
         Parameters
         ----------
-        x : torch.Tensor
-            Input tensor intended to apply perturbation on
-        coords : CoordSystem
-            Ordered dict representing coordinate system that describes the tensor
-
+        x : xr.DataArray
+            xarray DataArray intended to apply perturbation on
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]:
-            Output tensor and respective coordinate system dictionary
+        xr.DataArray
+            Perturbed DataArray with the coordinates of the input
         """
-        if "lead_time" in coords and coords["lead_time"].shape[0] > 1:
+        if "lead_time" in x.dims and x.sizes["lead_time"] > 1:
             logger.warning(
                 "Input data / models that require multiple lead times may lead to unexpected behavior"
             )
 
-        noise_amplitude = self.noise_amplitude.to(x.device)
-        dx, coords = self.seeding_perturbation_method(x, coords)
-        dx -= x
+        x0, _ = x.e2s.to_torch()
+        noise_amplitude = self.noise_amplitude.to(x0.device)
 
-        xd = torch.clone(x)
-        xd, _ = self.model(xd, coords)
+        def run_model(data: torch.Tensor) -> torch.Tensor:
+            return self.model(from_torch(data, x)).e2s.to_torch()[0]
+
+        with fork_rng(self._seed, x0.device, self._rng_states):
+            dx, _ = self.seeding_perturbation_method(x.copy(deep=True)).e2s.to_torch()
+        dx = dx - x0
+
+        xd = run_model(torch.clone(x0))
         # Run forward model
-        for k in range(self.integration_steps):
-            x1 = x + dx
-            x2, _ = self.model(x1, coords)
+        for _ in range(self.integration_steps):
+            x2 = run_model(x0 + dx)
             if self.ensemble_perturb:
                 dx1 = x2 - xd
                 dx = dx1 + noise_amplitude * (dx - dx.mean(dim=0))
             else:
                 dx = x2 - xd
 
-        gamma = torch.norm(x) / torch.norm(x + dx)
-        return x + dx * noise_amplitude * gamma, coords
+        gamma = torch.norm(x0) / torch.norm(x0 + dx)
+        return from_torch(x0 + dx * noise_amplitude * gamma, x)

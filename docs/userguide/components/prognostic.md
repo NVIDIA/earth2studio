@@ -1,101 +1,148 @@
 # Prognostic Models { #prognostic_model_userguide }
 
-Prognostic models forecast future atmospheric states from initial conditions.
-In Earth2Studio they provide a set of models designed to perform time
-integration. For example, given a set of atmospheric fields at a particular time,
-the model auto-regressively predicts the same fields (typically six hours for many models)
-into the future.
+Prognostic models advance atmospheric or other physical fields through time. A model
+can produce one forecast chunk or continue a trajectory using explicit state.
+Browse the built-in models in the [prognostic API](../../modules/models_px.md).
 
-The usage of prognostic models falls into two categories, which are commonly achieved
-through two different APIs:
+## Interface
 
-- Single time-step predictions
-- Time-series predictions
+Models exchange labelled `xarray.DataArray` fields in physical units. Coordinate
+methods describe those fields without allocating their values; see the
+[Data and Metadata](coordinates.md).
 
-The list of prognostic models that are already built into Earth2Studio can be found in
-the API documentation [earth2studio.models.px](../../modules/models_px.md).
-For a complete workflow example, refer to `earth2studio.run.deterministic`.
+For a model with one input and no forcing, the interface is:
 
-## Prognostic Interface
+| Method | Purpose |
+| --- | --- |
+| `input_coords()` | Declare initial fields, history, variables, and grid. |
+| `forcing_coords()` | Declare external conditioning; `None` when unforced. |
+| `output_coords(input_coords)` | Validate coordinates and plan the output. |
+| `default_sources()` | Recommend data providers for the caller. |
+| `model(x)` | Compute an independent forecast chunk. |
+| `initialize(x)` | Return the first forecast and continuation state: `(y, state)`. |
+| `step(y, state=state)` | Return the next forecast and updated state. |
+| `create_iterator(x)` | Manage state internally and yield forecast chunks. |
+| `to(device)` | Place model computation on the requested device. |
 
-The full requirements for a standard prognostic model are defined explicitly in the
-`earth2studio/models/px/base.py`.
+Multi-input models take separate, named arguments in declared order. Forcing follows
+the initial inputs in `initialize` and the previous outputs in `step`, with `state`
+last. One output is returned directly; multiple outputs form an ordered tuple.
+The protocol is defined in [`earth2studio.models.px.base.PrognosticModel`][interface]; inheritance
+from it is not required. `stochastic` identifies stochastic models, which expose
+`set_rng(seed, reset=True)` for reproducible rollouts.
 
-```python
---8<-- "earth2studio/models/px/base.py:prognostic-model-interface"
-```
+See [E2S-06: Model Contract][model-spec] for the full coordinate, execution, state,
+randomness, and domain-selection requirements.
 
-!!! note
-    Prognostic models do not need to inherit this protocol, this is used to define
-    the required APIs. Prognostic models can maintain their internal state when using the
-    iterator if necessary.
+[model-spec]: ../../specs/E2S-06_MODEL_CONTRACT_SPEC.md
+[interface]: https://github.com/NVIDIA/earth2studio/blob/1.0.0-rc/earth2studio/models/px/base.py
 
-Prognostic models also tend to extend two classes:
+## Usage
 
-- `earth2studio.models.px.utils.PrognosticMixin`: A utility class that
-defines iterator hooks used in all the built-in models. These provide a finer level
-of control over the time-series prediction of models.
-- `earth2studio.models.auto.AutoModel`: Defines APIs for models that have
-checkpoints that can be auto-downloaded and cached. Refer to
-[AutoModels](../advanced/auto.md#automodel_userguide) for additional details.
+### Load and Predict
 
-## Prognostic Usage
-
-### Loading a Pre-trained Prognostic
-
-The following two commands can be used to download and load a pre-trained built
-prognostic model.
-More information on automatic downloading of checkpoints can be found in the
-[AutoModels](../advanced/auto.md#automodel_userguide) section.
+Use a concrete model class to load pretrained weights. This example requires SFNO's
+optional dependencies, weights, and sufficient device memory; see
+[AutoModels](../advanced/auto.md#automodel_userguide).
 
 ```python
-from earth2studio.models.px import PrognosticModel
+import numpy as np
 
-model_package = PrognosticModel.load_default_package()
-model = PrognosticModel.load_model(model_package)
+from earth2studio.data import GFS, fetch_data
+from earth2studio.grids import infer_grid
+from earth2studio.models.px import SFNO
+
+device = "cuda:0"
+model = SFNO.load_model(SFNO.load_default_package()).to(device)
+signature = model.input_coords()
+x = fetch_data(
+    GFS(),
+    np.array(["2024-01-01T00"], dtype="datetime64[ns]"),
+    signature.coords["variable"].values,
+    lead_time=signature.coords["lead_time"].values,
+    device=device,
+    target_grid=infer_grid(signature),
+)
+planned = model.output_coords(x)  # Coordinate validation, without inference
+y = model(x)
 ```
 
-### Single Step Prediction
+### Continue a Forecast
 
-A prognostic model can be called for a single time-step using the call function.
-The function takes a data tensor and coordinate system (refer to
-[Data Movement](../about/overview.md#data_userguide) for the structure) and
-returns the predicted output.
+Use explicit state when you need to save or branch a trajectory:
 
 ```python
-# Assume model is an instance of a PrognosticModel
-x = torch.Tensor(...)  # Input tensor
-coords = CoordSystem(...)  # Coordinate system
-x, coords = model(x, coords)  # Predict a single time-step
+y, state = model.initialize(x)             # First forecast
+y, state = model.step(y, state=state)      # Second forecast
 ```
 
-### Time-series Prediction
-
-To predict a time-series, the `create_iterator` method can be used to create an iterable
-data source to generate time-series data as the model rolls out.
+For a simple unforced rollout, use the iterator instead:
 
 ```python
-# Assume model is an instance of a PrognosticModel
-x = torch.Tensor(...)  # Input tensor
-coords = CoordSystem(...)  # Coordinate system
-model_iterator = model.create_iterator(x, coords)  # Create iterator for time integration
-for step, (x, coords) in enumerate(model_iterator):
-    # Perform operations for each time-step
-    # First output should always be time-step 0 (the input)
+from itertools import islice
+
+iterator = model.create_iterator(x)
+for y in islice(iterator, 4):
+    print(y.lead_time.values)  # SFNO: 6h, 12h, 18h, 24h
+iterator.close()
 ```
 
-## Custom Prognostic Models
+For forced models, pass the initial forcing window to `create_iterator`, then use
+`iterator.send(forcing)` for each subsequent step, or send a tuple for multiple
+forcing slots. Supply the newest required frames; required time-varying forcing is
+not fetched or silently reused. Static forcing without a `lead_time` dimension is
+supplied only at initialization.
 
-To integrate your own prognostic, satisfy the interface above.
-We recommend that you review the [extension examples](../../examples/index.md#extend)
-examples, which walk you through implementing a custom prognostic.
+`PrognosticMixin` provides iterator hooks: `rear_hook` runs before every yield,
+including the first, and `front_hook` runs before subsequent steps. Both affect the
+continuing trajectory. Hooks do not run in `model(x)`, `initialize`, or `step`;
+perturb the initial input explicitly when needed. For stochastic models, call
+`set_rng` before a new rollout; reseeding does not change an existing explicit state.
 
-## Contributing a Prognostic Model
+## Wrap Your Own Prognostic Model
 
-Want to add your prognostic to the package? We are happy to work with you.
-At the minimum we expect the model to abide by the defined interface and meet
-the requirements set forth in our contribution guide. Typically, you are expected
-to provide the weights of the model in a downloadable location that can be fetched.
+Keep a wrapper in your own project, such as `my_project/models/my_model.py`, and pass
+its instance to Earth2Studio workflows just like a built-in model. The wrapper
+adapts your existing inference code to the interface above, handling coordinates,
+physical-unit conversion, device placement, and explicit continuation state.
 
-[Open an issue](https://github.com/NVIDIA/earth2studio/issues) when you have an initial
-implementation you would like us to review.
+The **`earth2studio-create-prognostic` agentic skill** provides a model contract,
+wrapper skeleton, method templates, and validation guidance. Give your coding agent
+the [skill directory][prognostic-skill] from a checkout matching your Earth2Studio
+version, and ask it to load `SKILL.md` and the referenced files. Provide:
+
+- Your working inference script, weights, configuration, and dependency requirements.
+- Input/output variable names and units, grid, normalization, history, and forecast step.
+- Required forcing or static data, device support, and stochastic behavior.
+- A small reference input and expected output for numerical comparison.
+
+For example:
+
+```text
+Use the earth2studio-create-prognostic skill to wrap my existing model in
+my_project/models/my_model.py for local use with Earth2Studio. Follow the model
+contract and relevant rules from this checkout. Scope the work to my project;
+skip package exports, dependency extras, changelog, and pull-request steps.
+
+Reference inference: <script>; weights/configuration: <paths>.
+Variables/units/grid: <details>; history and forecast step: <details>.
+Forcing, normalization, devices, and randomness: <details>.
+
+Preserve the reference inference behavior. Validate coordinate-only planning,
+single-call and multi-step execution, input immutability, state replay, and
+numerical agreement with the reference. Show a short local usage example.
+```
+
+Use explicit named parameters for every input and forcing slot. Build signatures
+with `coord_array` and `coord_array_like`; for PyTorch models, use
+`x.e2s.to_torch()` and `from_torch()` at field boundaries. `PrognosticMixin` supplies
+private call/iterator helpers, but your wrapper must expose its public methods.
+Automatic weight downloading is optional: a wrapper can accept an already loaded
+model and local assets.
+
+The skill's conformance checks help validate the interface. Also compare a short
+rollout with your reference implementation: matching shapes alone does not establish
+that normalization, timing, or predictions are correct. See the
+[extension examples](../../examples/index.md#extend) for complete integrations.
+
+[prognostic-skill]: https://github.com/NVIDIA/earth2studio/tree/1.0.0-rc/skills/earth2studio-create-prognostic

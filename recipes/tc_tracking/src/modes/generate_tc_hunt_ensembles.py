@@ -13,12 +13,15 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+# mypy: disable-error-code="call-overload"
 
 import os
 import random
 import sys
 from collections import OrderedDict
+from collections.abc import Callable
 from copy import deepcopy
+from typing import cast
 
 import numpy as np
 import torch
@@ -247,7 +250,8 @@ def run_inference(
         if hasattr(model, "set_rng"):
             model.set_rng(seed=seed)  # type: ignore[attr-defined]
 
-        iterator = model.create_iterator(xx, CoordSystem(coords))
+        # This pipeline still uses the legacy tensor/coordinate model API.
+        iterator = cast(Callable, model.create_iterator)(xx, CoordSystem(coords))
         stab = torch.ones(mini_batch_size)
 
         # roll out the model and record data as desired

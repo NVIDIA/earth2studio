@@ -16,23 +16,24 @@
 
 """Tests for SuperResolution generative diagnostic model."""
 
-from collections import OrderedDict
-
 import numpy as np
 import pytest
 import torch
+import xarray as xr
 
 from earth2studio.models.auto import Package
+from earth2studio.models.conformance import check_diagnostic_contract
 from earth2studio.models.dx import SuperResolution
-from earth2studio.utils import handshake_dim
+from earth2studio.models.dx.base import DiagnosticModel
+from earth2studio.utils import coord_array_like, handshake_dataarray
+from earth2studio.utils.cupy import from_torch
 
 
 class PhooSuperResolution(torch.nn.Module):
     """Dummy super-resolution model for testing."""
 
     def forward(self, x: torch.Tensor, noise: torch.Tensor) -> torch.Tensor:
-        # Input: [batch, 4, 91, 180] + noise -> Output: [batch, 4, 361, 720]
-        # Simple bilinear interpolation + noise
+        # Input: [1, 4, 91, 180] + noise -> Output: [1, 4, 361, 720]
         out = torch.nn.functional.interpolate(
             x, size=(361, 720), mode="bilinear", align_corners=True
         )
@@ -44,9 +45,7 @@ def test_package(tmp_path_factory):
     """Create dummy package for testing."""
     tmp_path = tmp_path_factory.mktemp("model_data")
 
-    # Save dummy model
-    model = PhooSuperResolution()
-    torch.save(model, tmp_path / "model.pt")
+    torch.save(PhooSuperResolution(), tmp_path / "model.pt")
 
     # Save normalization parameters
     np.save(tmp_path / "in_center.npy", np.zeros(4))
@@ -55,6 +54,11 @@ def test_package(tmp_path_factory):
     np.save(tmp_path / "out_scale.npy", np.ones(4))
 
     return Package(str(tmp_path))
+
+
+def make_input(model, batch: int = 1, device: str = "cpu") -> xr.DataArray:
+    signature = coord_array_like(model.input_coords(), {"batch": np.arange(batch)})
+    return from_torch(torch.randn(signature.shape, device=device), signature)
 
 
 class TestSuperResolutionMock:
@@ -70,133 +74,88 @@ class TestSuperResolutionMock:
         dx = SuperResolution.load_model(
             test_package, number_of_samples=number_of_samples
         ).to(device)
-        x = torch.randn(1, 4, 91, 180).to(device)
+        x = make_input(dx, 1, device)
 
-        coords = OrderedDict(
-            {
-                "batch": np.ones(1),
-                "variable": dx.input_coords()["variable"],
-                "lat": dx.input_coords()["lat"],
-                "lon": dx.input_coords()["lon"],
-            }
+        out = dx(x)
+
+        # Output dims: [batch, sample, variable, lat, lon] on the fine grid
+        assert out.dims == ("batch", "sample", "variable", "lat", "lon")
+        assert out.shape == (1, number_of_samples, 4, 361, 720)
+        np.testing.assert_array_equal(
+            out.coords["sample"].values, np.arange(number_of_samples)
         )
-
-        out, out_coords = dx(x, coords)
-
-        # Validate sample dimension exists
-        assert "sample" in out_coords
-        assert len(out_coords["sample"]) == number_of_samples
-
-        # Validate output shape: [batch, samples, var, lat, lon]
-        assert out.shape == torch.Size([1, number_of_samples, 4, 361, 720])
-
-        # Validate dimension ordering
-        handshake_dim(out_coords, "lon", 4)
-        handshake_dim(out_coords, "lat", 3)
-        handshake_dim(out_coords, "variable", 2)
-        handshake_dim(out_coords, "sample", 1)
-        handshake_dim(out_coords, "batch", 0)
+        handshake_dataarray(out, dx.output_coords(x))
 
     @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
     def test_super_resolution_deterministic_seed(self, test_package, device):
-        """Test reproducibility with seed."""
+        """Test reproducibility with set_rng."""
         if device == "cuda:0" and not torch.cuda.is_available():
             pytest.skip("No GPU available")
 
-        # Two models with same seed
-        dx1 = SuperResolution.load_model(test_package, number_of_samples=2, seed=42).to(
-            device
-        )
-        dx2 = SuperResolution.load_model(test_package, number_of_samples=2, seed=42).to(
-            device
-        )
+        dx = SuperResolution.load_model(test_package, number_of_samples=2).to(device)
+        x = make_input(dx, 1, device)
 
-        x = torch.randn(1, 4, 91, 180).to(device)
-        coords = OrderedDict(
-            {
-                "batch": np.ones(1),
-                "variable": dx1.input_coords()["variable"],
-                "lat": dx1.input_coords()["lat"],
-                "lon": dx1.input_coords()["lon"],
-            }
-        )
-
-        out1, _ = dx1(x, coords)
-        out2, _ = dx2(x, coords)
-
+        dx.set_rng(42)
+        out1 = dx(x).e2s.as_numpy()
+        dx.set_rng(42)
+        out2 = dx(x).e2s.as_numpy()
         # Same seed should produce same output
-        torch.testing.assert_close(out1, out2)
+        xr.testing.assert_identical(out1, out2)
 
         # Different seed should produce different output
-        dx3 = SuperResolution.load_model(
-            test_package, number_of_samples=2, seed=123
-        ).to(device)
-        out3, _ = dx3(x, coords)
-        assert not torch.allclose(out1, out3)
+        dx.set_rng(123)
+        out3 = dx(x).e2s.as_numpy()
+        assert not np.array_equal(out1.values, out3.values)
 
-    @pytest.mark.parametrize(
-        "x",
-        [
-            torch.randn(1, 4, 91, 180),
-            torch.randn(2, 4, 91, 180),
-        ],
-    )
+        # Samples within one call differ
+        assert not np.array_equal(out1.values[:, 0], out1.values[:, 1])
+
+    def test_super_resolution_no_seed_argument(self, test_package):
+        """Seeding is only available through set_rng."""
+        with pytest.raises(TypeError):
+            SuperResolution.load_model(test_package, seed=1)
+
+    @pytest.mark.parametrize("batch", [1, 2])
     @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-    def test_super_resolution_call(self, test_package, x, device):
+    def test_super_resolution_call(self, test_package, batch, device):
         """Test forward pass with different batch sizes."""
         if device == "cuda:0" and not torch.cuda.is_available():
             pytest.skip("No GPU available")
 
         dx = SuperResolution.load_model(test_package, number_of_samples=1).to(device)
-        x = x.to(device)
+        x = make_input(dx, batch, device)
+        before = x.copy(deep=True)
 
-        coords = OrderedDict(
-            {
-                "batch": np.ones(x.shape[0]),
-                "variable": dx.input_coords()["variable"],
-                "lat": dx.input_coords()["lat"],
-                "lon": dx.input_coords()["lon"],
-            }
-        )
+        out = dx(x)
 
-        out, out_coords = dx(x, coords)
+        assert out.shape == (batch, 1, 4, 361, 720)
+        assert list(out.coords["variable"].values) == ["t2m", "u10m", "v10m", "msl"]
+        xr.testing.assert_identical(x.e2s.as_numpy(), before.e2s.as_numpy())
 
-        # Validate output shape: [batch, 1, 4, 361, 720]
-        assert out.shape == torch.Size([x.shape[0], 1, 4, 361, 720])
+    def test_super_resolution_exceptions(self, test_package):
+        """Test SuperResolution raises on invalid inputs."""
+        dx = SuperResolution.load_model(test_package)
+        x = make_input(dx)
 
-        # Validate output variables
-        expected_vars = np.array(["t2m", "u10m", "v10m", "msl"])
-        assert np.array_equal(out_coords["variable"], expected_vars)
-
-    @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-    def test_super_resolution_exceptions(self, test_package, device):
-        """Test SuperResolution raises on invalid coordinates."""
-        if device == "cuda:0" and not torch.cuda.is_available():
-            pytest.skip("No GPU available")
-
-        dx = SuperResolution.load_model(test_package).to(device)
-        x = torch.randn(1, 4, 91, 180).to(device)
-
-        # Test 1: Wrong variable name
-        wrong_coords = OrderedDict(
-            {
-                "batch": np.ones(1),
-                "variable": np.array(["wrong_var"]),
-                "lat": dx.input_coords()["lat"],
-                "lon": dx.input_coords()["lon"],
-            }
-        )
+        # Wrong variable names
         with pytest.raises((KeyError, ValueError)):
-            dx(x, wrong_coords)
+            dx(x.assign_coords(variable=["a", "b", "c", "d"]))
 
-        # Test 2: Wrong dimension order
-        wrong_coords = OrderedDict(
-            {
-                "batch": np.ones(1),
-                "variable": dx.input_coords()["variable"],
-                "lon": dx.input_coords()["lon"],
-                "lat": dx.input_coords()["lat"],
-            }
-        )
+        # Wrong dimension order
         with pytest.raises(ValueError):
-            dx(x, wrong_coords)
+            dx(x.transpose(*reversed(x.dims)))
+
+        # Wrong grid size
+        with pytest.raises(ValueError):
+            dx(x.isel(lat=slice(0, 45)))
+
+        # Invalid sample count
+        with pytest.raises(ValueError):
+            SuperResolution.load_model(test_package, number_of_samples=0)
+
+    def test_super_resolution_conformance(self, test_package):
+        """Test SuperResolution against the native diagnostic contract."""
+        dx = SuperResolution.load_model(test_package, number_of_samples=2)
+        assert isinstance(dx, DiagnosticModel)
+        assert dx.stochastic is True
+        assert check_diagnostic_contract(dx) == []

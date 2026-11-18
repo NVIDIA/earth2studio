@@ -1,0 +1,180 @@
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""Shared grid implementation helpers."""
+
+from __future__ import annotations
+
+import hashlib
+from typing import TYPE_CHECKING, Any
+
+import numpy as np
+import xarray as xr
+from numpy.typing import NDArray
+from pyproj import CRS, Transformer
+
+if TYPE_CHECKING:
+    from earth2studio.grids.base import GridDefinition
+
+
+def array(values: Any, ndim: int, name: str) -> NDArray[Any]:
+    """Create an immutable, nonempty array."""
+    result = np.asarray(values)
+    if result.ndim != ndim or any(size == 0 for size in result.shape):
+        raise ValueError(f"{name} must be a nonempty {ndim}D array")
+    result = result.copy()
+    result.setflags(write=False)
+    return result
+
+
+def coordinate_hash(*arrays: NDArray[Any]) -> str:
+    """Hash coordinate values, dtypes, and shapes."""
+    digest = hashlib.sha256()
+    for values in arrays:
+        contiguous = np.ascontiguousarray(values)
+        digest.update(str(contiguous.dtype).encode())
+        digest.update(str(contiguous.shape).encode())
+        digest.update(contiguous.view(np.uint8))
+    return digest.hexdigest()
+
+
+def metadata(definition: GridDefinition, **details: Any) -> dict[str, Any]:
+    """Build a JSON-serializable grid description."""
+    result: dict[str, Any] = {
+        "type": type(definition).__name__,
+        "dims": list(definition.dims),
+        "shape": list(definition.shape),
+        "topology": definition.topology,
+    }
+    if definition.crs is not None:
+        result["crs"] = definition.crs.to_string()
+        result.update(definition.crs.to_cf())
+    result.update(details)
+    return result
+
+
+def cf_coordinates(
+    coordinates: xr.Coordinates, *, crs: CRS | None = None
+) -> xr.Coordinates:
+    """Describe existing coordinates with CF attributes, without adding arrays.
+
+    References
+    ----------
+    CF Conventions, coordinate types and grid mappings:
+    https://cfconventions.org/cf-conventions/cf-conventions.html#coordinate-types
+    https://cfconventions.org/cf-conventions/cf-conventions.html#grid-mappings-and-projections
+    """
+    for name, standard_name, units, axis in (
+        ("lat", "latitude", "degrees_north", "Y"),
+        ("lon", "longitude", "degrees_east", "X"),
+    ):
+        if name in coordinates:
+            coordinate = coordinates[name]
+            coordinate.attrs.update(
+                standard_name=standard_name, long_name=standard_name, units=units
+            )
+            if coordinate.dims == (name,):
+                coordinate.attrs["axis"] = axis
+    if crs is not None and crs.is_projected:
+        for attributes in crs.cs_to_cf():
+            name = attributes.get("axis", "").lower()
+            if name in coordinates:
+                coordinates[name].attrs.update(attributes)
+    return coordinates
+
+
+# Degrees of rounding error allowed at longitude bounds
+_LON_TOL = 1e-9
+
+
+def geographic_subset_indexers(
+    definition: GridDefinition,
+    coordinates: xr.Coordinates,
+    *,
+    bounds: tuple[float, float, float, float] | None = None,
+    bounds_crs: Any | None = None,
+) -> dict[str, Any]:
+    """Translate geographic bounds into positional indexers.
+
+    Bounds are inclusive cell-center limits ``(min_x, min_y, max_x, max_y)``. In a
+    geographic ``bounds_crs`` (the default), longitude bounds may use either
+    convention or lie outside both: a cell is selected when its longitude lies
+    at most ``max_x - min_x`` degrees east of ``min_x``, modulo 360. So
+    ``(0, 180)`` includes the 180° meridian, ``(-190, -170)``, ``(170, 190)``
+    and ``(170, -170)`` all select the 20° box across the dateline, and a span of
+    360° or more selects every longitude. ``min_x > max_x`` wraps eastward
+    through the dateline. Projected bounds are compared without wrapping.
+    """
+    if bounds is None and bounds_crs is not None:
+        raise ValueError("Grid subset bounds_crs requires bounds")
+    if bounds is None:
+        return {}
+
+    if len(bounds) != 4:
+        raise ValueError("Bounds must contain (min_x, min_y, max_x, max_y)")
+    min_x, min_y, max_x, max_y = (float(value) for value in bounds)
+    if min_y > max_y:
+        raise ValueError("Bounds minimum y must not exceed maximum y")
+
+    geographic = (
+        xr.Coordinates({"lat": coordinates["lat"], "lon": coordinates["lon"]})
+        if "lat" in coordinates and "lon" in coordinates
+        else definition.coords(
+            {
+                dimension: np.asarray(coordinates[dimension])
+                for dimension in definition.dims
+            }
+        )
+    )
+    latitude, longitude = xr.broadcast(geographic["lat"], geographic["lon"])
+    latitude_values = np.asarray(latitude)
+    longitude_values = np.asarray(longitude)
+    target_crs = CRS.from_user_input(
+        bounds_crs if bounds_crs is not None else "OGC:CRS84"
+    )
+    if target_crs.is_geographic:
+        # Measure each longitude eastward from min_x so the rule is the same for
+        # 0..360 and -180..180 grids and for bounds outside either range. The
+        # tolerance keeps boundary cells that wrapping arithmetic shifts by
+        # rounding error.
+        span = max_x - min_x if min_x <= max_x else np.mod(max_x - min_x, 360)
+        east = np.mod(longitude_values - min_x, 360)
+        x_mask = (
+            np.ones(longitude_values.shape, dtype=bool)
+            if span >= 360
+            else (east <= span + _LON_TOL) | (east >= 360 - _LON_TOL)
+        )
+        y_values = latitude_values
+    else:
+        x_values, y_values = Transformer.from_crs(
+            CRS.from_epsg(4326), target_crs, always_xy=True
+        ).transform(longitude_values, latitude_values)
+        x_mask = (x_values >= min_x) & (x_values <= max_x)
+    mask = x_mask & (y_values >= min_y) & (y_values <= max_y)
+    if not np.any(mask):
+        raise ValueError("Grid subset bounds do not contain any cell centers")
+
+    indexers: dict[str, Any] = {}
+    for dimension in definition.dims:
+        axis = latitude.dims.index(dimension)
+        other_axes = tuple(index for index in range(mask.ndim) if index != axis)
+        selected = np.flatnonzero(np.any(mask, axis=other_axes) if other_axes else mask)
+        indexers[dimension] = (
+            slice(int(selected[0]), int(selected[-1]) + 1)
+            if np.all(np.diff(selected) == 1)
+            else selected
+        )
+    return indexers

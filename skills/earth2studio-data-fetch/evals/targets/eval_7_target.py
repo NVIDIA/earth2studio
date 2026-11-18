@@ -22,8 +22,10 @@ from datetime import datetime, timedelta
 
 from earth2studio.data import ISD
 
-# Initialize ISD data source (Integrated Surface Database - global hourly stations)
-ds = ISD(time_tolerance=timedelta(hours=1))
+# ISD (Integrated Surface Database) needs the station IDs to query; here, all
+# known stations in a lat-lon bounding box [lat_min, lon_min, lat_max, lon_max]
+stations = ISD.get_stations_bbox((36, -124, 40, -120))
+ds = ISD(stations, time_tolerance=timedelta(hours=1))
 
 # Fetch station temperature observations
 time = [datetime(2024, 1, 1, 0)]

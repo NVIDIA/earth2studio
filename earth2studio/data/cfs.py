@@ -43,6 +43,7 @@ from earth2studio.data.utils import (
     prep_forecast_inputs,
     resolve_async_workers,
 )
+from earth2studio.grids import with_grid_metadata
 from earth2studio.lexicon import CFSFluxLexicon, CFSLexicon
 from earth2studio.utils.type import LeadTimeArray, TimeArray, VariableArray
 
@@ -330,10 +331,10 @@ class CFS_FX:
             max_workers=resolve_async_workers(self._async_workers, len(coros)),
             task_timeout=120.0,
             desc="Fetching CFS data",
-            verbose=(not self._verbose),
+            verbose=self._verbose,
         )
 
-        return xr_array
+        return with_grid_metadata(xr_array, "latlon-1deg")
 
     async def _create_tasks(
         self,
@@ -373,7 +374,7 @@ class CFS_FX:
             max_workers=resolve_async_workers(self._async_workers, len(idx_coros)),
             task_timeout=60.0,
             desc="Fetching CFS index files",
-            verbose=True,
+            verbose=self._verbose,
         )
         idx_by_uri = dict(zip(idx_uris, idx_results))
 
