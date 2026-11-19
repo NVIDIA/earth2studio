@@ -254,7 +254,11 @@ class LeadWindow(LeadReduction):
         positive = leads[leads > _ZERO]
         if positive.size == 0:
             raise ValueError("The stream publishes no positive lead time to reduce")
-        return _ns(np.min(np.diff(np.concatenate([[_ZERO], np.sort(positive)]))))
+        if positive.size == 1:
+            return _ns(positive[0])
+        # Gaps between published leads, so an offset stream such as 3, 9, 15 h
+        # has a 6 h cadence rather than the 3 h from zero to its first lead.
+        return _ns(np.min(np.diff(np.sort(positive))))
 
     def _window_ends(
         self, signature: CoordinateSystem, final_lead_time: np.timedelta64

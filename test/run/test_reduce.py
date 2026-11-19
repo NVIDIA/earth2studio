@@ -430,6 +430,26 @@ def test_unfinished_and_out_of_order_windows_raise() -> None:
         reduction.update(_output(leads[1:2], [1.0], names, "float32").isel(lead_time=0))
 
 
+def test_offset_streams_use_the_gaps_between_their_leads() -> None:
+    leads = _h(3, 9, 15, 21)
+    signature = _signature(leads)
+    names = ["t2m:mean:-1h:23h", "tp"]
+    reduction = LeadWindow("12h", ends=["15h"], relabel=False)
+    planned = reduction.output_coords(signature)
+    np.testing.assert_array_equal(planned["lead_time"].values, _h(15))
+
+    reduction.begin_item(signature, np.timedelta64(21, "h"))
+    assert reduction.update(_output(leads[:1], [1.0], names, "float32")) == []
+    (window,) = reduction.update(_output(leads[1:3], [2.0, 3.0], names, "float32"))
+    assert reduction.update(_output(leads[3:], [4.0], names, "float32")) == []
+    reduction.finish_item()
+    np.testing.assert_allclose(window.values, 2.5)
+
+    # Default windows are multiples of the window, which this stream misses.
+    with pytest.raises(ValueError, match="never publishes lead 6h"):
+        LeadWindow("12h").begin_item(signature, np.timedelta64(24, "h"))
+
+
 def test_streams_must_publish_every_lead_a_window_needs() -> None:
     with pytest.raises(ValueError, match="never publishes lead 12h"):
         LeadWindow("18h", ends=["24h"]).output_coords(_signature(_h(0, 6, 18, 24)))
