@@ -3855,9 +3855,9 @@ members. This is done using three core layers, from smallest to largest:</p>
   data sources and specifies how an item's inputs are fetched, how models are
   stepped, and what streams of output data are produced.</li>
 <li>A <strong><code>Pipeline</code></strong> executes the <code>Runner</code> over many work items. It acts as an
-  orchestrator: distributing items across ranks, selecting and regridding outputs,
-  writing each output stream to storage, and potentially resuming interrupted runs
-  or scoring the outputs as they're produced.</li>
+  orchestrator: distributing items across ranks, selecting, reducing and
+  regridding outputs, writing each output stream to storage, and potentially
+  resuming interrupted runs or scoring the outputs as they're produced.</li>
 </ul>
 <p>Changing <em>what</em> a forecast produces means choosing or writing a <code>Runner</code>; changing
 <em>how and where</em> forecasts run means configuring the <code>Pipeline</code>. Models can also be
@@ -3954,8 +3954,12 @@ stream to its store.</p>
 <td>Variables kept per stream.</td>
 </tr>
 <tr>
+<td><code>reduction</code></td>
+<td>Lead-time reduction per stream, such as <code>LeadWindow("7d")</code> for weekly means.</td>
+</tr>
+<tr>
 <td><code>regridder</code></td>
-<td>Regridder per stream, applied after variable selection.</td>
+<td>Regridder per stream, applied after variable selection and any reduction.</td>
 </tr>
 <tr>
 <td><code>scorer</code></td>

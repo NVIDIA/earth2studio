@@ -3815,10 +3815,10 @@ workflow with its own unique value.</p>
 <p>Use components directly in Python or assemble them with the execution tools:</p>
 <ul>
 <li><strong><code>Pipeline</code></strong> (<code>earth2studio.run</code>) manages work items such as initialization times,
-  forecast horizons, and ensemble members. It handles output selection, regridding,
-  storage, optional scoring, distribution, and resuming completed work.
-  <code>Pipeline.from_model(...)</code> builds a prognostic runner from a model and data sources,
-  with optional diagnostics.</li>
+  forecast horizons, and ensemble members. It handles output selection, lead-time
+  reductions, regridding, storage, optional scoring, distribution, and resuming
+  completed work. <code>Pipeline.from_model(...)</code> builds a prognostic runner from a model
+  and data sources, with optional diagnostics.</li>
 <li><strong><code>CoupledRunner</code></strong> (<code>earth2studio.coupling</code>) connects models through <code>Connector</code>
   declarations. Connectors describe which producer supplies a consumer's inputs,
   including variable mapping, time selection, and optional regridding. The runner

@@ -3593,6 +3593,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#statistics-of-model-outputs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Statistics of Model Outputs
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#source-responsibilities" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3813,6 +3824,47 @@ a daily total. Channel order and model-unit conversions are unchanged.</p>
 <p>Preserve start-of-day timestamps and one-day lead increments. Substituting
 <code>mean:24h</code> would select the preceding day. The source must sample hourly; a source
 storing these daily means returns them under the same labels without reducing again.</p>
+<h3 id="statistics-of-model-outputs">Statistics of Model Outputs<a class="headerlink" href="#statistics-of-model-outputs" title="Permanent link">&para;</a></h3>
+<p><code>Pipeline</code> can reduce a stream over lead time with <code>LeadWindow</code> (see
+<a href="../E2S-11_EXECUTION_CONTRACT_SPEC/#lead-time-reductions">E2S-11</a>).
+The window ending at lead <code>e</code> is the right-closed <code>(e - window, e]</code>, so its
+output at valid time <code>T</code> is the qualified label's statistic ending at <code>T</code>.
+<code>compose_time_statistic(label, method, window, delta_t)</code> gives that label for
+frames published every <code>delta_t</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Frame label</th>
+<th>Reduction</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>t2m</code> (instantaneous)</td>
+<td><code>mean</code> over <code>7d</code></td>
+<td><code>t2m:mean:168h</code></td>
+</tr>
+<tr>
+<td><code>t2m:mean:-1h:23h</code> (daily mean)</td>
+<td><code>mean</code> over <code>30days</code></td>
+<td><code>t2m:mean:-697h:+23h</code></td>
+</tr>
+<tr>
+<td><code>tp06:sum:6h</code></td>
+<td><code>sum</code> over <code>24h</code></td>
+<td><code>tp06:sum:24h</code></td>
+</tr>
+</tbody>
+</table>
+<p>The reduction's method is <code>mean</code>, <code>sum</code>, <code>min</code> or <code>max</code>; other statistics need
+not compose (a range of daily ranges is not a two-day range). A qualified frame
+composes only when its method matches the reduction's and its window equals the
+cadence: the frames then tile the window back to back with equal weight. Other
+combinations (a mean of sums, overlapping or gapped windows, raw <code>::</code>
+identifiers) are not one statistic of the underlying samples, so the stream
+cannot be reduced. Composed labels use the canonical modifier of
+<code>time_statistic_metadata</code>, so a window given as <code>7d</code> is labelled <code>168h</code>.</p>
 <h3 id="source-responsibilities">Source Responsibilities<a class="headerlink" href="#source-responsibilities" title="Permanent link">&para;</a></h3>
 <p>A source that supports a temporal quantity accepts its qualified label in
 <code>variable</code>, like any other variable, and:</p>
