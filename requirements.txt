@@ -24,7 +24,7 @@ bokeh==3.9.1
     # via dask
 botocore==1.43.0
     # via aiobotocore
-certifi==2026.6.17
+certifi==2026.10.18
     # via
     #   httpcore
     #   httpx
