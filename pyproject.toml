@@ -374,6 +374,15 @@ conflicts = [
   ]
 ]
 default-groups = ["dev", "build"]
+# Repository/CI environments use matching CUDA 13.2 binaries. These uv settings
+# are not part of the published wheel's dependency metadata.
+find-links = ["https://whl.natten.org"]
+constraint-dependencies = [
+    "torch==2.13.0+cu132 ; sys_platform == 'linux'",
+    "torchvision==0.28.0+cu132 ; sys_platform == 'linux'",
+    "flash-attn==2.8.3.post1+cu.13.2.torch.2.13 ; sys_platform == 'linux'",
+    "natten==0.21.7+torch2130cu132 ; sys_platform == 'linux'",
+]
 # Needed for some packages that build with PEP 518
 no-build-isolation-package = ["earth2grid", "flash-attn", "natten", "torch-harmonics"]
 # MoviePy 2.2.1 requires Pillow <12; override to use the security-updated release.
@@ -385,6 +394,9 @@ flash-attn = ["torch", "packaging", "ninja"]
 natten = ["setuptools", "cmake", "torch"]
 
 [tool.uv.sources]
+torch = { index = "pytorch-cu132", marker = "sys_platform == 'linux'" }
+torchvision = { index = "pytorch-cu132", marker = "sys_platform == 'linux'" }
+flash-attn = { index = "astral-cu132", marker = "sys_platform == 'linux'" }
 cfgrib = { git = "https://github.com/NickGeneva/cfgrib.git", rev = "6a9af3173d7050b5fa5d221755f97e6ecb8c3433" } # https://github.com/ecmwf/cfgrib/issues/433
 cbottle = { git = "https://github.com/NVlabs/cBottle.git", rev = "f0f519987589cc0b368ab892a1adfb2fb30a5587" }
 earth2grid = { git = "https://github.com/NVlabs/earth2grid.git", rev = "11dcf1b0787a7eb6a8497a3a5a5e1fdcc31232d3" }
@@ -413,6 +425,16 @@ climate-learn = { git = "https://github.com/NickGeneva/ORBIT-2", rev = "5b2d80a8
 weathermesh-5c = { git = "https://github.com/windborne/weathermesh-5c.git", rev = "b27c315175982f5bb057c644d4bc0e1a16e0f790" }
 earth2studio-gallery = { git = "https://github.com/NickGeneva/earth2studio-gallery.git", rev = "23608550091f6ffb6256c3830514c6489f11fd90" }
 
+
+[[tool.uv.index]]
+name = "pytorch-cu132"
+url = "https://download.pytorch.org/whl/cu132"
+explicit = true
+
+[[tool.uv.index]]
+name = "astral-cu132"
+url = "https://wheels.astral.sh/simple/cu132/"
+explicit = true
 
 [exclude.uv.workspace]
 members = ["recipes/*"]

@@ -88,23 +88,14 @@ categories:
         notes:
           - &flash_attn_wheels
             text: >-
-              FlashAttention (flash-attn) can take a long time to build.
-              Before installing this extra, select a compatible prebuilt wheel
-              from the Astral GPU index. For uv projects, configure the selected
-              CUDA index as a named [[tool.uv.index]] with explicit = true and map
-              flash-attn to it in [tool.uv.sources]. For pip, install the selected
-              wheel URL directly. Pin the selected build and use
-              --only-binary flash-attn to prevent a fallback to source compilation.
+              Avoid lengthy FlashAttention builds by selecting a compatible
+              prebuilt wheel from the Astral GPU index.
             href: https://wheels.astral.sh/
             label: Astral GPU index
           - &attention_compatibility
             text: >-
-              Match the wheel to the model's dependency requirements, Python ABI,
-              OS/architecture, PyTorch build, CUDA build, and GPU capability.
-              Check torch.__version__ and torch.version.cuda; the CUDA version
-              reported by nvidia-smi alone is not sufficient. Configure wheel
-              sources in your own project before adding the Earth2Studio extra;
-              Earth2Studio's uv source settings are not inherited by consumers.
+              Match wheels to your Python, platform, PyTorch, and CUDA build.
+              See the setup guide for uv/pip instructions.
             href: '#gpu-dependency-wheels'
             label: GPU dependency wheel setup
       - id: aifsens
@@ -144,20 +135,13 @@ categories:
         notes:
           - &natten_wheels
             text: >-
-              NATTEN (required for Python versions before 3.14) can take a long
-              time to build. Before installing this extra, choose a compatible
-              build from the NATTEN wheel listing and pin its full version,
-              including the +torch...cu... suffix when present. Use
-              --find-links https://whl.natten.org with uv add or pip install,
-              and --only-binary natten to prevent source compilation. For uv
-              projects, persist find-links = ["https://whl.natten.org"] under
-              [tool.uv]. Models requiring libnatten need that compiled backend;
-              check natten.HAS_LIBNATTEN when supported by the installed version.
+              Avoid lengthy NATTEN builds by pinning a compatible prebuilt wheel
+              and using --find-links https://whl.natten.org.
             href: https://whl.natten.org
             label: NATTEN prebuilt wheels
           - *attention_compatibility
           - &natten_install_guide
-            text: Consult NATTEN's installation guide for supported builds and GPU requirements.
+            text: Check supported builds and GPU requirements.
             href: https://natten.org/install/
             label: NATTEN installation guide
       - id: aurora
