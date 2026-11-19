@@ -95,6 +95,30 @@ Preserve start-of-day timestamps and one-day lead increments. Substituting
 `mean:24h` would select the preceding day. The source must sample hourly; a source
 storing these daily means returns them under the same labels without reducing again.
 
+### Statistics of Model Outputs
+
+`Pipeline` can reduce a stream over lead time with `LeadWindow` (see
+[E2S-11](E2S-11_EXECUTION_CONTRACT_SPEC.md#lead-time-reductions)).
+The window ending at lead `e` is the right-closed `(e - window, e]`, so its
+output at valid time `T` is the qualified label's statistic ending at `T`.
+`compose_time_statistic(label, method, window, delta_t)` gives that label for
+frames published every `delta_t`:
+
+| Frame label | Reduction | Result |
+| --- | --- | --- |
+| `t2m` (instantaneous) | `mean` over `7d` | `t2m:mean:168h` |
+| `t2m:mean:-1h:23h` (daily mean) | `mean` over `30days` | `t2m:mean:-697h:+23h` |
+| `tp06:sum:6h` | `sum` over `24h` | `tp06:sum:24h` |
+
+The reduction's method is `mean`, `sum`, `min` or `max`; other statistics need
+not compose (a range of daily ranges is not a two-day range). A qualified frame
+composes only when its method matches the reduction's and its window equals the
+cadence: the frames then tile the window back to back with equal weight. Other
+combinations (a mean of sums, overlapping or gapped windows, raw `::`
+identifiers) are not one statistic of the underlying samples, so the stream
+cannot be reduced. Composed labels use the canonical modifier of
+`time_statistic_metadata`, so a window given as `7d` is labelled `168h`.
+
 ### Source Responsibilities
 
 A source that supports a temporal quantity accepts its qualified label in
