@@ -197,28 +197,27 @@ then reduced, then regridded, then scored and written. A regridder's
 
 A reduction turns a stream's outputs into fewer outputs on another lead axis,
 such as weekly means of a daily rollout, without wrapping the runner. It has
-two parts, because the setting and what it has seen so far live for different
-lengths of time:
+the same per-item lifecycle as a `Scorer`:
 
 ```python
-class LeadReduction(Protocol):       # the setting passed to Pipeline; no item state
+class LeadReduction(Protocol):
     def output_coords(self, signature: CoordinateSystem) -> CoordinateSystem: ...
-    def begin(self, signature, final_lead_time) -> LeadAccumulator: ...
-
-class LeadAccumulator(Protocol):     # one stream's partial results for one item
+    def begin_item(self, signature, final_lead_time) -> None: ...  # discard partial results
     def update(self, x: xr.DataArray) -> list[xr.DataArray]: ...  # completed outputs
-    def finish(self) -> None: ...                                 # raise if incomplete
+    def finish_item(self) -> None: ...                            # raise if incomplete
 ```
 
 `output_coords` plans the reduced store from the filtered signature, so the
 manifest, store and scorer all see the reduced lead axis and labels. `Pipeline`
-calls `begin` at the start of every item, feeds the accumulator each of the
-stream's outputs, and calls `finish` when the item ends. During setup it also
-calls `begin` once per distinct final lead time, so an item that cannot be
-reduced fails before any item runs. One reduction may serve several streams;
-streams neither written nor scored are not reduced. An output holding none of
-a reduced stream's selected variables still reaches its accumulator, as
-missing samples. Resume is per item, so accumulators are never checkpointed.
+calls `begin_item` at the start of every item, passes each of the stream's
+outputs to `update`, and calls `finish_item` when the item ends. During setup
+it also calls `begin_item` once per distinct final lead time, so an item that
+cannot be reduced fails before any item runs. `Pipeline` deep-copies each
+reduction per stream, so a reduction holds the current item's partial results
+on itself and one instance may still be passed for several streams. Streams
+neither written nor scored are not reduced. An output holding none of a
+reduced stream's selected variables still reaches its reduction, as missing
+samples. Resume is per item, so partial results are never checkpointed.
 The progress manifest records each reduction by its `repr` (by its class when
 it defines none), so a resume with other settings is rejected even when the
 stored schema is unchanged; custom reductions should give a `repr` naming

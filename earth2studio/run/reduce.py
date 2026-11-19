@@ -23,29 +23,19 @@ stream to :class:`~earth2studio.run.Pipeline`; the runner itself is unchanged::
     Pipeline(runner, output={"forecast": store},
              reduction={"forecast": LeadWindow("7d")})
 
-:class:`LeadWindow` is the built-in reduction. Other reductions implement two
-protocols, because the reduction and what it has seen so far live for
-different lengths of time:
-
-- :class:`LeadReduction` is the setting passed to ``Pipeline``. It is built
-  once, never changes, and may serve several streams. It plans the reduced
-  store and starts each item.
-- :class:`LeadAccumulator` is what :meth:`LeadReduction.begin` returns: the
-  partial results of one stream over one work item. It is fed the stream's
-  outputs one at a time and returns reduced outputs as they complete.
-
-``Pipeline`` drives them as follows, for each reduced stream::
+:class:`LeadWindow` is the built-in reduction. Others implement
+:class:`LeadReduction`, which has the same per-item lifecycle as a
+:class:`~earth2studio.run.pipeline.Scorer`. ``Pipeline`` copies each reduction
+once per stream, so a reduction keeps its partial results on itself, and drives
+it as follows::
 
     stored = reduction.output_coords(signature)        # once, plans the store
     for item in items:
-        accumulator = reduction.begin(signature, item.final_lead_time)
+        reduction.begin_item(signature, item.final_lead_time)
         for x in outputs_of_the_stream(item):           # filtered to output_variables
-            for reduced in accumulator.update(x):
+            for reduced in reduction.update(x):
                 regrid_score_and_write(reduced)
-        accumulator.finish()                            # raises if incomplete
-
-The split mirrors :mod:`hashlib`: an algorithm, and a hash object fed with
-``update``.
+        reduction.finish_item()                         # raises if incomplete
 """
 
 from __future__ import annotations
@@ -73,12 +63,12 @@ _ZERO = np.timedelta64(0, "ns")
 
 
 class LeadReduction(Protocol):
-    """How to reduce a stream over lead time: the setting passed to ``Pipeline``.
+    """Reduce one stream over lead time, item by item.
 
-    A reduction holds no per-item state, so one instance may serve several
-    streams and every item. ``Pipeline`` applies it after selecting the
-    stream's ``output_variables`` and before its regridder, scorer and store,
-    so it sees the selected variables on the runner's grid.
+    ``Pipeline`` applies a reduction after selecting the stream's
+    ``output_variables`` and before its regridder, scorer and store, so it sees
+    the selected variables on the runner's grid. Each stream gets its own copy,
+    which holds the partial results of the current item.
     """
 
     def output_coords(self, signature: CoordinateSystem) -> CoordinateSystem:
@@ -106,10 +96,10 @@ class LeadReduction(Protocol):
         """
         ...
 
-    def begin(
+    def begin_item(
         self, signature: CoordinateSystem, final_lead_time: np.timedelta64
-    ) -> LeadAccumulator:
-        """Start reducing the stream for one work item.
+    ) -> None:
+        """Discard any partial results and start one work item.
 
         Called at the start of every item, and once per distinct final lead
         time before any item runs, so an item that cannot be reduced fails
@@ -122,21 +112,12 @@ class LeadReduction(Protocol):
         final_lead_time : np.timedelta64
             The item's final lead time.
 
-        Returns
-        -------
-        LeadAccumulator
-            Fresh state for this item.
-
         Raises
         ------
         ValueError
             If an item with this final lead time cannot be reduced.
         """
         ...
-
-
-class LeadAccumulator(Protocol):
-    """One stream's partial results over one work item, from :meth:`LeadReduction.begin`."""
 
     def update(self, x: xr.DataArray) -> list[xr.DataArray]:
         """Take the stream's next output; return the reduced outputs it completes.
@@ -151,11 +132,11 @@ class LeadAccumulator(Protocol):
         -------
         list[xr.DataArray]
             Reduced outputs completed by ``x``, matching the signature from
-            :meth:`LeadReduction.output_coords`; often empty.
+            :meth:`output_coords`; often empty.
         """
         ...
 
-    def finish(self) -> None:
+    def finish_item(self) -> None:
         """End the item.
 
         Raises
@@ -250,6 +231,8 @@ class LeadWindow(LeadReduction):
                 )
             self.ends = np.sort(values)
         self.relabel = relabel
+        # The current item, set by begin_item.
+        self._item: _Item | None = None
 
     def __repr__(self) -> str:
         ends = (
@@ -352,10 +335,12 @@ class LeadWindow(LeadReduction):
             replacements["variable"] = labels
         return coord_array_like(signature, replacements)
 
-    def begin(
+    # -- one item ------------------------------------------------------------
+
+    def begin_item(
         self, signature: CoordinateSystem, final_lead_time: np.timedelta64
-    ) -> LeadAccumulator:
-        """Start reducing one item: the windows ending by its final lead time.
+    ) -> None:
+        """Start one item: the windows ending by its final lead time.
 
         Parameters
         ----------
@@ -364,31 +349,85 @@ class LeadWindow(LeadReduction):
         final_lead_time : np.timedelta64
             The item's final lead time.
 
-        Returns
-        -------
-        LeadAccumulator
-            Running statistics of the item's windows.
-
         Raises
         ------
         ValueError
             If the item's final lead time is not a whole number of windows
             (without ``ends``), or the stream misses a lead a window needs.
         """
+        self._item = None
         ends = self._window_ends(signature, final_lead_time)
         variables = (
             np.asarray(signature["variable"].values)
             if "variable" in signature.dims
             else None
         )
-        return _WindowAccumulator(
-            self,
-            ends,
-            self._cadence(signature),
-            variables,
-            self._labels(signature),
-            signature.dtype,
+        self._item = _Item(
+            ends=ends,
+            samples=int(self.window // self._cadence(signature)),
+            variables=variables,
+            labels=self._labels(signature),
+            dtype=signature.dtype,
         )
+
+    def update(self, x: xr.DataArray) -> list[xr.DataArray]:
+        """Add one output to its windows; return the windows it completes.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            One output of the stream, holding one or more lead times.
+
+        Returns
+        -------
+        list[xr.DataArray]
+            The reduced output of each window closed by ``x``, in lead order.
+        """
+        item = self._current()
+        if "lead_time" not in x.dims:
+            raise ValueError("A lead-time reduction needs outputs with lead_time")
+        start = item.ends - self.window
+        done: list[xr.DataArray] = []
+        for j, lead in enumerate(_leads(x)):
+            windows = item.ends[(start < lead) & (lead <= item.ends)]
+            if windows.size == 0:
+                continue
+            sample = x.isel(lead_time=[j])
+            tensor = item.tensor(sample)
+            for end in windows:
+                if end in item.closed:
+                    raise RuntimeError(
+                        f"Lead {format_duration(lead)} arrived after the window "
+                        f"ending at {format_duration(end)} closed"
+                    )
+                if end not in item.open:
+                    item.open[end] = _RunningStatistic(self.method)
+                item.open[end].add(tensor)
+                if lead == end:
+                    done.append(item.close(end, sample))
+        return done
+
+    def finish_item(self) -> None:
+        """Check every window of the item closed, then end it.
+
+        Raises
+        ------
+        RuntimeError
+            If the runner never published the lead closing some window.
+        """
+        item = self._current()
+        self._item = None
+        unclosed = [end for end in item.ends if end not in item.closed]
+        if unclosed:
+            raise RuntimeError(
+                f"The item ended before the window ending at "
+                f"{format_duration(unclosed[0])} closed"
+            )
+
+    def _current(self) -> _Item:
+        if self._item is None:
+            raise RuntimeError("LeadWindow.begin_item was not called for this item")
+        return self._item
 
 
 class _RunningStatistic:
@@ -433,79 +472,26 @@ class _RunningStatistic:
         return self.total
 
 
-class _WindowAccumulator(LeadAccumulator):
-    """The windows of one :class:`LeadWindow` item, closed as their last lead arrives."""
+class _Item:
+    """One :class:`LeadWindow` item: its windows, open and closed."""
 
     def __init__(
         self,
-        spec: LeadWindow,
         ends: np.ndarray,
-        cadence: np.timedelta64,
+        samples: int,
         variables: np.ndarray | None,
         labels: np.ndarray | None,
         dtype: np.dtype,
     ) -> None:
-        self.spec = spec
         self.ends = ends
-        self.samples = int(spec.window // cadence)
+        self.samples = samples
         self.variables = variables
         self.labels = labels
         self.dtype = dtype
         self.open: dict[np.timedelta64, _RunningStatistic] = {}
         self.closed: set[np.timedelta64] = set()
 
-    def update(self, x: xr.DataArray) -> list[xr.DataArray]:
-        """Add one output to its windows; return the windows it completes.
-
-        Parameters
-        ----------
-        x : xr.DataArray
-            One output of the stream, holding one or more lead times.
-
-        Returns
-        -------
-        list[xr.DataArray]
-            The reduced output of each window closed by ``x``, in lead order.
-        """
-        if "lead_time" not in x.dims:
-            raise ValueError("A lead-time reduction needs outputs with lead_time")
-        start = self.ends - self.spec.window
-        done: list[xr.DataArray] = []
-        for j, lead in enumerate(_leads(x)):
-            windows = self.ends[(start < lead) & (lead <= self.ends)]
-            if windows.size == 0:
-                continue
-            sample = x.isel(lead_time=[j])
-            tensor = self._tensor(sample)
-            for end in windows:
-                if end in self.closed:
-                    raise RuntimeError(
-                        f"Lead {format_duration(lead)} arrived after the window "
-                        f"ending at {format_duration(end)} closed"
-                    )
-                if end not in self.open:
-                    self.open[end] = _RunningStatistic(self.spec.method)
-                self.open[end].add(tensor)
-                if lead == end:
-                    done.append(self._close(end, sample))
-        return done
-
-    def finish(self) -> None:
-        """Check every window of the item closed.
-
-        Raises
-        ------
-        RuntimeError
-            If the runner never published the lead closing some window.
-        """
-        unclosed = [end for end in self.ends if end not in self.closed]
-        if unclosed:
-            raise RuntimeError(
-                f"The item ended before the window ending at "
-                f"{format_duration(unclosed[0])} closed"
-            )
-
-    def _tensor(self, sample: xr.DataArray) -> torch.Tensor:
+    def tensor(self, sample: xr.DataArray) -> torch.Tensor:
         """The sample in float32 or wider, NaN for planned variables it lacks."""
         tensor, _ = sample.e2s.to_torch()
         dtype = torch.promote_types(tensor.dtype, torch.float32)
@@ -525,7 +511,8 @@ class _WindowAccumulator(LeadAccumulator):
                 full.select(axis, n).copy_(tensor.select(axis, index[str(name)]))
         return full
 
-    def _close(self, end: np.timedelta64, sample: xr.DataArray) -> xr.DataArray:
+    def close(self, end: np.timedelta64, sample: xr.DataArray) -> xr.DataArray:
+        """Reduce the window ending at ``end``, shaped like ``sample``."""
         statistic = self.open.pop(end)
         if statistic.count != self.samples:
             raise RuntimeError(

@@ -52,7 +52,7 @@ from earth2studio.run._fields import (  # noqa: F401 - re-exported helpers
     map_field,
 )
 from earth2studio.run.pipeline import Pipeline, Scorer
-from earth2studio.run.reduce import LeadAccumulator, LeadReduction, LeadWindow
+from earth2studio.run.reduce import LeadReduction, LeadWindow
 from earth2studio.run.runner import (
     DataRequest,
     DiagnosticRunner,
@@ -74,7 +74,6 @@ logger.add(lambda msg: tqdm.write(msg, end=""), colorize=True)
 __all__ = [
     "DataRequest",
     "DiagnosticRunner",
-    "LeadAccumulator",
     "LeadReduction",
     "LeadWindow",
     "Pipeline",

@@ -199,6 +199,23 @@ def test_reduced_streams_without_backend_or_scorer_are_skipped() -> None:
     np.testing.assert_allclose(store["u10m:mean:12h"][0, :, 0, 0], [1.5, 3.5])
 
 
+def test_one_reduction_serves_several_streams() -> None:
+    forecast, copy = KVBackend(), KVBackend()
+    window = LeadWindow("12h")
+    pipeline = Pipeline(
+        _runner(diagnostics={"copy": Identity()}),
+        output={"forecast": forecast, "copy": copy},
+        reduction={"forecast": window, "copy": window},
+        device="cpu",
+    )
+    # Each stream holds its own copy, as both are open within one item.
+    assert pipeline.reduction["forecast"] is not pipeline.reduction["copy"]
+    pipeline.run(work_items([T0, T1], np.timedelta64(24, "h")))
+    for store in (forecast, copy):
+        np.testing.assert_allclose(store["u10m:mean:12h"][:, :, 0, 0], [[1.5, 3.5]] * 2)
+    assert window._item is None
+
+
 def test_resume_rejects_changed_reduction_settings(tmp_path: Path) -> None:
     def run(method: str) -> None:
         Pipeline(
@@ -354,15 +371,15 @@ def test_daily_means_compose_and_missing_variables_are_nan() -> None:
     assert list(planned["variable"].values) == labels
     assert planned.dtype == np.float16
 
-    state = reduction.begin(signature, np.timedelta64(96, "h"))
+    reduction.begin_item(signature, np.timedelta64(96, "h"))
     both = ["t2m:mean:-1h:23h", "tp"]
     # One output may carry several leads; another lacks tp.
-    assert state.update(_output(leads[:1], [9.0], both, "float16")) == []
-    first = state.update(_output(leads[1:3], [1.0, 2.0], both, "float16"))
-    lacking = state.update(_output(leads[3:4], [3.0], both[:1], "float16"))
-    second = state.update(_output(leads[4:], [4.0], both, "float16"))
+    assert reduction.update(_output(leads[:1], [9.0], both, "float16")) == []
+    first = reduction.update(_output(leads[1:3], [1.0, 2.0], both, "float16"))
+    lacking = reduction.update(_output(leads[3:4], [3.0], both[:1], "float16"))
+    second = reduction.update(_output(leads[4:], [4.0], both, "float16"))
     assert lacking == []
-    state.finish()
+    reduction.finish_item()
 
     (window,) = first
     assert window.dtype == np.float16
@@ -389,22 +406,28 @@ def test_unfinished_and_out_of_order_windows_raise() -> None:
     names = ["t2m:mean:-1h:23h", "tp"]
     reduction = LeadWindow("12h", relabel=False)
 
-    state = reduction.begin(signature, np.timedelta64(12, "h"))
-    state.update(_output(leads[1:2], [1.0], names, "float32"))
+    with pytest.raises(RuntimeError, match="begin_item was not called"):
+        reduction.update(_output(leads[1:2], [1.0], names, "float32"))
+
+    reduction.begin_item(signature, np.timedelta64(12, "h"))
+    reduction.update(_output(leads[1:2], [1.0], names, "float32"))
     with pytest.raises(RuntimeError, match="ended before"):
-        state.finish()
+        reduction.finish_item()
+    with pytest.raises(RuntimeError, match="begin_item was not called"):
+        reduction.finish_item()
 
-    state = reduction.begin(signature, np.timedelta64(12, "h"))
+    reduction.begin_item(signature, np.timedelta64(12, "h"))
     with pytest.raises(RuntimeError, match="received 1 outputs, not 2"):
-        state.update(_output(leads[2:], [2.0], names, "float32"))
+        reduction.update(_output(leads[2:], [2.0], names, "float32"))
 
-    state = reduction.begin(signature, np.timedelta64(12, "h"))
-    assert len(state.update(_output(leads[1:], [1.0, 2.0], names, "float32"))) == 1
+    # begin_item discards the failed item's partial results.
+    reduction.begin_item(signature, np.timedelta64(12, "h"))
+    assert len(reduction.update(_output(leads[1:], [1.0, 2.0], names, "float32"))) == 1
     with pytest.raises(RuntimeError, match="after the window"):
-        state.update(_output(leads[1:2], [1.0], names, "float32"))
+        reduction.update(_output(leads[1:2], [1.0], names, "float32"))
 
     with pytest.raises(ValueError, match="lead_time"):
-        state.update(_output(leads[1:2], [1.0], names, "float32").isel(lead_time=0))
+        reduction.update(_output(leads[1:2], [1.0], names, "float32").isel(lead_time=0))
 
 
 def test_streams_must_publish_every_lead_a_window_needs() -> None:
@@ -419,9 +442,8 @@ def test_reduction_stays_on_the_device() -> None:
     cupy = pytest.importorskip("cupy")
     leads = _h(0, 6, 12)
     names = ["t2m:mean:-1h:23h", "tp"]
-    state = LeadWindow("12h", relabel=False).begin(
-        _signature(leads), np.timedelta64(12, "h")
-    )
+    state = LeadWindow("12h", relabel=False)
+    state.begin_item(_signature(leads), np.timedelta64(12, "h"))
     outputs = [
         _output(leads[k : k + 1], [float(k)], names, "float32").e2s.as_cupy()
         for k in (1, 2)

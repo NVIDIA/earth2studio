@@ -24,6 +24,7 @@ store, and records finished items so a run can resume.
 
 from __future__ import annotations
 
+import copy
 import hashlib
 import json
 import os
@@ -44,7 +45,7 @@ from earth2studio.models.dx import DiagnosticModel
 from earth2studio.models.px import PrognosticModel
 from earth2studio.run._fields import map_field
 from earth2studio.run.output import OutputManager
-from earth2studio.run.reduce import LeadAccumulator, LeadReduction
+from earth2studio.run.reduce import LeadReduction
 from earth2studio.run.runner import PrognosticRunner, Runner
 from earth2studio.run.work import (
     ProgressStore,
@@ -121,8 +122,9 @@ class Pipeline:
         Lead-time reduction per stream, such as
         :class:`~earth2studio.run.reduce.LeadWindow`, applied after variable
         filtering and before regridding. The scorer and the store receive the
-        reduced outputs, planned on the reduction's lead axis and labels, by
-        default None
+        reduced outputs, planned on the reduction's lead axis and labels. Each
+        stream gets its own copy of its reduction, so one instance may serve
+        several streams, by default None
     regridder : Mapping[str, Regridder] | None, optional
         Regridder per stream, applied after variable filtering and any
         reduction. Its ``source_grid`` must match the stream's grid; the stream
@@ -176,16 +178,20 @@ class Pipeline:
                 raise ValueError(f"output_variables names no variables for {stream!r}")
             self.output_variables[stream] = names
         self.regridder = dict(regridder or {})
-        self.reduction = dict(reduction or {})
+        # A copy per stream: a reduction holds the current item's state.
+        self.reduction = {
+            stream: copy.deepcopy(r) for stream, r in (reduction or {}).items()
+        }
         self.progress = progress
         self.device = _default_device() if device == "auto" else torch.device(device)
         self.sync = sync
         # Per-run state, set by run().
         self._outputs: OutputManager | None = None
         self._ensemble = False
-        # Signatures reductions are planned from, and their per-item state.
+        # Signatures reductions are planned from, and the streams reducing
+        # the current item.
         self._reduced: dict[str, CoordinateSystem] = {}
-        self._reducing: dict[str, LeadAccumulator] = {}
+        self._reducing: set[str] = set()
 
     @classmethod
     def from_model(
@@ -311,16 +317,20 @@ class Pipeline:
             self.scorer.begin_item(item)
         # Only streams that are scored or written are fed to _emit's reduction.
         self._reducing = {
-            stream: self.reduction[stream].begin(signature, item.final_lead_time)
-            for stream, signature in self._reduced.items()
+            stream
+            for stream in self._reduced
             if self.scorer is not None or stream in outputs.backends
         }
+        for stream in self._reducing:
+            self.reduction[stream].begin_item(
+                self._reduced[stream], item.final_lead_time
+            )
         for step in self.runner.run_item(item):
             for stream, x in step.items():
                 self._emit(item, stream, x)
-        for accumulator in self._reducing.values():
-            accumulator.finish()
-        self._reducing = {}
+        for stream in self._reducing:
+            self.reduction[stream].finish_item()
+        self._reducing = set()
         outputs.flush()
         if self.scorer is not None:
             self.scorer.finish_item(item)
@@ -373,11 +383,10 @@ class Pipeline:
                 x = x.isel(variable=slice(0, 0))
             else:
                 return
-        accumulator = self._reducing.get(stream)
-        if accumulator is None:
+        if stream not in self._reducing:
             self._deliver(item, stream, x)
             return
-        for reduced in accumulator.update(x):
+        for reduced in self.reduction[stream].update(x):
             self._deliver(item, stream, reduced)
 
     def _deliver(self, item: WorkItem, stream: str, x: xr.DataArray) -> None:
@@ -433,7 +442,7 @@ class Pipeline:
         for lead in {item.final_lead_time for item in items}:
             for stream, signature in self._reduced.items():
                 try:
-                    self.reduction[stream].begin(signature, lead)
+                    self.reduction[stream].begin_item(signature, lead)
                 except ValueError as error:
                     raise ValueError(
                         f"Cannot reduce stream {stream!r} for items with final "

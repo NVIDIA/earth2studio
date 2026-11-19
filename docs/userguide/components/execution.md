@@ -11,9 +11,9 @@ members. This is done using three core layers, from smallest to largest:
   data sources and specifies how an item's inputs are fetched, how models are
   stepped, and what streams of output data are produced.
 - A **`Pipeline`** executes the `Runner` over many work items. It acts as an
-  orchestrator: distributing items across ranks, selecting and regridding outputs,
-  writing each output stream to storage, and potentially resuming interrupted runs
-  or scoring the outputs as they're produced.
+  orchestrator: distributing items across ranks, selecting, reducing and
+  regridding outputs, writing each output stream to storage, and potentially
+  resuming interrupted runs or scoring the outputs as they're produced.
 
 Changing *what* a forecast produces means choosing or writing a `Runner`; changing
 *how and where* forecasts run means configuring the `Pipeline`. Models can also be
@@ -85,7 +85,8 @@ stream to its store.
 | `runner` | `Runner` executing each item. |
 | `output` | IO backend per stream; streams left out are not written. |
 | `output_variables` | Variables kept per stream. |
-| `regridder` | Regridder per stream, applied after variable selection. |
+| `reduction` | Lead-time reduction per stream, such as `LeadWindow("7d")` for weekly means. |
+| `regridder` | Regridder per stream, applied after variable selection and any reduction. |
 | `scorer` | Online scoring hook, called with each output before it is written. |
 | `progress` | `ProgressStore` recording finished items so a rerun resumes. |
 | `device` | Runner device; `"auto"` selects `cuda:{LOCAL_RANK}` or CPU. |
