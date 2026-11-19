@@ -3617,7 +3617,7 @@ folder is <em>not</em> present. The .env file is intended for the documentation 
 <a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a>    <span class="sa">f</span><span class="s2">&quot;Inference runner </span><span class="si">{</span><span class="n">dist</span><span class="o">.</span><span class="n">rank</span><span class="si">}</span><span class="s2"> of </span><span class="si">{</span><span class="n">dist</span><span class="o">.</span><span class="n">world_size</span><span class="si">}</span><span class="s2"> with device </span><span class="si">{</span><span class="n">dist</span><span class="o">.</span><span class="n">device</span><span class="si">}</span><span class="s2">&quot;</span>
 <a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a><span class="p">)</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>1 line</small></summary><pre class="no-copy"><code>2026-08-25 12:42:31.423 | INFO     | __main__:&lt;module&gt;:19 - Inference runner 0 of 1 with device cuda:0</code></pre></details>
+<details class="e2sg-output" open><summary><span>Console output</span><small>1 line</small></summary><pre class="no-copy"><code>2026-11-19 21:03:37.335 | INFO     | __main__:&lt;module&gt;:22 - Inference runner 0 of 1 with device cuda:0</code></pre></details>
 
 <p>Next the needed components get initialized.
 Rigorous parallel support is not part of Earth2Studio's design goals, there are some
@@ -3636,15 +3636,14 @@ taken to ensure safe parallel inference.</p>
 <a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="k">if</span> <span class="n">dist</span><span class="o">.</span><span class="n">rank</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
 <a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>    <span class="n">model</span> <span class="o">=</span> <span class="n">DLWP</span><span class="o">.</span><span class="n">load_model</span><span class="p">(</span><span class="n">package</span><span class="p">)</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>9 lines</small></summary><pre class="no-copy"><code>Downloading dlwp_cubesphere.zip: 0%|          | 0.00/67.2M [00:00&lt;?, ?B/s]
-Downloading dlwp_cubesphere.zip: 1%|          | 621k/67.2M [00:00&lt;00:11, 6.31MB/s]
-Downloading dlwp_cubesphere.zip: 12%|█▏        | 8.31M/67.2M [00:00&lt;00:01, 49.6MB/s]
-Downloading dlwp_cubesphere.zip: 29%|██▉       | 19.7M/67.2M [00:00&lt;00:00, 81.1MB/s]
-Downloading dlwp_cubesphere.zip: 47%|████▋     | 31.3M/67.2M [00:00&lt;00:00, 96.9MB/s]
-Downloading dlwp_cubesphere.zip: 64%|██████▎   | 42.8M/67.2M [00:00&lt;00:00, 105MB/s] 
-Downloading dlwp_cubesphere.zip: 81%|████████  | 54.2M/67.2M [00:00&lt;00:00, 110MB/s]
-Downloading dlwp_cubesphere.zip: 98%|█████████▊| 65.7M/67.2M [00:00&lt;00:00, 113MB/s]
-Downloading dlwp_cubesphere.zip: 100%|██████████| 67.2M/67.2M [00:00&lt;00:00, 98.0MB/s]</code></pre></details>
+<details class="e2sg-output" open><summary><span>Console output</span><small>8 lines</small></summary><pre class="no-copy"><code>Downloading dlwp_cubesphere.zip: 0%|          | 0.00/67.2M [00:00&lt;?, ?B/s]
+Downloading dlwp_cubesphere.zip: 0%|          | 335k/67.2M [00:00&lt;00:20, 3.38MB/s]
+Downloading dlwp_cubesphere.zip: 5%|▍         | 3.20M/67.2M [00:00&lt;00:03, 19.0MB/s]
+Downloading dlwp_cubesphere.zip: 24%|██▎       | 15.9M/67.2M [00:00&lt;00:00, 70.5MB/s]
+Downloading dlwp_cubesphere.zip: 42%|████▏     | 28.5M/67.2M [00:00&lt;00:00, 94.8MB/s]
+Downloading dlwp_cubesphere.zip: 62%|██████▏   | 41.6M/67.2M [00:00&lt;00:00, 110MB/s] 
+Downloading dlwp_cubesphere.zip: 81%|████████▏ | 54.7M/67.2M [00:00&lt;00:00, 119MB/s]
+Downloading dlwp_cubesphere.zip: 100%|██████████| 67.2M/67.2M [00:00&lt;00:00, 101MB/s]</code></pre></details>
 
 <p>When loading models that are built into Earth2Studio, the model's checkpoint files
 will be downloaded into the machines cache. If each inference process has access to
@@ -3690,67 +3689,92 @@ process.</p>
 <a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a><span class="nb">print</span><span class="p">(</span><span class="n">io</span><span class="o">.</span><span class="n">root</span><span class="o">.</span><span class="n">tree</span><span class="p">())</span>
 <a id="__codelineno-5-16" name="__codelineno-5-16" href="#__codelineno-5-16"></a><span class="n">torch</span><span class="o">.</span><span class="n">distributed</span><span class="o">.</span><span class="n">barrier</span><span class="p">()</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>62 lines</small></summary><pre class="no-copy"><code>2026-08-25 12:42:53.319 | INFO     | earth2studio.run:deterministic:85 - Running simple workflow!
-2026-08-25 12:42:53.319 | INFO     | earth2studio.run:deterministic:92 - Inference device: cuda:0
+<details class="e2sg-output" open><summary><span>Console output</span><small>87 lines</small></summary><pre class="no-copy"><code>2026-11-19 21:03:58.001 | INFO     | earth2studio.run:deterministic:132 - Running simple workflow!
+2026-11-19 21:03:58.002 | INFO     | earth2studio.run:deterministic:140 - Inference device: cuda:0
 
 Fetching WB2 data:   0%|          | 0/42 [00:00&lt;?, ?it/s]
-Fetching WB2 data:   2%|▏         | 1/42 [00:00&lt;00:21,  1.93it/s]
-Fetching WB2 data:   5%|▍         | 2/42 [00:00&lt;00:13,  2.97it/s]
-Fetching WB2 data:  17%|█▋        | 7/42 [00:00&lt;00:03,  9.95it/s]
-Fetching WB2 data:  24%|██▍       | 10/42 [00:01&lt;00:02, 13.12it/s]
-Fetching WB2 data:  29%|██▊       | 12/42 [00:01&lt;00:02, 12.60it/s]
-Fetching WB2 data:  33%|███▎      | 14/42 [00:01&lt;00:02, 10.63it/s]
-Fetching WB2 data:  43%|████▎     | 18/42 [00:01&lt;00:02, 11.55it/s]
-Fetching WB2 data:  60%|█████▉    | 25/42 [00:01&lt;00:00, 20.55it/s]
-Fetching WB2 data:  74%|███████▍  | 31/42 [00:02&lt;00:00, 27.09it/s]
-Fetching WB2 data:  86%|████████▌ | 36/42 [00:02&lt;00:00, 22.62it/s]
-Fetching WB2 data:  95%|█████████▌| 40/42 [00:02&lt;00:00, 24.80it/s]
-Fetching WB2 data: 100%|██████████| 42/42 [00:02&lt;00:00, 16.49it/s]
+Fetching WB2 data:   2%|▏         | 1/42 [00:00&lt;00:12,  3.24it/s]
+Fetching WB2 data:   7%|▋         | 3/42 [00:00&lt;00:04,  7.83it/s]
+Fetching WB2 data:  19%|█▉        | 8/42 [00:00&lt;00:01, 19.23it/s]
+Fetching WB2 data:  29%|██▊       | 12/42 [00:01&lt;00:03,  9.41it/s]
+Fetching WB2 data:  38%|███▊      | 16/42 [00:01&lt;00:01, 13.38it/s]
+Fetching WB2 data:  52%|█████▏    | 22/42 [00:01&lt;00:00, 20.74it/s]
+Fetching WB2 data:  64%|██████▍   | 27/42 [00:01&lt;00:00, 18.29it/s]
+Fetching WB2 data:  71%|███████▏  | 30/42 [00:01&lt;00:00, 17.55it/s]
+Fetching WB2 data:  86%|████████▌ | 36/42 [00:02&lt;00:00, 23.81it/s]
+Fetching WB2 data:  95%|█████████▌| 40/42 [00:02&lt;00:00, 24.93it/s]
+Fetching WB2 data: 100%|██████████| 42/42 [00:02&lt;00:00, 18.80it/s]
+
+Fetching WB2 statistics: 0it [00:00, ?it/s]
+Fetching WB2 statistics: 0it [00:00, ?it/s]
 
 Fetching WB2 data:   0%|          | 0/42 [00:00&lt;?, ?it/s]
-Fetching WB2 data:   2%|▏         | 1/42 [00:00&lt;00:11,  3.63it/s]
-Fetching WB2 data:   7%|▋         | 3/42 [00:00&lt;00:05,  6.97it/s]
-Fetching WB2 data:  10%|▉         | 4/42 [00:00&lt;00:04,  7.60it/s]
-Fetching WB2 data:  14%|█▍        | 6/42 [00:00&lt;00:03,  9.48it/s]
-Fetching WB2 data:  21%|██▏       | 9/42 [00:00&lt;00:02, 13.57it/s]
-Fetching WB2 data:  29%|██▊       | 12/42 [00:01&lt;00:03,  9.31it/s]
-Fetching WB2 data:  45%|████▌     | 19/42 [00:01&lt;00:01, 18.65it/s]
-Fetching WB2 data:  69%|██████▉   | 29/42 [00:01&lt;00:00, 33.04it/s]
-Fetching WB2 data:  95%|█████████▌| 40/42 [00:02&lt;00:00, 22.32it/s]
-Fetching WB2 data: 100%|██████████| 42/42 [00:03&lt;00:00, 12.66it/s]
-2026-08-25 12:43:00.088 | SUCCESS  | earth2studio.run:deterministic:154 - Fetched data from WB2ERA5
-2026-08-25 12:43:00.089 | INFO     | earth2studio.run:deterministic:162 - Inference starting!
+Fetching WB2 data:   2%|▏         | 1/42 [00:00&lt;00:09,  4.20it/s]
+Fetching WB2 data:  12%|█▏        | 5/42 [00:00&lt;00:03,  9.47it/s]
+Fetching WB2 data:  21%|██▏       | 9/42 [00:00&lt;00:02, 15.85it/s]
+Fetching WB2 data:  31%|███       | 13/42 [00:01&lt;00:02, 12.06it/s]
+Fetching WB2 data:  55%|█████▍    | 23/42 [00:01&lt;00:00, 25.11it/s]
+Fetching WB2 data:  74%|███████▍  | 31/42 [00:01&lt;00:00, 33.49it/s]
+Fetching WB2 data:  93%|█████████▎| 39/42 [00:01&lt;00:00, 41.85it/s]
+Fetching WB2 data: 100%|██████████| 42/42 [00:02&lt;00:00, 16.71it/s]
+
+Fetching WB2 statistics: 0it [00:00, ?it/s]
+Fetching WB2 statistics: 0it [00:00, ?it/s]
+2026-11-19 21:04:03.893 | SUCCESS  | earth2studio.run:deterministic:181 - Fetched data from WB2ERA5
+2026-11-19 21:04:03.894 | INFO     | earth2studio.run:deterministic:189 - Inference starting!
 
 
 Running inference:   0%|          | 0/21 [00:00&lt;?, ?it/s]
 
-Running inference:  10%|▉         | 2/21 [00:00&lt;00:05,  3.26it/s]
+Running inference:   5%|▍         | 1/21 [00:00&lt;00:05,  3.60it/s]
 
-Running inference:  19%|█▉        | 4/21 [00:00&lt;00:03,  5.57it/s]
+Running inference:  10%|▉         | 2/21 [00:01&lt;00:10,  1.78it/s]
 
-Running inference:  29%|██▊       | 6/21 [00:00&lt;00:02,  7.42it/s]
+Running inference:  14%|█▍        | 3/21 [00:01&lt;00:06,  2.72it/s]
 
-Running inference:  38%|███▊      | 8/21 [00:01&lt;00:01,  8.41it/s]
+Running inference:  19%|█▉        | 4/21 [00:01&lt;00:04,  3.49it/s]
 
-Running inference:  48%|████▊     | 10/21 [00:01&lt;00:01,  8.84it/s]
+Running inference:  24%|██▍       | 5/21 [00:01&lt;00:03,  4.32it/s]
 
-Running inference:  57%|█████▋    | 12/21 [00:01&lt;00:00, 10.38it/s]
+Running inference:  29%|██▊       | 6/21 [00:01&lt;00:02,  5.09it/s]
 
-Running inference:  67%|██████▋   | 14/21 [00:01&lt;00:00, 11.28it/s]
+Running inference:  33%|███▎      | 7/21 [00:01&lt;00:02,  5.46it/s]
 
-Running inference:  76%|███████▌  | 16/21 [00:01&lt;00:00, 12.19it/s]
+Running inference:  38%|███▊      | 8/21 [00:01&lt;00:02,  6.01it/s]
 
-Running inference:  86%|████████▌ | 18/21 [00:01&lt;00:00, 12.75it/s]
+Running inference:  43%|████▎     | 9/21 [00:02&lt;00:01,  6.45it/s]
 
-Running inference:  95%|█████████▌| 20/21 [00:02&lt;00:00, 12.96it/s]
-Running inference: 100%|██████████| 21/21 [00:02&lt;00:00,  9.92it/s]
-2026-08-25 12:43:02.206 | SUCCESS  | earth2studio.run:deterministic:189 - 
+Running inference:  48%|████▊     | 10/21 [00:02&lt;00:01,  6.81it/s]
+
+Running inference:  52%|█████▏    | 11/21 [00:02&lt;00:01,  7.27it/s]
+
+Running inference:  57%|█████▋    | 12/21 [00:02&lt;00:01,  7.05it/s]
+
+Running inference:  62%|██████▏   | 13/21 [00:02&lt;00:01,  7.60it/s]
+
+Running inference:  67%|██████▋   | 14/21 [00:02&lt;00:00,  7.69it/s]
+
+Running inference:  71%|███████▏  | 15/21 [00:02&lt;00:00,  7.74it/s]
+
+Running inference:  76%|███████▌  | 16/21 [00:02&lt;00:00,  7.39it/s]
+
+Running inference:  81%|████████  | 17/21 [00:03&lt;00:00,  7.53it/s]
+
+Running inference:  86%|████████▌ | 18/21 [00:03&lt;00:00,  7.54it/s]
+
+Running inference:  90%|█████████ | 19/21 [00:03&lt;00:00,  7.72it/s]
+
+Running inference:  95%|█████████▌| 20/21 [00:03&lt;00:00,  6.56it/s]
+
+Running inference: 100%|██████████| 21/21 [00:03&lt;00:00,  6.94it/s]
+Running inference: 100%|██████████| 21/21 [00:03&lt;00:00,  5.78it/s]
+2026-11-19 21:04:07.531 | SUCCESS  | earth2studio.run:deterministic:218 - 
 Inference complete
 /
 ├── lat (721,) float64
-├── lead_time (21,) timedelta64[h]
+├── lead_time (41,) timedelta64[ns]
 ├── lon (1440,) float64
-├── tcwv (6, 21, 721, 1440) float32
+├── tcwv (6, 41, 721, 1440) float32
 └── time (6,) datetime64[ns]</code></pre></details>
 
 <div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># Post Processing</span>
@@ -3791,21 +3815,21 @@ Inference complete
 <a id="__codelineno-6-36" name="__codelineno-6-36" href="#__codelineno-6-36"></a>    <span class="p">)</span>
 <a id="__codelineno-6-37" name="__codelineno-6-37" href="#__codelineno-6-37"></a>    <span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="s2">&quot;outputs/08_tcwv_distributed_manager.jpg&quot;</span><span class="p">)</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>9 lines</small></summary><pre class="no-copy"><code>&lt;xarray.Dataset&gt; Size: 523MB
-Dimensions:    (time: 6, lead_time: 21, lat: 721, lon: 1440)
+<details class="e2sg-output" open><summary><span>Console output</span><small>9 lines</small></summary><pre class="no-copy"><code>&lt;xarray.Dataset&gt; Size: 1GB
+Dimensions:    (time: 6, lead_time: 41, lat: 721, lon: 1440)
 Coordinates:
   * time       (time) datetime64[ns] 48B 2000-06-01 2001-06-01 ... 2005-06-01
-  * lead_time  (lead_time) timedelta64[h] 168B 0 days 00:00:00 ... 5 days 00:...
+  * lead_time  (lead_time) timedelta64[ns] 328B 0 days 00:00:00 ... 10 days 0...
   * lat        (lat) float64 6kB 90.0 89.75 89.5 89.25 ... -89.5 -89.75 -90.0
   * lon        (lon) float64 12kB 0.0 0.25 0.5 0.75 ... 359.0 359.2 359.5 359.8
 Data variables:
-    tcwv       (time, lead_time, lat, lon) float32 523MB dask.array&lt;chunksize=(1, 1, 721, 1440), meta=np.ndarray&gt;</code></pre></details>
+    tcwv       (time, lead_time, lat, lon) float32 1GB dask.array&lt;chunksize=(1, 1, 721, 1440), meta=np.ndarray&gt;</code></pre></details>
 
 <p><img alt="Output from Distributed Manager Inference" class="e2sg-output-image" loading="lazy" src="../../_assets/07_misc-01_distributed_manager/001-cell-11.jpg" /></p>
 <hr />
-<div class="e2sg-downloads"><a class="e2sg-download" href="../../_assets/07_misc-01_distributed_manager/01_distributed_manager.py" download>Download Python source</a><a class="e2sg-download" href="../../_assets/07_misc-01_distributed_manager/01_distributed_manager.ipynb" download>Download Jupyter notebook</a><span class="e2sg-download-meta">executed in 46.4s</span></div>
+<div class="e2sg-downloads"><a class="e2sg-download" href="../../_assets/07_misc-01_distributed_manager/01_distributed_manager.py" download>Download Python source</a><a class="e2sg-download" href="../../_assets/07_misc-01_distributed_manager/01_distributed_manager.ipynb" download>Download Jupyter notebook</a><span class="e2sg-download-meta">executed in 48.8s</span></div>
 
-<section class="e2sg-telemetry" aria-labelledby="e2sg-telemetry-title"><div class="e2sg-telemetry-heading"><div><span class="e2sg-eyebrow">Execution profile</span><h2 id="e2sg-telemetry-title">Runtime telemetry</h2></div></div><div class="e2sg-total-runtime"><span>Total runtime</span><strong>46.4 s</strong></div><h3 class="e2sg-telemetry-subtitle">Execution environment</h3><div class="e2sg-hardware-grid"><div class="e2sg-hardware-item"><span>CPU</span><strong>AMD EPYC 9554 64-Core Processor</strong></div><div class="e2sg-hardware-item"><span>GPU</span><strong>NVIDIA H100 NVL · 93.6 GiB</strong></div><div class="e2sg-hardware-item"><span>System RAM</span><strong>58.4 GiB</strong></div><div class="e2sg-hardware-item"><span>Platform</span><strong>Linux 6.8.0-137-generic</strong></div><div class="e2sg-hardware-item"><span>Python</span><strong>3.13.13</strong></div><div class="e2sg-hardware-item"><span>GPU driver / CUDA</span><strong>Driver 595.84 · CUDA support 13.2</strong></div></div></section>
+<section class="e2sg-telemetry" aria-labelledby="e2sg-telemetry-title"><div class="e2sg-telemetry-heading"><div><span class="e2sg-eyebrow">Execution profile</span><h2 id="e2sg-telemetry-title">Runtime telemetry</h2></div></div><div class="e2sg-total-runtime"><span>Total runtime</span><strong>48.8 s</strong></div><h3 class="e2sg-telemetry-subtitle">Execution environment</h3><div class="e2sg-hardware-grid"><div class="e2sg-hardware-item"><span>CPU</span><strong>AMD EPYC 9554 64-Core Processor</strong></div><div class="e2sg-hardware-item"><span>GPU</span><strong>NVIDIA H100 NVL · 93.6 GiB</strong></div><div class="e2sg-hardware-item"><span>System RAM</span><strong>58.4 GiB</strong></div><div class="e2sg-hardware-item"><span>Platform</span><strong>Linux 6.8.0-147-generic</strong></div><div class="e2sg-hardware-item"><span>Python</span><strong>3.13.13</strong></div><div class="e2sg-hardware-item"><span>GPU driver / CUDA</span><strong>Driver 595.99.02 · CUDA support 13.2</strong></div></div></section>
 
 
 

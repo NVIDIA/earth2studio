@@ -3667,6 +3667,11 @@ one item per collection to list its asset keys too.</p>
 <a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>    <span class="n">end</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">end</span><span class="si">:</span><span class="s2">%Y</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">if</span> <span class="n">end</span> <span class="k">else</span> <span class="s2">&quot;present&quot;</span>
 <a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">info</span><span class="p">[</span><span class="s1">&#39;id&#39;</span><span class="p">]</span><span class="si">:</span><span class="s2">&lt;16</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">info</span><span class="p">[</span><span class="s1">&#39;title&#39;</span><span class="p">]</span><span class="si">:</span><span class="s2">&lt;60</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">start</span><span class="si">:</span><span class="s2">%Y</span><span class="si">}</span><span class="s2"> - </span><span class="si">{</span><span class="n">end</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </code></pre></div>
+<details class="e2sg-output" open><summary><span>Console output</span><small>4 lines</small></summary><pre class="no-copy"><code>hls2-l30         Harmonized Landsat Sentinel-2 (HLS) Version 2.0, Landsat Data 2020 - present
+hls2-s30         Harmonized Landsat Sentinel-2 (HLS) Version 2.0, Sentinel-2 Data 2020 - present
+landsat-c2-l1    Landsat Collection 2 Level-1                                 1972 - 2013
+landsat-c2-l2    Landsat Collection 2 Level-2                                 1982 - present</code></pre></details>
+
 <h2 id="search-and-stack">Search and Stack<a class="headerlink" href="#search-and-stack" title="Permanent link">&para;</a></h2>
 <p><a href="../../../modules/generated/data/stac/search/#earth2studio.data.stac.search"><code>stac.search</code></a> runs the STAC query, opens
 the requested assets of every matching item, clips them to <code>bbox</code> and
@@ -3685,6 +3690,22 @@ are surface reflectance, and nodata is NaN.</p>
 <a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;CRS:&quot;</span><span class="p">,</span> <span class="n">da</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">crs</span><span class="p">,</span> <span class="s2">&quot;| resolution (m):&quot;</span><span class="p">,</span> <span class="n">da</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">resolution</span><span class="p">())</span>
 <a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;items:&quot;</span><span class="p">,</span> <span class="n">da</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;stac_items&quot;</span><span class="p">])</span>
 </code></pre></div>
+<details class="e2sg-output" open><summary><span>Console output</span><small>15 lines</small></summary><pre class="no-copy"><code>&lt;xarray.DataArray (time: 3, variable: 2, y: 559, x: 592)&gt; Size: 8MB
+dask.array&lt;getitem, shape=(3, 2, 559, 592), dtype=float32, chunksize=(1, 1, 548, 374), chunktype=numpy.ndarray&gt;
+Coordinates:
+  * time         (time) datetime64[us] 24B 2024-12-02T18:46:18.585053 ... 202...
+  * variable     (variable) object 16B 'red' 'nir08'
+  * y            (y) float64 4kB 4.189e+06 4.189e+06 ... 4.173e+06 4.173e+06
+  * x            (x) float64 5kB 5.396e+05 5.396e+05 ... 5.573e+05 5.573e+05
+    spatial_ref  int64 8B 0
+Attributes:
+    AREA_OR_POINT:    Point
+    stac_collection:  landsat-c2-l2
+    _FillValue:       nan
+    stac_items:       ['LC09_L2SP_044034_20241202_02_T1', 'LC09_L2SP_045033_2...
+CRS: EPSG:32610 | resolution (m): (30.0, -30.0)
+items: ['LC09_L2SP_044034_20241202_02_T1', 'LC09_L2SP_045033_20241209_02_T1', 'LC09_L2SP_045034_20241209_02_T1']</code></pre></details>
+
 <p>The array behaves like any xarray/rioxarray object. Computing NDVI pulls only
 the clipped tiles of the four COGs.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">red</span> <span class="o">=</span> <span class="n">da</span><span class="o">.</span><span class="n">sel</span><span class="p">(</span><span class="n">variable</span><span class="o">=</span><span class="s2">&quot;red&quot;</span><span class="p">)</span>
@@ -3720,6 +3741,24 @@ full extent. Window it yourself with rioxarray before computing.</p>
 <a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="nb">print</span><span class="p">(</span><span class="n">qa_scene</span><span class="p">)</span>
 <a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;window:&quot;</span><span class="p">,</span> <span class="n">qa_scene</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">clip_box</span><span class="p">(</span><span class="o">*</span><span class="n">bbox</span><span class="p">,</span> <span class="n">crs</span><span class="o">=</span><span class="s2">&quot;EPSG:4326&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
 </code></pre></div>
+<details class="e2sg-output" open><summary><span>Console output</span><small>17 lines</small></summary><pre class="no-copy"><code>&lt;xarray.DataArray (time: 1, y: 7791, x: 7671)&gt; Size: 120MB
+dask.array&lt;getitem, shape=(1, 7791, 7671), dtype=uint16, chunksize=(1, 1024, 1024), chunktype=numpy.ndarray&gt;
+Coordinates:
+  * time         (time) datetime64[us] 8B 2024-12-02T18:46:18.585053
+  * y            (y) float64 62kB 4.264e+06 4.264e+06 ... 4.031e+06 4.03e+06
+  * x            (x) float64 61kB 4.599e+05 4.599e+05 ... 6.9e+05 6.9e+05
+    spatial_ref  int64 8B 0
+Attributes:
+    AREA_OR_POINT:    Point
+    scale_factor:     1.0
+    add_offset:       0.0
+    _FillValue:       1
+    stac_collection:  landsat-c2-l2
+    stac_item:        LC09_L2SP_044034_20241202_02_T1
+    stac_asset:       qa_pixel
+    href:             https://landsateuwest.blob.core.windows.net/landsat-c2/...
+window: (1, 559, 592)</code></pre></details>
+
 <h2 id="a-second-provider">A Second Provider<a class="headerlink" href="#a-second-provider" title="Permanent link">&para;</a></h2>
 <p>The same call against Earth Search reads Sentinel-2 L2A. The <code>visual</code>
 asset is an 8-bit RGB COG, so each band becomes a variable
@@ -3739,6 +3778,23 @@ asset is an 8-bit RGB COG, so each band becomes a variable
 <a id="__codelineno-6-13" name="__codelineno-6-13" href="#__codelineno-6-13"></a><span class="nb">print</span><span class="p">(</span><span class="n">rgb</span><span class="p">)</span>
 <a id="__codelineno-6-14" name="__codelineno-6-14" href="#__codelineno-6-14"></a><span class="n">rgb</span> <span class="o">=</span> <span class="n">rgb</span><span class="o">.</span><span class="n">isel</span><span class="p">(</span><span class="n">time</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">compute</span><span class="p">()</span>
 </code></pre></div>
+<details class="e2sg-output" open><summary><span>Console output</span><small>16 lines</small></summary><pre class="no-copy"><code>&lt;xarray.DataArray (time: 1, variable: 3, y: 1676, x: 1773)&gt; Size: 9MB
+dask.array&lt;getitem, shape=(1, 3, 1676, 1773), dtype=uint8, chunksize=(1, 1, 986, 1024), chunktype=numpy.ndarray&gt;
+Coordinates:
+  * time         (time) datetime64[us] 8B 2025-06-02T19:04:10.319000
+  * variable     (variable) &lt;U8 96B 'visual_1' 'visual_2' 'visual_3'
+  * y            (y) float64 13kB 4.189e+06 4.189e+06 ... 4.173e+06 4.173e+06
+  * x            (x) float64 14kB 5.396e+05 5.396e+05 ... 5.573e+05 5.573e+05
+    spatial_ref  int64 8B 0
+Attributes:
+    OVR_RESAMPLING_ALG:  AVERAGE
+    AREA_OR_POINT:       Area
+    scale_factor:        1.0
+    add_offset:          0.0
+    stac_collection:     sentinel-2-l2a
+    _FillValue:          0
+    stac_items:          ['S2B_10SEG_20250602_0_L2A']</code></pre></details>
+
 <h2 id="post-processing">Post Processing<a class="headerlink" href="#post-processing" title="Permanent link">&para;</a></h2>
 <p>The arrays keep the scene's UTM grid, so plot them in that projection and let
 cartopy draw coastlines. The NDVI panels show one Landsat pass each; a pass
@@ -3788,8 +3844,14 @@ resolve by mosaicking.</p>
 <a id="__codelineno-7-41" name="__codelineno-7-41" href="#__codelineno-7-41"></a><span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Sentinel-2 visual </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">rgb</span><span class="o">.</span><span class="n">time</span><span class="o">.</span><span class="n">values</span><span class="p">)[:</span><span class="mi">10</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 <a id="__codelineno-7-42" name="__codelineno-7-42" href="#__codelineno-7-42"></a><span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="s2">&quot;outputs/06_stac_landsat_ndvi_sentinel2_rgb.jpg&quot;</span><span class="p">,</span> <span class="n">bbox_inches</span><span class="o">=</span><span class="s2">&quot;tight&quot;</span><span class="p">)</span>
 </code></pre></div>
+<details class="e2sg-output" open><summary><span>Console output</span><small>2 lines</small></summary><pre class="no-copy"><code>/__w/earth2studio/earth2studio/.venv/lib/python3.13/site-packages/cartopy/io/__init__.py:242: DownloadWarning: Downloading: https://naturalearth.s3.amazonaws.com/10m_physical/ne_10m_coastline.zip
+  warnings.warn(f'Downloading: {url}', DownloadWarning)</code></pre></details>
+
+<p><img alt="Output from Lazy Access to STAC Catalogs" class="e2sg-output-image" loading="lazy" src="../../_assets/07_misc-06_stac_catalog_access/001-cell-16.jpg" /></p>
 <hr />
-<div class="e2sg-downloads"><a class="e2sg-download" href="../../_assets/07_misc-06_stac_catalog_access/06_stac_catalog_access.py" download>Download Python source</a><a class="e2sg-download" href="../../_assets/07_misc-06_stac_catalog_access/06_stac_catalog_access.ipynb" download>Download Jupyter notebook</a><span class="e2sg-download-meta"></span></div>
+<div class="e2sg-downloads"><a class="e2sg-download" href="../../_assets/07_misc-06_stac_catalog_access/06_stac_catalog_access.py" download>Download Python source</a><a class="e2sg-download" href="../../_assets/07_misc-06_stac_catalog_access/06_stac_catalog_access.ipynb" download>Download Jupyter notebook</a><span class="e2sg-download-meta">executed in 27.6s</span></div>
+
+<section class="e2sg-telemetry" aria-labelledby="e2sg-telemetry-title"><div class="e2sg-telemetry-heading"><div><span class="e2sg-eyebrow">Execution profile</span><h2 id="e2sg-telemetry-title">Runtime telemetry</h2></div></div><div class="e2sg-total-runtime"><span>Total runtime</span><strong>27.6 s</strong></div><h3 class="e2sg-telemetry-subtitle">Execution environment</h3><div class="e2sg-hardware-grid"><div class="e2sg-hardware-item"><span>CPU</span><strong>AMD EPYC 9554 64-Core Processor</strong></div><div class="e2sg-hardware-item"><span>GPU</span><strong>NVIDIA H100 NVL · 93.6 GiB</strong></div><div class="e2sg-hardware-item"><span>System RAM</span><strong>58.4 GiB</strong></div><div class="e2sg-hardware-item"><span>Platform</span><strong>Linux 6.8.0-147-generic</strong></div><div class="e2sg-hardware-item"><span>Python</span><strong>3.13.13</strong></div><div class="e2sg-hardware-item"><span>GPU driver / CUDA</span><strong>Driver 595.99.02 · CUDA support 13.2</strong></div></div></section>
 
 
 

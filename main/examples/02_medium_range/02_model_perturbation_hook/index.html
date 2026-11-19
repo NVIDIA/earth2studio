@@ -3689,18 +3689,24 @@ saving to file. Check the API docs for more information.</p>
 <a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a>    <span class="n">batch_size</span><span class="o">=</span><span class="n">batch_size</span><span class="p">,</span>
 <a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a><span class="p">)</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>183 lines</small></summary><pre class="no-copy"><code>2026-08-25 09:13:11.347 | INFO     | earth2studio.run:ensemble:394 - Running ensemble inference!
-2026-08-25 09:13:11.348 | INFO     | earth2studio.run:ensemble:401 - Inference device: cuda
+<details class="e2sg-output" open><summary><span>Console output</span><small>369 lines</small></summary><pre class="no-copy"><code>2026-11-19 17:47:56.091 | INFO     | earth2studio.run:ensemble:406 - Running ensemble inference!
+2026-11-19 17:47:56.091 | INFO     | earth2studio.run:ensemble:414 - Inference device: cuda
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
-Fetching GFS data:  14%|█▍        | 1/7 [00:00&lt;00:01,  5.13it/s]
-Fetching GFS data: 100%|██████████| 7/7 [00:00&lt;00:00, 35.19it/s]
+Fetching GFS data:  29%|██▊       | 2/7 [00:00&lt;00:00, 11.78it/s]
+Fetching GFS data: 100%|██████████| 7/7 [00:00&lt;00:00, 37.90it/s]
+
+Fetching GFS statistics: 0it [00:00, ?it/s]
+Fetching GFS statistics: 0it [00:00, ?it/s]
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
-Fetching GFS data:  14%|█▍        | 1/7 [00:00&lt;00:01,  5.77it/s]
-Fetching GFS data: 100%|██████████| 7/7 [00:00&lt;00:00, 36.09it/s]
-2026-08-25 09:13:11.971 | SUCCESS  | earth2studio.run:ensemble:422 - Fetched data from GFS
-2026-08-25 09:13:12.054 | INFO     | earth2studio.run:ensemble:466 - Starting 16 Member Ensemble Inference with             4 number of batches.
+Fetching GFS data:  14%|█▍        | 1/7 [00:00&lt;00:00,  8.05it/s]
+Fetching GFS data: 100%|██████████| 7/7 [00:00&lt;00:00, 45.36it/s]
+
+Fetching GFS statistics: 0it [00:00, ?it/s]
+Fetching GFS statistics: 0it [00:00, ?it/s]
+2026-11-19 17:47:56.627 | SUCCESS  | earth2studio.run:ensemble:427 - Fetched data from GFS
+2026-11-19 17:47:56.682 | INFO     | earth2studio.run:ensemble:466 - Starting 16 Member Ensemble Inference with             4 number of batches.
 
 
 
@@ -3708,169 +3714,349 @@ Total Ensemble Batches:   0%|          | 0/4 [00:00&lt;?, ?it/s]
 
 Running batch 0 inference:   0%|          | 0/49 [00:00&lt;?, ?it/s]
 
-Running batch 0 inference:   2%|▏         | 1/49 [00:00&lt;00:06,  7.68it/s]
+Running batch 0 inference:   4%|▍         | 2/49 [00:00&lt;00:09,  5.19it/s]
 
-Running batch 0 inference:   4%|▍         | 2/49 [00:00&lt;00:11,  4.15it/s]
+Running batch 0 inference:   6%|▌         | 3/49 [00:00&lt;00:07,  6.38it/s]
 
-Running batch 0 inference:  10%|█         | 5/49 [00:00&lt;00:04, 10.72it/s]
+Running batch 0 inference:  10%|█         | 5/49 [00:00&lt;00:05,  7.89it/s]
 
-Running batch 0 inference:  16%|█▋        | 8/49 [00:00&lt;00:02, 14.15it/s]
+Running batch 0 inference:  12%|█▏        | 6/49 [00:00&lt;00:05,  8.23it/s]
 
-Running batch 0 inference:  22%|██▏       | 11/49 [00:00&lt;00:02, 16.83it/s]
+Running batch 0 inference:  14%|█▍        | 7/49 [00:00&lt;00:04,  8.45it/s]
 
-Running batch 0 inference:  27%|██▋       | 13/49 [00:00&lt;00:02, 17.33it/s]
+Running batch 0 inference:  16%|█▋        | 8/49 [00:01&lt;00:04,  8.58it/s]
 
-Running batch 0 inference:  31%|███       | 15/49 [00:01&lt;00:01, 17.42it/s]
+Running batch 0 inference:  18%|█▊        | 9/49 [00:01&lt;00:04,  8.53it/s]
 
-Running batch 0 inference:  37%|███▋      | 18/49 [00:01&lt;00:01, 17.81it/s]
+Running batch 0 inference:  22%|██▏       | 11/49 [00:01&lt;00:04,  9.10it/s]
 
-Running batch 0 inference:  41%|████      | 20/49 [00:01&lt;00:01, 18.10it/s]
+Running batch 0 inference:  24%|██▍       | 12/49 [00:01&lt;00:03,  9.28it/s]
 
-Running batch 0 inference:  47%|████▋     | 23/49 [00:01&lt;00:01, 19.99it/s]
+Running batch 0 inference:  29%|██▊       | 14/49 [00:01&lt;00:03,  9.58it/s]
 
-Running batch 0 inference:  53%|█████▎    | 26/49 [00:01&lt;00:01, 21.40it/s]
+Running batch 0 inference:  33%|███▎      | 16/49 [00:01&lt;00:03,  9.81it/s]
 
-Running batch 0 inference:  59%|█████▉    | 29/49 [00:01&lt;00:00, 23.01it/s]
+Running batch 0 inference:  35%|███▍      | 17/49 [00:01&lt;00:03,  9.70it/s]
 
-Running batch 0 inference:  65%|██████▌   | 32/49 [00:01&lt;00:00, 23.40it/s]
+Running batch 0 inference:  37%|███▋      | 18/49 [00:02&lt;00:03,  9.67it/s]
 
-Running batch 0 inference:  71%|███████▏  | 35/49 [00:01&lt;00:00, 25.02it/s]
+Running batch 0 inference:  41%|████      | 20/49 [00:02&lt;00:02,  9.88it/s]
 
-Running batch 0 inference:  78%|███████▊  | 38/49 [00:02&lt;00:00, 24.02it/s]
+Running batch 0 inference:  43%|████▎     | 21/49 [00:02&lt;00:02,  9.83it/s]
 
-Running batch 0 inference:  84%|████████▎ | 41/49 [00:02&lt;00:00, 25.56it/s]
+Running batch 0 inference:  45%|████▍     | 22/49 [00:02&lt;00:02,  9.71it/s]
 
-Running batch 0 inference:  90%|████████▉ | 44/49 [00:02&lt;00:00, 25.30it/s]
+Running batch 0 inference:  49%|████▉     | 24/49 [00:02&lt;00:02,  9.79it/s]
 
-Running batch 0 inference:  96%|█████████▌| 47/49 [00:02&lt;00:00, 26.55it/s]
+Running batch 0 inference:  51%|█████     | 25/49 [00:02&lt;00:02,  9.72it/s]
+
+Running batch 0 inference:  53%|█████▎    | 26/49 [00:02&lt;00:02,  9.74it/s]
+
+Running batch 0 inference:  55%|█████▌    | 27/49 [00:02&lt;00:02,  9.80it/s]
+
+Running batch 0 inference:  57%|█████▋    | 28/49 [00:03&lt;00:02,  9.61it/s]
+
+Running batch 0 inference:  59%|█████▉    | 29/49 [00:03&lt;00:02,  9.62it/s]
+
+Running batch 0 inference:  61%|██████    | 30/49 [00:03&lt;00:02,  8.62it/s]
+
+Running batch 0 inference:  63%|██████▎   | 31/49 [00:03&lt;00:02,  8.71it/s]
+
+Running batch 0 inference:  65%|██████▌   | 32/49 [00:03&lt;00:01,  8.97it/s]
+
+Running batch 0 inference:  67%|██████▋   | 33/49 [00:03&lt;00:01,  8.96it/s]
+
+Running batch 0 inference:  69%|██████▉   | 34/49 [00:03&lt;00:01,  8.93it/s]
+
+Running batch 0 inference:  71%|███████▏  | 35/49 [00:03&lt;00:01,  8.98it/s]
+
+Running batch 0 inference:  73%|███████▎  | 36/49 [00:03&lt;00:01,  9.10it/s]
+
+Running batch 0 inference:  76%|███████▌  | 37/49 [00:04&lt;00:01,  9.26it/s]
+
+Running batch 0 inference:  78%|███████▊  | 38/49 [00:04&lt;00:01,  9.15it/s]
+
+Running batch 0 inference:  80%|███████▉  | 39/49 [00:04&lt;00:01,  9.02it/s]
+
+Running batch 0 inference:  82%|████████▏ | 40/49 [00:04&lt;00:00,  9.09it/s]
+
+Running batch 0 inference:  84%|████████▎ | 41/49 [00:04&lt;00:00,  9.04it/s]
+
+Running batch 0 inference:  86%|████████▌ | 42/49 [00:04&lt;00:00,  9.03it/s]
+
+Running batch 0 inference:  88%|████████▊ | 43/49 [00:04&lt;00:00,  9.29it/s]
+
+Running batch 0 inference:  90%|████████▉ | 44/49 [00:04&lt;00:00,  9.12it/s]
+
+Running batch 0 inference:  92%|█████████▏| 45/49 [00:04&lt;00:00,  9.12it/s]
+
+Running batch 0 inference:  96%|█████████▌| 47/49 [00:05&lt;00:00,  9.48it/s]
+
+Running batch 0 inference:  98%|█████████▊| 48/49 [00:05&lt;00:00,  9.55it/s]
+
+Running batch 0 inference: 100%|██████████| 49/49 [00:05&lt;00:00,  9.18it/s]
 
 
 
 
-Total Ensemble Batches:  25%|██▌       | 1/4 [00:02&lt;00:07,  2.47s/it]
+Total Ensemble Batches:  25%|██▌       | 1/4 [00:05&lt;00:16,  5.43s/it]
 
 Running batch 4 inference:   0%|          | 0/49 [00:00&lt;?, ?it/s]
 
-Running batch 4 inference:   6%|▌         | 3/49 [00:00&lt;00:01, 29.89it/s]
+Running batch 4 inference:   4%|▍         | 2/49 [00:00&lt;00:03, 14.35it/s]
 
-Running batch 4 inference:  12%|█▏        | 6/49 [00:00&lt;00:01, 26.67it/s]
+Running batch 4 inference:   8%|▊         | 4/49 [00:00&lt;00:04, 10.95it/s]
 
-Running batch 4 inference:  20%|██        | 10/49 [00:00&lt;00:01, 27.15it/s]
+Running batch 4 inference:  12%|█▏        | 6/49 [00:00&lt;00:04,  9.60it/s]
 
-Running batch 4 inference:  29%|██▊       | 14/49 [00:00&lt;00:01, 26.92it/s]
+Running batch 4 inference:  16%|█▋        | 8/49 [00:00&lt;00:04,  9.27it/s]
 
-Running batch 4 inference:  35%|███▍      | 17/49 [00:00&lt;00:01, 27.60it/s]
+Running batch 4 inference:  18%|█▊        | 9/49 [00:00&lt;00:04,  9.32it/s]
 
-Running batch 4 inference:  41%|████      | 20/49 [00:00&lt;00:01, 26.69it/s]
+Running batch 4 inference:  20%|██        | 10/49 [00:01&lt;00:04,  9.26it/s]
 
-Running batch 4 inference:  47%|████▋     | 23/49 [00:00&lt;00:00, 27.47it/s]
+Running batch 4 inference:  22%|██▏       | 11/49 [00:01&lt;00:04,  9.04it/s]
 
-Running batch 4 inference:  53%|█████▎    | 26/49 [00:00&lt;00:00, 26.71it/s]
+Running batch 4 inference:  24%|██▍       | 12/49 [00:01&lt;00:04,  9.16it/s]
 
-Running batch 4 inference:  59%|█████▉    | 29/49 [00:01&lt;00:00, 26.92it/s]
+Running batch 4 inference:  29%|██▊       | 14/49 [00:01&lt;00:03,  9.51it/s]
 
-Running batch 4 inference:  65%|██████▌   | 32/49 [00:01&lt;00:00, 25.56it/s]
+Running batch 4 inference:  31%|███       | 15/49 [00:01&lt;00:03,  9.58it/s]
 
-Running batch 4 inference:  71%|███████▏  | 35/49 [00:01&lt;00:00, 26.43it/s]
+Running batch 4 inference:  35%|███▍      | 17/49 [00:01&lt;00:03,  9.70it/s]
 
-Running batch 4 inference:  78%|███████▊  | 38/49 [00:01&lt;00:00, 24.65it/s]
+Running batch 4 inference:  39%|███▉      | 19/49 [00:01&lt;00:03,  9.80it/s]
 
-Running batch 4 inference:  84%|████████▎ | 41/49 [00:01&lt;00:00, 24.62it/s]
+Running batch 4 inference:  43%|████▎     | 21/49 [00:02&lt;00:02,  9.90it/s]
 
-Running batch 4 inference:  90%|████████▉ | 44/49 [00:01&lt;00:00, 23.27it/s]
+Running batch 4 inference:  45%|████▍     | 22/49 [00:02&lt;00:02,  9.63it/s]
 
-Running batch 4 inference:  96%|█████████▌| 47/49 [00:01&lt;00:00, 23.45it/s]
+Running batch 4 inference:  47%|████▋     | 23/49 [00:02&lt;00:02,  9.46it/s]
+
+Running batch 4 inference:  49%|████▉     | 24/49 [00:02&lt;00:02,  9.39it/s]
+
+Running batch 4 inference:  51%|█████     | 25/49 [00:02&lt;00:02,  9.22it/s]
+
+Running batch 4 inference:  53%|█████▎    | 26/49 [00:02&lt;00:02,  9.01it/s]
+
+Running batch 4 inference:  57%|█████▋    | 28/49 [00:02&lt;00:02,  9.39it/s]
+
+Running batch 4 inference:  59%|█████▉    | 29/49 [00:03&lt;00:02,  9.27it/s]
+
+Running batch 4 inference:  61%|██████    | 30/49 [00:03&lt;00:02,  9.39it/s]
+
+Running batch 4 inference:  63%|██████▎   | 31/49 [00:03&lt;00:01,  9.30it/s]
+
+Running batch 4 inference:  65%|██████▌   | 32/49 [00:03&lt;00:01,  9.47it/s]
+
+Running batch 4 inference:  67%|██████▋   | 33/49 [00:03&lt;00:01,  9.55it/s]
+
+Running batch 4 inference:  69%|██████▉   | 34/49 [00:03&lt;00:01,  9.02it/s]
+
+Running batch 4 inference:  71%|███████▏  | 35/49 [00:03&lt;00:01,  9.12it/s]
+
+Running batch 4 inference:  73%|███████▎  | 36/49 [00:03&lt;00:01,  9.08it/s]
+
+Running batch 4 inference:  76%|███████▌  | 37/49 [00:03&lt;00:01,  9.31it/s]
+
+Running batch 4 inference:  78%|███████▊  | 38/49 [00:04&lt;00:01,  9.41it/s]
+
+Running batch 4 inference:  80%|███████▉  | 39/49 [00:04&lt;00:01,  9.57it/s]
+
+Running batch 4 inference:  84%|████████▎ | 41/49 [00:04&lt;00:00,  9.58it/s]
+
+Running batch 4 inference:  86%|████████▌ | 42/49 [00:04&lt;00:00,  9.44it/s]
+
+Running batch 4 inference:  88%|████████▊ | 43/49 [00:04&lt;00:00,  9.42it/s]
+
+Running batch 4 inference:  90%|████████▉ | 44/49 [00:04&lt;00:00,  9.27it/s]
+
+Running batch 4 inference:  92%|█████████▏| 45/49 [00:04&lt;00:00,  9.32it/s]
+
+Running batch 4 inference:  94%|█████████▍| 46/49 [00:04&lt;00:00,  9.42it/s]
+
+Running batch 4 inference:  96%|█████████▌| 47/49 [00:04&lt;00:00,  8.98it/s]
+
+Running batch 4 inference:  98%|█████████▊| 48/49 [00:05&lt;00:00,  8.75it/s]
+
+Running batch 4 inference: 100%|██████████| 49/49 [00:05&lt;00:00,  8.32it/s]
 
 
 
 
-Total Ensemble Batches:  50%|█████     | 2/4 [00:04&lt;00:04,  2.15s/it]
+Total Ensemble Batches:  50%|█████     | 2/4 [00:10&lt;00:10,  5.32s/it]
 
 Running batch 8 inference:   0%|          | 0/49 [00:00&lt;?, ?it/s]
 
-Running batch 8 inference:   6%|▌         | 3/49 [00:00&lt;00:01, 28.77it/s]
+Running batch 8 inference:   4%|▍         | 2/49 [00:00&lt;00:03, 13.41it/s]
 
-Running batch 8 inference:  12%|█▏        | 6/49 [00:00&lt;00:01, 22.92it/s]
+Running batch 8 inference:   8%|▊         | 4/49 [00:00&lt;00:04, 10.75it/s]
 
-Running batch 8 inference:  18%|█▊        | 9/49 [00:00&lt;00:02, 19.98it/s]
+Running batch 8 inference:  12%|█▏        | 6/49 [00:00&lt;00:04,  9.80it/s]
 
-Running batch 8 inference:  24%|██▍       | 12/49 [00:00&lt;00:02, 17.00it/s]
+Running batch 8 inference:  16%|█▋        | 8/49 [00:00&lt;00:04,  9.41it/s]
 
-Running batch 8 inference:  29%|██▊       | 14/49 [00:00&lt;00:02, 16.41it/s]
+Running batch 8 inference:  18%|█▊        | 9/49 [00:00&lt;00:04,  9.40it/s]
 
-Running batch 8 inference:  33%|███▎      | 16/49 [00:00&lt;00:02, 16.46it/s]
+Running batch 8 inference:  20%|██        | 10/49 [00:01&lt;00:04,  9.25it/s]
 
-Running batch 8 inference:  37%|███▋      | 18/49 [00:01&lt;00:01, 16.71it/s]
+Running batch 8 inference:  22%|██▏       | 11/49 [00:01&lt;00:04,  9.17it/s]
 
-Running batch 8 inference:  41%|████      | 20/49 [00:01&lt;00:01, 16.67it/s]
+Running batch 8 inference:  24%|██▍       | 12/49 [00:01&lt;00:04,  8.95it/s]
 
-Running batch 8 inference:  45%|████▍     | 22/49 [00:01&lt;00:01, 17.08it/s]
+Running batch 8 inference:  27%|██▋       | 13/49 [00:01&lt;00:04,  8.74it/s]
 
-Running batch 8 inference:  49%|████▉     | 24/49 [00:01&lt;00:01, 17.72it/s]
+Running batch 8 inference:  31%|███       | 15/49 [00:01&lt;00:03,  9.27it/s]
 
-Running batch 8 inference:  55%|█████▌    | 27/49 [00:01&lt;00:01, 19.33it/s]
+Running batch 8 inference:  33%|███▎      | 16/49 [00:01&lt;00:03,  9.32it/s]
 
-Running batch 8 inference:  59%|█████▉    | 29/49 [00:01&lt;00:01, 19.04it/s]
+Running batch 8 inference:  35%|███▍      | 17/49 [00:01&lt;00:03,  9.44it/s]
 
-Running batch 8 inference:  63%|██████▎   | 31/49 [00:01&lt;00:00, 18.29it/s]
+Running batch 8 inference:  37%|███▋      | 18/49 [00:01&lt;00:03,  9.41it/s]
 
-Running batch 8 inference:  67%|██████▋   | 33/49 [00:01&lt;00:00, 17.50it/s]
+Running batch 8 inference:  39%|███▉      | 19/49 [00:01&lt;00:03,  9.54it/s]
 
-Running batch 8 inference:  71%|███████▏  | 35/49 [00:01&lt;00:00, 17.81it/s]
+Running batch 8 inference:  41%|████      | 20/49 [00:02&lt;00:03,  9.66it/s]
 
-Running batch 8 inference:  78%|███████▊  | 38/49 [00:02&lt;00:00, 18.68it/s]
+Running batch 8 inference:  43%|████▎     | 21/49 [00:02&lt;00:02,  9.68it/s]
 
-Running batch 8 inference:  86%|████████▌ | 42/49 [00:02&lt;00:00, 21.65it/s]
+Running batch 8 inference:  45%|████▍     | 22/49 [00:02&lt;00:02,  9.64it/s]
 
-Running batch 8 inference:  92%|█████████▏| 45/49 [00:02&lt;00:00, 23.56it/s]
+Running batch 8 inference:  47%|████▋     | 23/49 [00:02&lt;00:02,  9.49it/s]
 
-Running batch 8 inference:  98%|█████████▊| 48/49 [00:02&lt;00:00, 24.10it/s]
+Running batch 8 inference:  49%|████▉     | 24/49 [00:02&lt;00:02,  9.28it/s]
+
+Running batch 8 inference:  51%|█████     | 25/49 [00:02&lt;00:02,  9.11it/s]
+
+Running batch 8 inference:  53%|█████▎    | 26/49 [00:02&lt;00:02,  8.98it/s]
+
+Running batch 8 inference:  55%|█████▌    | 27/49 [00:02&lt;00:02,  8.70it/s]
+
+Running batch 8 inference:  57%|█████▋    | 28/49 [00:02&lt;00:02,  8.84it/s]
+
+Running batch 8 inference:  59%|█████▉    | 29/49 [00:03&lt;00:02,  8.96it/s]
+
+Running batch 8 inference:  61%|██████    | 30/49 [00:03&lt;00:02,  8.83it/s]
+
+Running batch 8 inference:  63%|██████▎   | 31/49 [00:03&lt;00:02,  8.81it/s]
+
+Running batch 8 inference:  65%|██████▌   | 32/49 [00:03&lt;00:02,  8.18it/s]
+
+Running batch 8 inference:  67%|██████▋   | 33/49 [00:03&lt;00:01,  8.55it/s]
+
+Running batch 8 inference:  69%|██████▉   | 34/49 [00:03&lt;00:01,  8.81it/s]
+
+Running batch 8 inference:  71%|███████▏  | 35/49 [00:03&lt;00:01,  8.90it/s]
+
+Running batch 8 inference:  76%|███████▌  | 37/49 [00:04&lt;00:01,  9.00it/s]
+
+Running batch 8 inference:  78%|███████▊  | 38/49 [00:04&lt;00:01,  8.67it/s]
+
+Running batch 8 inference:  80%|███████▉  | 39/49 [00:04&lt;00:01,  8.49it/s]
+
+Running batch 8 inference:  84%|████████▎ | 41/49 [00:04&lt;00:00,  8.98it/s]
+
+Running batch 8 inference:  86%|████████▌ | 42/49 [00:04&lt;00:00,  9.11it/s]
+
+Running batch 8 inference:  88%|████████▊ | 43/49 [00:04&lt;00:00,  9.10it/s]
+
+Running batch 8 inference:  92%|█████████▏| 45/49 [00:04&lt;00:00,  9.51it/s]
+
+Running batch 8 inference:  94%|█████████▍| 46/49 [00:04&lt;00:00,  9.46it/s]
+
+Running batch 8 inference:  96%|█████████▌| 47/49 [00:05&lt;00:00,  9.48it/s]
+
+Running batch 8 inference:  98%|█████████▊| 48/49 [00:05&lt;00:00,  9.41it/s]
+
+Running batch 8 inference: 100%|██████████| 49/49 [00:05&lt;00:00,  9.38it/s]
 
 
 
 
-Total Ensemble Batches:  75%|███████▌  | 3/4 [00:06&lt;00:02,  2.30s/it]
+Total Ensemble Batches:  75%|███████▌  | 3/4 [00:15&lt;00:05,  5.32s/it]
 
 Running batch 12 inference:   0%|          | 0/49 [00:00&lt;?, ?it/s]
 
-Running batch 12 inference:   6%|▌         | 3/49 [00:00&lt;00:01, 29.87it/s]
+Running batch 12 inference:   4%|▍         | 2/49 [00:00&lt;00:03, 14.70it/s]
 
-Running batch 12 inference:  12%|█▏        | 6/49 [00:00&lt;00:01, 27.40it/s]
+Running batch 12 inference:   8%|▊         | 4/49 [00:00&lt;00:04, 10.89it/s]
 
-Running batch 12 inference:  18%|█▊        | 9/49 [00:00&lt;00:01, 27.70it/s]
+Running batch 12 inference:  12%|█▏        | 6/49 [00:00&lt;00:04, 10.56it/s]
 
-Running batch 12 inference:  24%|██▍       | 12/49 [00:00&lt;00:01, 24.70it/s]
+Running batch 12 inference:  16%|█▋        | 8/49 [00:00&lt;00:04, 10.24it/s]
 
-Running batch 12 inference:  31%|███       | 15/49 [00:00&lt;00:01, 24.35it/s]
+Running batch 12 inference:  20%|██        | 10/49 [00:00&lt;00:03,  9.91it/s]
 
-Running batch 12 inference:  37%|███▋      | 18/49 [00:00&lt;00:01, 22.10it/s]
+Running batch 12 inference:  24%|██▍       | 12/49 [00:01&lt;00:03,  9.94it/s]
 
-Running batch 12 inference:  43%|████▎     | 21/49 [00:00&lt;00:01, 23.55it/s]
+Running batch 12 inference:  29%|██▊       | 14/49 [00:01&lt;00:03,  9.73it/s]
 
-Running batch 12 inference:  49%|████▉     | 24/49 [00:01&lt;00:01, 22.00it/s]
+Running batch 12 inference:  31%|███       | 15/49 [00:01&lt;00:03,  9.74it/s]
 
-Running batch 12 inference:  55%|█████▌    | 27/49 [00:01&lt;00:01, 21.41it/s]
+Running batch 12 inference:  33%|███▎      | 16/49 [00:01&lt;00:03,  9.80it/s]
 
-Running batch 12 inference:  61%|██████    | 30/49 [00:01&lt;00:00, 22.20it/s]
+Running batch 12 inference:  35%|███▍      | 17/49 [00:01&lt;00:03,  9.82it/s]
 
-Running batch 12 inference:  67%|██████▋   | 33/49 [00:01&lt;00:00, 22.37it/s]
+Running batch 12 inference:  37%|███▋      | 18/49 [00:01&lt;00:03,  9.62it/s]
 
-Running batch 12 inference:  73%|███████▎  | 36/49 [00:01&lt;00:00, 21.07it/s]
+Running batch 12 inference:  39%|███▉      | 19/49 [00:01&lt;00:03,  9.56it/s]
 
-Running batch 12 inference:  80%|███████▉  | 39/49 [00:01&lt;00:00, 21.19it/s]
+Running batch 12 inference:  41%|████      | 20/49 [00:02&lt;00:03,  9.05it/s]
 
-Running batch 12 inference:  86%|████████▌ | 42/49 [00:01&lt;00:00, 20.20it/s]
+Running batch 12 inference:  43%|████▎     | 21/49 [00:02&lt;00:03,  9.00it/s]
 
-Running batch 12 inference:  92%|█████████▏| 45/49 [00:02&lt;00:00, 20.40it/s]
+Running batch 12 inference:  45%|████▍     | 22/49 [00:02&lt;00:02,  9.11it/s]
 
-Running batch 12 inference:  98%|█████████▊| 48/49 [00:02&lt;00:00, 19.52it/s]
+Running batch 12 inference:  47%|████▋     | 23/49 [00:02&lt;00:02,  9.11it/s]
+
+Running batch 12 inference:  49%|████▉     | 24/49 [00:02&lt;00:02,  9.31it/s]
+
+Running batch 12 inference:  51%|█████     | 25/49 [00:02&lt;00:02,  9.35it/s]
+
+Running batch 12 inference:  53%|█████▎    | 26/49 [00:02&lt;00:02,  9.39it/s]
+
+Running batch 12 inference:  55%|█████▌    | 27/49 [00:02&lt;00:02,  9.54it/s]
+
+Running batch 12 inference:  57%|█████▋    | 28/49 [00:02&lt;00:02,  9.52it/s]
+
+Running batch 12 inference:  59%|█████▉    | 29/49 [00:02&lt;00:02,  9.58it/s]
+
+Running batch 12 inference:  61%|██████    | 30/49 [00:03&lt;00:01,  9.57it/s]
+
+Running batch 12 inference:  65%|██████▌   | 32/49 [00:03&lt;00:01,  9.85it/s]
+
+Running batch 12 inference:  69%|██████▉   | 34/49 [00:03&lt;00:01,  9.85it/s]
+
+Running batch 12 inference:  71%|███████▏  | 35/49 [00:03&lt;00:01,  9.81it/s]
+
+Running batch 12 inference:  76%|███████▌  | 37/49 [00:03&lt;00:01,  9.90it/s]
+
+Running batch 12 inference:  78%|███████▊  | 38/49 [00:03&lt;00:01,  9.85it/s]
+
+Running batch 12 inference:  80%|███████▉  | 39/49 [00:03&lt;00:01,  9.81it/s]
+
+Running batch 12 inference:  82%|████████▏ | 40/49 [00:04&lt;00:00,  9.71it/s]
+
+Running batch 12 inference:  84%|████████▎ | 41/49 [00:04&lt;00:00,  9.73it/s]
+
+Running batch 12 inference:  88%|████████▊ | 43/49 [00:04&lt;00:00,  9.85it/s]
+
+Running batch 12 inference:  92%|█████████▏| 45/49 [00:04&lt;00:00,  9.91it/s]
+
+Running batch 12 inference:  94%|█████████▍| 46/49 [00:04&lt;00:00,  9.85it/s]
+
+Running batch 12 inference:  96%|█████████▌| 47/49 [00:04&lt;00:00,  9.76it/s]
+
+Running batch 12 inference:  98%|█████████▊| 48/49 [00:04&lt;00:00,  9.71it/s]
+
+Running batch 12 inference: 100%|██████████| 49/49 [00:05&lt;00:00,  9.69it/s]
 
 
 
 
-Total Ensemble Batches: 100%|██████████| 4/4 [00:09&lt;00:00,  2.28s/it]
-Total Ensemble Batches: 100%|██████████| 4/4 [00:09&lt;00:00,  2.28s/it]
-2026-08-25 09:13:21.174 | SUCCESS  | earth2studio.run:ensemble:536 - 
+Total Ensemble Batches: 100%|██████████| 4/4 [00:21&lt;00:00,  5.20s/it]
+Total Ensemble Batches: 100%|██████████| 4/4 [00:21&lt;00:00,  5.25s/it]
+2026-11-19 17:48:17.691 | SUCCESS  | earth2studio.run:ensemble:539 - 
 Inference complete</code></pre></details>
 
 <p>Now let's introduce slight model perturbation using the prognostic model hooks defined
@@ -3925,18 +4111,24 @@ To switch out the model, consider removing the <code>unsqueeze</code> .</p>
 <a id="__codelineno-2-45" name="__codelineno-2-45" href="#__codelineno-2-45"></a>    <span class="n">batch_size</span><span class="o">=</span><span class="n">batch_size</span><span class="p">,</span>
 <a id="__codelineno-2-46" name="__codelineno-2-46" href="#__codelineno-2-46"></a><span class="p">)</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>175 lines</small></summary><pre class="no-copy"><code>2026-08-25 09:13:21.746 | INFO     | earth2studio.run:ensemble:394 - Running ensemble inference!
-2026-08-25 09:13:21.746 | INFO     | earth2studio.run:ensemble:401 - Inference device: cuda
+<details class="e2sg-output" open><summary><span>Console output</span><small>423 lines</small></summary><pre class="no-copy"><code>2026-11-19 17:48:18.786 | INFO     | earth2studio.run:ensemble:406 - Running ensemble inference!
+2026-11-19 17:48:18.786 | INFO     | earth2studio.run:ensemble:414 - Inference device: cuda
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
-Fetching GFS data:  14%|█▍        | 1/7 [00:00&lt;00:00,  6.53it/s]
-Fetching GFS data: 100%|██████████| 7/7 [00:00&lt;00:00, 44.89it/s]
+Fetching GFS data:  14%|█▍        | 1/7 [00:00&lt;00:00,  8.44it/s]
+Fetching GFS data: 100%|██████████| 7/7 [00:00&lt;00:00, 50.02it/s]
+
+Fetching GFS statistics: 0it [00:00, ?it/s]
+Fetching GFS statistics: 0it [00:00, ?it/s]
 
 Fetching GFS data:   0%|          | 0/7 [00:00&lt;?, ?it/s]
-Fetching GFS data:  14%|█▍        | 1/7 [00:00&lt;00:00,  7.37it/s]
-Fetching GFS data: 100%|██████████| 7/7 [00:00&lt;00:00, 50.11it/s]
-2026-08-25 09:13:22.130 | SUCCESS  | earth2studio.run:ensemble:422 - Fetched data from GFS
-2026-08-25 09:13:22.206 | INFO     | earth2studio.run:ensemble:466 - Starting 16 Member Ensemble Inference with             4 number of batches.
+Fetching GFS data:  14%|█▍        | 1/7 [00:00&lt;00:00,  8.38it/s]
+Fetching GFS data: 100%|██████████| 7/7 [00:00&lt;00:00, 50.71it/s]
+
+Fetching GFS statistics: 0it [00:00, ?it/s]
+Fetching GFS statistics: 0it [00:00, ?it/s]
+2026-11-19 17:48:19.187 | SUCCESS  | earth2studio.run:ensemble:427 - Fetched data from GFS
+2026-11-19 17:48:19.234 | INFO     | earth2studio.run:ensemble:466 - Starting 16 Member Ensemble Inference with             4 number of batches.
 
 
 
@@ -3944,161 +4136,403 @@ Total Ensemble Batches:   0%|          | 0/4 [00:00&lt;?, ?it/s]
 
 Running batch 0 inference:   0%|          | 0/49 [00:00&lt;?, ?it/s]
 
-Running batch 0 inference:   4%|▍         | 2/49 [00:00&lt;00:03, 15.53it/s]
+Running batch 0 inference:   4%|▍         | 2/49 [00:00&lt;00:03, 15.42it/s]
 
-Running batch 0 inference:  10%|█         | 5/49 [00:00&lt;00:01, 22.54it/s]
+Running batch 0 inference:   8%|▊         | 4/49 [00:01&lt;00:17,  2.52it/s]
 
-Running batch 0 inference:  16%|█▋        | 8/49 [00:00&lt;00:01, 21.99it/s]
+Running batch 0 inference:  10%|█         | 5/49 [00:01&lt;00:13,  3.20it/s]
 
-Running batch 0 inference:  22%|██▏       | 11/49 [00:00&lt;00:01, 24.01it/s]
+Running batch 0 inference:  12%|█▏        | 6/49 [00:01&lt;00:10,  3.95it/s]
 
-Running batch 0 inference:  29%|██▊       | 14/49 [00:00&lt;00:01, 24.04it/s]
+Running batch 0 inference:  14%|█▍        | 7/49 [00:01&lt;00:08,  4.74it/s]
 
-Running batch 0 inference:  35%|███▍      | 17/49 [00:00&lt;00:01, 25.33it/s]
+Running batch 0 inference:  16%|█▋        | 8/49 [00:01&lt;00:07,  5.49it/s]
 
-Running batch 0 inference:  41%|████      | 20/49 [00:00&lt;00:01, 24.19it/s]
+Running batch 0 inference:  18%|█▊        | 9/49 [00:01&lt;00:06,  6.21it/s]
 
-Running batch 0 inference:  47%|████▋     | 23/49 [00:00&lt;00:01, 25.13it/s]
+Running batch 0 inference:  20%|██        | 10/49 [00:02&lt;00:05,  6.68it/s]
 
-Running batch 0 inference:  53%|█████▎    | 26/49 [00:01&lt;00:00, 24.10it/s]
+Running batch 0 inference:  22%|██▏       | 11/49 [00:02&lt;00:05,  7.13it/s]
 
-Running batch 0 inference:  59%|█████▉    | 29/49 [00:01&lt;00:00, 25.23it/s]
+Running batch 0 inference:  24%|██▍       | 12/49 [00:02&lt;00:04,  7.52it/s]
 
-Running batch 0 inference:  65%|██████▌   | 32/49 [00:01&lt;00:00, 24.74it/s]
+Running batch 0 inference:  27%|██▋       | 13/49 [00:02&lt;00:04,  7.52it/s]
 
-Running batch 0 inference:  71%|███████▏  | 35/49 [00:01&lt;00:00, 25.83it/s]
+Running batch 0 inference:  29%|██▊       | 14/49 [00:02&lt;00:04,  7.84it/s]
 
-Running batch 0 inference:  78%|███████▊  | 38/49 [00:01&lt;00:00, 24.98it/s]
+Running batch 0 inference:  31%|███       | 15/49 [00:02&lt;00:04,  8.04it/s]
 
-Running batch 0 inference:  84%|████████▎ | 41/49 [00:01&lt;00:00, 25.88it/s]
+Running batch 0 inference:  33%|███▎      | 16/49 [00:02&lt;00:04,  8.22it/s]
 
-Running batch 0 inference:  90%|████████▉ | 44/49 [00:01&lt;00:00, 25.37it/s]
+Running batch 0 inference:  35%|███▍      | 17/49 [00:02&lt;00:03,  8.32it/s]
 
-Running batch 0 inference:  96%|█████████▌| 47/49 [00:01&lt;00:00, 26.19it/s]
+Running batch 0 inference:  37%|███▋      | 18/49 [00:03&lt;00:03,  8.36it/s]
+
+Running batch 0 inference:  39%|███▉      | 19/49 [00:03&lt;00:03,  8.45it/s]
+
+Running batch 0 inference:  41%|████      | 20/49 [00:03&lt;00:03,  8.47it/s]
+
+Running batch 0 inference:  43%|████▎     | 21/49 [00:03&lt;00:03,  8.52it/s]
+
+Running batch 0 inference:  45%|████▍     | 22/49 [00:03&lt;00:03,  8.31it/s]
+
+Running batch 0 inference:  47%|████▋     | 23/49 [00:03&lt;00:03,  8.54it/s]
+
+Running batch 0 inference:  49%|████▉     | 24/49 [00:03&lt;00:02,  8.64it/s]
+
+Running batch 0 inference:  51%|█████     | 25/49 [00:03&lt;00:02,  8.63it/s]
+
+Running batch 0 inference:  53%|█████▎    | 26/49 [00:03&lt;00:02,  8.67it/s]
+
+Running batch 0 inference:  55%|█████▌    | 27/49 [00:04&lt;00:02,  8.63it/s]
+
+Running batch 0 inference:  57%|█████▋    | 28/49 [00:04&lt;00:02,  8.68it/s]
+
+Running batch 0 inference:  59%|█████▉    | 29/49 [00:04&lt;00:02,  8.71it/s]
+
+Running batch 0 inference:  61%|██████    | 30/49 [00:04&lt;00:02,  8.68it/s]
+
+Running batch 0 inference:  63%|██████▎   | 31/49 [00:04&lt;00:02,  8.60it/s]
+
+Running batch 0 inference:  65%|██████▌   | 32/49 [00:04&lt;00:01,  8.55it/s]
+
+Running batch 0 inference:  67%|██████▋   | 33/49 [00:04&lt;00:01,  8.19it/s]
+
+Running batch 0 inference:  69%|██████▉   | 34/49 [00:04&lt;00:01,  8.32it/s]
+
+Running batch 0 inference:  71%|███████▏  | 35/49 [00:05&lt;00:01,  8.58it/s]
+
+Running batch 0 inference:  73%|███████▎  | 36/49 [00:05&lt;00:01,  8.70it/s]
+
+Running batch 0 inference:  76%|███████▌  | 37/49 [00:05&lt;00:01,  8.54it/s]
+
+Running batch 0 inference:  78%|███████▊  | 38/49 [00:05&lt;00:01,  8.10it/s]
+
+Running batch 0 inference:  80%|███████▉  | 39/49 [00:05&lt;00:01,  8.35it/s]
+
+Running batch 0 inference:  82%|████████▏ | 40/49 [00:05&lt;00:01,  8.49it/s]
+
+Running batch 0 inference:  84%|████████▎ | 41/49 [00:05&lt;00:00,  8.58it/s]
+
+Running batch 0 inference:  86%|████████▌ | 42/49 [00:05&lt;00:00,  8.71it/s]
+
+Running batch 0 inference:  88%|████████▊ | 43/49 [00:05&lt;00:00,  8.66it/s]
+
+Running batch 0 inference:  90%|████████▉ | 44/49 [00:06&lt;00:00,  8.53it/s]
+
+Running batch 0 inference:  92%|█████████▏| 45/49 [00:06&lt;00:00,  8.67it/s]
+
+Running batch 0 inference:  94%|█████████▍| 46/49 [00:06&lt;00:00,  8.59it/s]
+
+Running batch 0 inference:  96%|█████████▌| 47/49 [00:06&lt;00:00,  8.62it/s]
+
+Running batch 0 inference:  98%|█████████▊| 48/49 [00:06&lt;00:00,  8.55it/s]
+
+Running batch 0 inference: 100%|██████████| 49/49 [00:06&lt;00:00,  8.47it/s]
 
 
 
 
-Total Ensemble Batches:  25%|██▌       | 1/4 [00:01&lt;00:05,  1.98s/it]
+Total Ensemble Batches:  25%|██▌       | 1/4 [00:06&lt;00:19,  6.65s/it]
 
 Running batch 4 inference:   0%|          | 0/49 [00:00&lt;?, ?it/s]
 
-Running batch 4 inference:   6%|▌         | 3/49 [00:00&lt;00:01, 27.04it/s]
+Running batch 4 inference:   4%|▍         | 2/49 [00:00&lt;00:03, 13.26it/s]
 
-Running batch 4 inference:  12%|█▏        | 6/49 [00:00&lt;00:01, 24.34it/s]
+Running batch 4 inference:   8%|▊         | 4/49 [00:00&lt;00:04, 10.22it/s]
 
-Running batch 4 inference:  18%|█▊        | 9/49 [00:00&lt;00:01, 25.39it/s]
+Running batch 4 inference:  12%|█▏        | 6/49 [00:00&lt;00:04,  9.09it/s]
 
-Running batch 4 inference:  24%|██▍       | 12/49 [00:00&lt;00:01, 23.90it/s]
+Running batch 4 inference:  14%|█▍        | 7/49 [00:00&lt;00:04,  8.66it/s]
 
-Running batch 4 inference:  31%|███       | 15/49 [00:00&lt;00:01, 24.69it/s]
+Running batch 4 inference:  16%|█▋        | 8/49 [00:00&lt;00:04,  8.57it/s]
 
-Running batch 4 inference:  37%|███▋      | 18/49 [00:00&lt;00:01, 23.61it/s]
+Running batch 4 inference:  18%|█▊        | 9/49 [00:00&lt;00:04,  8.54it/s]
 
-Running batch 4 inference:  43%|████▎     | 21/49 [00:00&lt;00:01, 24.51it/s]
+Running batch 4 inference:  20%|██        | 10/49 [00:01&lt;00:04,  8.43it/s]
 
-Running batch 4 inference:  49%|████▉     | 24/49 [00:01&lt;00:01, 23.04it/s]
+Running batch 4 inference:  22%|██▏       | 11/49 [00:01&lt;00:04,  8.63it/s]
 
-Running batch 4 inference:  55%|█████▌    | 27/49 [00:01&lt;00:00, 24.04it/s]
+Running batch 4 inference:  24%|██▍       | 12/49 [00:01&lt;00:04,  8.51it/s]
 
-Running batch 4 inference:  61%|██████    | 30/49 [00:01&lt;00:00, 21.97it/s]
+Running batch 4 inference:  27%|██▋       | 13/49 [00:01&lt;00:04,  7.91it/s]
 
-Running batch 4 inference:  67%|██████▋   | 33/49 [00:01&lt;00:00, 22.28it/s]
+Running batch 4 inference:  29%|██▊       | 14/49 [00:01&lt;00:04,  8.18it/s]
 
-Running batch 4 inference:  73%|███████▎  | 36/49 [00:01&lt;00:00, 21.68it/s]
+Running batch 4 inference:  31%|███       | 15/49 [00:01&lt;00:04,  8.28it/s]
 
-Running batch 4 inference:  80%|███████▉  | 39/49 [00:01&lt;00:00, 22.39it/s]
+Running batch 4 inference:  33%|███▎      | 16/49 [00:01&lt;00:03,  8.39it/s]
 
-Running batch 4 inference:  86%|████████▌ | 42/49 [00:01&lt;00:00, 22.28it/s]
+Running batch 4 inference:  35%|███▍      | 17/49 [00:01&lt;00:03,  8.25it/s]
 
-Running batch 4 inference:  92%|█████████▏| 45/49 [00:01&lt;00:00, 23.38it/s]
+Running batch 4 inference:  37%|███▋      | 18/49 [00:02&lt;00:03,  8.47it/s]
 
-Running batch 4 inference:  98%|█████████▊| 48/49 [00:02&lt;00:00, 23.76it/s]
+Running batch 4 inference:  39%|███▉      | 19/49 [00:02&lt;00:03,  8.67it/s]
+
+Running batch 4 inference:  41%|████      | 20/49 [00:02&lt;00:03,  8.24it/s]
+
+Running batch 4 inference:  43%|████▎     | 21/49 [00:02&lt;00:03,  8.32it/s]
+
+Running batch 4 inference:  45%|████▍     | 22/49 [00:02&lt;00:03,  8.37it/s]
+
+Running batch 4 inference:  47%|████▋     | 23/49 [00:02&lt;00:03,  7.69it/s]
+
+Running batch 4 inference:  49%|████▉     | 24/49 [00:02&lt;00:03,  7.46it/s]
+
+Running batch 4 inference:  51%|█████     | 25/49 [00:02&lt;00:03,  7.93it/s]
+
+Running batch 4 inference:  53%|█████▎    | 26/49 [00:03&lt;00:02,  8.15it/s]
+
+Running batch 4 inference:  55%|█████▌    | 27/49 [00:03&lt;00:02,  7.62it/s]
+
+Running batch 4 inference:  57%|█████▋    | 28/49 [00:03&lt;00:02,  7.31it/s]
+
+Running batch 4 inference:  59%|█████▉    | 29/49 [00:03&lt;00:02,  7.63it/s]
+
+Running batch 4 inference:  61%|██████    | 30/49 [00:03&lt;00:02,  7.91it/s]
+
+Running batch 4 inference:  63%|██████▎   | 31/49 [00:03&lt;00:02,  8.01it/s]
+
+Running batch 4 inference:  65%|██████▌   | 32/49 [00:03&lt;00:02,  8.06it/s]
+
+Running batch 4 inference:  67%|██████▋   | 33/49 [00:03&lt;00:01,  8.07it/s]
+
+Running batch 4 inference:  69%|██████▉   | 34/49 [00:04&lt;00:01,  8.16it/s]
+
+Running batch 4 inference:  71%|███████▏  | 35/49 [00:04&lt;00:01,  8.37it/s]
+
+Running batch 4 inference:  73%|███████▎  | 36/49 [00:04&lt;00:01,  8.54it/s]
+
+Running batch 4 inference:  76%|███████▌  | 37/49 [00:04&lt;00:01,  8.08it/s]
+
+Running batch 4 inference:  78%|███████▊  | 38/49 [00:04&lt;00:01,  8.12it/s]
+
+Running batch 4 inference:  80%|███████▉  | 39/49 [00:04&lt;00:01,  8.18it/s]
+
+Running batch 4 inference:  82%|████████▏ | 40/49 [00:04&lt;00:01,  8.35it/s]
+
+Running batch 4 inference:  84%|████████▎ | 41/49 [00:04&lt;00:00,  8.37it/s]
+
+Running batch 4 inference:  86%|████████▌ | 42/49 [00:05&lt;00:00,  8.09it/s]
+
+Running batch 4 inference:  88%|████████▊ | 43/49 [00:05&lt;00:00,  8.33it/s]
+
+Running batch 4 inference:  90%|████████▉ | 44/49 [00:05&lt;00:00,  8.18it/s]
+
+Running batch 4 inference:  92%|█████████▏| 45/49 [00:05&lt;00:00,  8.08it/s]
+
+Running batch 4 inference:  94%|█████████▍| 46/49 [00:05&lt;00:00,  8.07it/s]
+
+Running batch 4 inference:  96%|█████████▌| 47/49 [00:05&lt;00:00,  8.02it/s]
+
+Running batch 4 inference:  98%|█████████▊| 48/49 [00:05&lt;00:00,  8.21it/s]
+
+Running batch 4 inference: 100%|██████████| 49/49 [00:05&lt;00:00,  8.49it/s]
 
 
 
 
-Total Ensemble Batches:  50%|█████     | 2/4 [00:04&lt;00:04,  2.04s/it]
+Total Ensemble Batches:  50%|█████     | 2/4 [00:12&lt;00:12,  6.22s/it]
 
 Running batch 8 inference:   0%|          | 0/49 [00:00&lt;?, ?it/s]
 
-Running batch 8 inference:   6%|▌         | 3/49 [00:00&lt;00:01, 29.54it/s]
+Running batch 8 inference:   4%|▍         | 2/49 [00:00&lt;00:03, 13.22it/s]
 
-Running batch 8 inference:  12%|█▏        | 6/49 [00:00&lt;00:01, 26.63it/s]
+Running batch 8 inference:   8%|▊         | 4/49 [00:00&lt;00:05,  8.34it/s]
 
-Running batch 8 inference:  18%|█▊        | 9/49 [00:00&lt;00:01, 27.75it/s]
+Running batch 8 inference:  10%|█         | 5/49 [00:00&lt;00:05,  7.66it/s]
 
-Running batch 8 inference:  24%|██▍       | 12/49 [00:00&lt;00:01, 26.28it/s]
+Running batch 8 inference:  12%|█▏        | 6/49 [00:00&lt;00:06,  6.86it/s]
 
-Running batch 8 inference:  31%|███       | 15/49 [00:00&lt;00:01, 25.76it/s]
+Running batch 8 inference:  14%|█▍        | 7/49 [00:00&lt;00:06,  6.79it/s]
 
-Running batch 8 inference:  37%|███▋      | 18/49 [00:00&lt;00:01, 25.30it/s]
+Running batch 8 inference:  16%|█▋        | 8/49 [00:01&lt;00:05,  7.06it/s]
 
-Running batch 8 inference:  43%|████▎     | 21/49 [00:00&lt;00:01, 25.45it/s]
+Running batch 8 inference:  18%|█▊        | 9/49 [00:01&lt;00:05,  7.37it/s]
 
-Running batch 8 inference:  49%|████▉     | 24/49 [00:00&lt;00:01, 24.83it/s]
+Running batch 8 inference:  20%|██        | 10/49 [00:01&lt;00:04,  7.81it/s]
 
-Running batch 8 inference:  55%|█████▌    | 27/49 [00:01&lt;00:00, 24.71it/s]
+Running batch 8 inference:  22%|██▏       | 11/49 [00:01&lt;00:04,  8.11it/s]
 
-Running batch 8 inference:  61%|██████    | 30/49 [00:01&lt;00:00, 23.24it/s]
+Running batch 8 inference:  24%|██▍       | 12/49 [00:01&lt;00:04,  8.33it/s]
 
-Running batch 8 inference:  67%|██████▋   | 33/49 [00:01&lt;00:00, 24.12it/s]
+Running batch 8 inference:  27%|██▋       | 13/49 [00:01&lt;00:04,  8.51it/s]
 
-Running batch 8 inference:  73%|███████▎  | 36/49 [00:01&lt;00:00, 23.09it/s]
+Running batch 8 inference:  29%|██▊       | 14/49 [00:01&lt;00:04,  8.61it/s]
 
-Running batch 8 inference:  80%|███████▉  | 39/49 [00:01&lt;00:00, 23.15it/s]
+Running batch 8 inference:  31%|███       | 15/49 [00:01&lt;00:03,  8.63it/s]
 
-Running batch 8 inference:  86%|████████▌ | 42/49 [00:01&lt;00:00, 22.79it/s]
+Running batch 8 inference:  33%|███▎      | 16/49 [00:01&lt;00:03,  8.72it/s]
 
-Running batch 8 inference:  92%|█████████▏| 45/49 [00:01&lt;00:00, 23.62it/s]
+Running batch 8 inference:  35%|███▍      | 17/49 [00:02&lt;00:03,  8.58it/s]
 
-Running batch 8 inference:  98%|█████████▊| 48/49 [00:01&lt;00:00, 23.30it/s]
+Running batch 8 inference:  37%|███▋      | 18/49 [00:02&lt;00:03,  8.37it/s]
+
+Running batch 8 inference:  39%|███▉      | 19/49 [00:02&lt;00:03,  8.24it/s]
+
+Running batch 8 inference:  41%|████      | 20/49 [00:02&lt;00:03,  8.38it/s]
+
+Running batch 8 inference:  43%|████▎     | 21/49 [00:02&lt;00:03,  8.26it/s]
+
+Running batch 8 inference:  45%|████▍     | 22/49 [00:02&lt;00:03,  8.44it/s]
+
+Running batch 8 inference:  47%|████▋     | 23/49 [00:02&lt;00:03,  8.41it/s]
+
+Running batch 8 inference:  49%|████▉     | 24/49 [00:02&lt;00:03,  7.91it/s]
+
+Running batch 8 inference:  51%|█████     | 25/49 [00:03&lt;00:03,  7.93it/s]
+
+Running batch 8 inference:  53%|█████▎    | 26/49 [00:03&lt;00:03,  7.39it/s]
+
+Running batch 8 inference:  55%|█████▌    | 27/49 [00:03&lt;00:02,  7.71it/s]
+
+Running batch 8 inference:  57%|█████▋    | 28/49 [00:03&lt;00:02,  7.92it/s]
+
+Running batch 8 inference:  59%|█████▉    | 29/49 [00:03&lt;00:02,  7.79it/s]
+
+Running batch 8 inference:  61%|██████    | 30/49 [00:03&lt;00:02,  8.13it/s]
+
+Running batch 8 inference:  63%|██████▎   | 31/49 [00:03&lt;00:02,  8.31it/s]
+
+Running batch 8 inference:  65%|██████▌   | 32/49 [00:03&lt;00:01,  8.50it/s]
+
+Running batch 8 inference:  67%|██████▋   | 33/49 [00:04&lt;00:01,  8.65it/s]
+
+Running batch 8 inference:  69%|██████▉   | 34/49 [00:04&lt;00:01,  8.72it/s]
+
+Running batch 8 inference:  71%|███████▏  | 35/49 [00:04&lt;00:01,  8.75it/s]
+
+Running batch 8 inference:  73%|███████▎  | 36/49 [00:04&lt;00:01,  8.76it/s]
+
+Running batch 8 inference:  76%|███████▌  | 37/49 [00:04&lt;00:01,  8.74it/s]
+
+Running batch 8 inference:  78%|███████▊  | 38/49 [00:04&lt;00:01,  8.71it/s]
+
+Running batch 8 inference:  80%|███████▉  | 39/49 [00:04&lt;00:01,  8.62it/s]
+
+Running batch 8 inference:  82%|████████▏ | 40/49 [00:04&lt;00:01,  8.59it/s]
+
+Running batch 8 inference:  84%|████████▎ | 41/49 [00:04&lt;00:00,  8.62it/s]
+
+Running batch 8 inference:  86%|████████▌ | 42/49 [00:05&lt;00:00,  8.40it/s]
+
+Running batch 8 inference:  88%|████████▊ | 43/49 [00:05&lt;00:00,  8.58it/s]
+
+Running batch 8 inference:  90%|████████▉ | 44/49 [00:05&lt;00:00,  8.59it/s]
+
+Running batch 8 inference:  92%|█████████▏| 45/49 [00:05&lt;00:00,  8.62it/s]
+
+Running batch 8 inference:  94%|█████████▍| 46/49 [00:05&lt;00:00,  8.66it/s]
+
+Running batch 8 inference:  96%|█████████▌| 47/49 [00:05&lt;00:00,  8.79it/s]
+
+Running batch 8 inference:  98%|█████████▊| 48/49 [00:05&lt;00:00,  8.83it/s]
+
+Running batch 8 inference: 100%|██████████| 49/49 [00:05&lt;00:00,  8.81it/s]
 
 
 
 
-Total Ensemble Batches:  75%|███████▌  | 3/4 [00:06&lt;00:02,  2.02s/it]
+Total Ensemble Batches:  75%|███████▌  | 3/4 [00:18&lt;00:06,  6.08s/it]
 
 Running batch 12 inference:   0%|          | 0/49 [00:00&lt;?, ?it/s]
 
-Running batch 12 inference:   6%|▌         | 3/49 [00:00&lt;00:01, 27.64it/s]
+Running batch 12 inference:   4%|▍         | 2/49 [00:00&lt;00:02, 16.41it/s]
 
-Running batch 12 inference:  12%|█▏        | 6/49 [00:00&lt;00:01, 23.48it/s]
+Running batch 12 inference:   8%|▊         | 4/49 [00:00&lt;00:04, 10.22it/s]
 
-Running batch 12 inference:  18%|█▊        | 9/49 [00:00&lt;00:01, 22.69it/s]
+Running batch 12 inference:  12%|█▏        | 6/49 [00:00&lt;00:04,  9.48it/s]
 
-Running batch 12 inference:  24%|██▍       | 12/49 [00:00&lt;00:01, 23.67it/s]
+Running batch 12 inference:  16%|█▋        | 8/49 [00:00&lt;00:04,  9.00it/s]
 
-Running batch 12 inference:  31%|███       | 15/49 [00:00&lt;00:01, 25.10it/s]
+Running batch 12 inference:  18%|█▊        | 9/49 [00:00&lt;00:04,  8.81it/s]
 
-Running batch 12 inference:  37%|███▋      | 18/49 [00:00&lt;00:01, 23.72it/s]
+Running batch 12 inference:  20%|██        | 10/49 [00:01&lt;00:04,  8.88it/s]
 
-Running batch 12 inference:  43%|████▎     | 21/49 [00:00&lt;00:01, 24.64it/s]
+Running batch 12 inference:  22%|██▏       | 11/49 [00:01&lt;00:04,  8.93it/s]
 
-Running batch 12 inference:  49%|████▉     | 24/49 [00:00&lt;00:01, 24.04it/s]
+Running batch 12 inference:  24%|██▍       | 12/49 [00:01&lt;00:04,  8.95it/s]
 
-Running batch 12 inference:  55%|█████▌    | 27/49 [00:01&lt;00:00, 24.29it/s]
+Running batch 12 inference:  27%|██▋       | 13/49 [00:01&lt;00:04,  8.78it/s]
 
-Running batch 12 inference:  61%|██████    | 30/49 [00:01&lt;00:00, 24.24it/s]
+Running batch 12 inference:  29%|██▊       | 14/49 [00:01&lt;00:03,  8.86it/s]
 
-Running batch 12 inference:  67%|██████▋   | 33/49 [00:01&lt;00:00, 25.31it/s]
+Running batch 12 inference:  31%|███       | 15/49 [00:01&lt;00:03,  8.82it/s]
 
-Running batch 12 inference:  73%|███████▎  | 36/49 [00:01&lt;00:00, 25.02it/s]
+Running batch 12 inference:  33%|███▎      | 16/49 [00:01&lt;00:03,  8.77it/s]
 
-Running batch 12 inference:  80%|███████▉  | 39/49 [00:01&lt;00:00, 25.88it/s]
+Running batch 12 inference:  35%|███▍      | 17/49 [00:01&lt;00:03,  8.77it/s]
 
-Running batch 12 inference:  86%|████████▌ | 42/49 [00:01&lt;00:00, 23.81it/s]
+Running batch 12 inference:  37%|███▋      | 18/49 [00:01&lt;00:03,  8.61it/s]
 
-Running batch 12 inference:  92%|█████████▏| 45/49 [00:01&lt;00:00, 24.43it/s]
+Running batch 12 inference:  39%|███▉      | 19/49 [00:02&lt;00:03,  8.36it/s]
 
-Running batch 12 inference:  98%|█████████▊| 48/49 [00:01&lt;00:00, 23.26it/s]
+Running batch 12 inference:  41%|████      | 20/49 [00:02&lt;00:03,  8.33it/s]
+
+Running batch 12 inference:  43%|████▎     | 21/49 [00:02&lt;00:03,  8.12it/s]
+
+Running batch 12 inference:  45%|████▍     | 22/49 [00:02&lt;00:03,  7.80it/s]
+
+Running batch 12 inference:  47%|████▋     | 23/49 [00:02&lt;00:03,  7.83it/s]
+
+Running batch 12 inference:  49%|████▉     | 24/49 [00:02&lt;00:03,  6.71it/s]
+
+Running batch 12 inference:  51%|█████     | 25/49 [00:02&lt;00:03,  6.82it/s]
+
+Running batch 12 inference:  53%|█████▎    | 26/49 [00:03&lt;00:03,  6.96it/s]
+
+Running batch 12 inference:  55%|█████▌    | 27/49 [00:03&lt;00:03,  7.22it/s]
+
+Running batch 12 inference:  57%|█████▋    | 28/49 [00:03&lt;00:02,  7.23it/s]
+
+Running batch 12 inference:  59%|█████▉    | 29/49 [00:03&lt;00:02,  7.48it/s]
+
+Running batch 12 inference:  61%|██████    | 30/49 [00:03&lt;00:02,  7.43it/s]
+
+Running batch 12 inference:  63%|██████▎   | 31/49 [00:03&lt;00:02,  7.83it/s]
+
+Running batch 12 inference:  65%|██████▌   | 32/49 [00:03&lt;00:02,  7.81it/s]
+
+Running batch 12 inference:  67%|██████▋   | 33/49 [00:03&lt;00:01,  8.06it/s]
+
+Running batch 12 inference:  69%|██████▉   | 34/49 [00:04&lt;00:01,  8.14it/s]
+
+Running batch 12 inference:  71%|███████▏  | 35/49 [00:04&lt;00:01,  8.28it/s]
+
+Running batch 12 inference:  73%|███████▎  | 36/49 [00:04&lt;00:01,  8.08it/s]
+
+Running batch 12 inference:  76%|███████▌  | 37/49 [00:04&lt;00:01,  8.04it/s]
+
+Running batch 12 inference:  78%|███████▊  | 38/49 [00:04&lt;00:01,  8.10it/s]
+
+Running batch 12 inference:  80%|███████▉  | 39/49 [00:04&lt;00:01,  8.29it/s]
+
+Running batch 12 inference:  82%|████████▏ | 40/49 [00:04&lt;00:01,  8.18it/s]
+
+Running batch 12 inference:  84%|████████▎ | 41/49 [00:04&lt;00:00,  8.16it/s]
+
+Running batch 12 inference:  86%|████████▌ | 42/49 [00:05&lt;00:00,  8.14it/s]
+
+Running batch 12 inference:  88%|████████▊ | 43/49 [00:05&lt;00:00,  8.24it/s]
+
+Running batch 12 inference:  90%|████████▉ | 44/49 [00:05&lt;00:00,  8.12it/s]
+
+Running batch 12 inference:  92%|█████████▏| 45/49 [00:05&lt;00:00,  7.99it/s]
+
+Running batch 12 inference:  94%|█████████▍| 46/49 [00:05&lt;00:00,  7.98it/s]
+
+Running batch 12 inference:  96%|█████████▌| 47/49 [00:05&lt;00:00,  7.42it/s]
+
+Running batch 12 inference:  98%|█████████▊| 48/49 [00:05&lt;00:00,  7.28it/s]
+
+Running batch 12 inference: 100%|██████████| 49/49 [00:06&lt;00:00,  7.36it/s]
 
 
 
 
-Total Ensemble Batches: 100%|██████████| 4/4 [00:08&lt;00:00,  2.02s/it]
-Total Ensemble Batches: 100%|██████████| 4/4 [00:08&lt;00:00,  2.02s/it]
-2026-08-25 09:13:30.286 | SUCCESS  | earth2studio.run:ensemble:536 - 
+Total Ensemble Batches: 100%|██████████| 4/4 [00:24&lt;00:00,  6.06s/it]
+Total Ensemble Batches: 100%|██████████| 4/4 [00:24&lt;00:00,  6.13s/it]
+2026-11-19 17:48:43.738 | SUCCESS  | earth2studio.run:ensemble:539 - 
 Inference complete</code></pre></details>
 
 <h2 id="post-processing">Post Processing<a class="headerlink" href="#post-processing" title="Permanent link">&para;</a></h2>
@@ -4247,9 +4681,9 @@ unperturbed/perturbed model.</p>
 <p><img alt="Output from Model Hook Injection: Perturbation" class="e2sg-output-image" loading="lazy" src="../../_assets/02_medium_range-02_model_perturbation_hook/003-cell-9.webp" /></p>
 <p><img alt="Output from Model Hook Injection: Perturbation" class="e2sg-output-image" loading="lazy" src="../../_assets/02_medium_range-02_model_perturbation_hook/004-cell-9.webp" /></p>
 <hr />
-<div class="e2sg-downloads"><a class="e2sg-download" href="../../_assets/02_medium_range-02_model_perturbation_hook/02_model_perturbation_hook.py" download>Download Python source</a><a class="e2sg-download" href="../../_assets/02_medium_range-02_model_perturbation_hook/02_model_perturbation_hook.ipynb" download>Download Jupyter notebook</a><span class="e2sg-download-meta">executed in 55.6s</span></div>
+<div class="e2sg-downloads"><a class="e2sg-download" href="../../_assets/02_medium_range-02_model_perturbation_hook/02_model_perturbation_hook.py" download>Download Python source</a><a class="e2sg-download" href="../../_assets/02_medium_range-02_model_perturbation_hook/02_model_perturbation_hook.ipynb" download>Download Jupyter notebook</a><span class="e2sg-download-meta">executed in 90.8s</span></div>
 
-<section class="e2sg-telemetry" aria-labelledby="e2sg-telemetry-title"><div class="e2sg-telemetry-heading"><div><span class="e2sg-eyebrow">Execution profile</span><h2 id="e2sg-telemetry-title">Runtime telemetry</h2></div></div><div class="e2sg-total-runtime"><span>Total runtime</span><strong>55.6 s</strong></div><h3 class="e2sg-telemetry-subtitle">Execution environment</h3><div class="e2sg-hardware-grid"><div class="e2sg-hardware-item"><span>CPU</span><strong>AMD EPYC 7313P 16-Core Processor</strong></div><div class="e2sg-hardware-item"><span>GPU</span><strong>NVIDIA H100 PCIe · 79.6 GiB</strong></div><div class="e2sg-hardware-item"><span>System RAM</span><strong>58.5 GiB</strong></div><div class="e2sg-hardware-item"><span>Platform</span><strong>Linux 6.8.0-137-generic</strong></div><div class="e2sg-hardware-item"><span>Python</span><strong>3.13.13</strong></div><div class="e2sg-hardware-item"><span>GPU driver / CUDA</span><strong>Driver 595.84 · CUDA support 13.2</strong></div></div></section>
+<section class="e2sg-telemetry" aria-labelledby="e2sg-telemetry-title"><div class="e2sg-telemetry-heading"><div><span class="e2sg-eyebrow">Execution profile</span><h2 id="e2sg-telemetry-title">Runtime telemetry</h2></div></div><div class="e2sg-total-runtime"><span>Total runtime</span><strong>1m 31s</strong></div><h3 class="e2sg-telemetry-subtitle">Execution environment</h3><div class="e2sg-hardware-grid"><div class="e2sg-hardware-item"><span>CPU</span><strong>AMD EPYC 7313P 16-Core Processor</strong></div><div class="e2sg-hardware-item"><span>GPU</span><strong>NVIDIA H100 PCIe · 79.6 GiB</strong></div><div class="e2sg-hardware-item"><span>System RAM</span><strong>58.5 GiB</strong></div><div class="e2sg-hardware-item"><span>Platform</span><strong>Linux 6.8.0-147-generic</strong></div><div class="e2sg-hardware-item"><span>Python</span><strong>3.13.13</strong></div><div class="e2sg-hardware-item"><span>GPU driver / CUDA</span><strong>Driver 595.99.02 · CUDA support 13.2</strong></div></div></section>
 
 
 
