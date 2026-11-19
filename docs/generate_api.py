@@ -36,8 +36,10 @@ GENERATED = MODULES / "generated"
 INSTALL_OPTIONS = DOCS / "userguide" / "about" / "install_options.yml"
 SOURCE_REF = "main"
 
+# Preserve complete GPU tokens so ambiguous memory metadata cannot be truncated
+# into a smaller, apparently valid capacity by the catalog generator.
 BADGE_RE = re.compile(
-    r"\b(?:region|class|task|dataclass|dataset|year|product|gpu|provider|backend):[A-Za-z0-9_.-]+\b"
+    r"\b(?:gpu:\S*|(?:region|class|task|dataclass|dataset|year|product|provider|backend):[A-Za-z0-9_.-]+\b)"
 )
 RST_ROLE_RE = re.compile(
     r":(?:py:)?(?:mod|class|func|obj|meth|attr|exc|data|const):" r"`(?P<target>[^`]+)`"

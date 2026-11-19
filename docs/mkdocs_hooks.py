@@ -19,6 +19,7 @@
 from __future__ import annotations
 
 import json
+import math
 import re
 from functools import lru_cache
 from html import escape
@@ -165,10 +166,10 @@ def _catalog_fallback_cards(records: list[dict[str, object]]) -> str:
         title = escape(str(record.get("title") or "Catalog entry"))
         summary = escape(str(record.get("summary") or ""))
         url = escape(str(record.get("url") or "#"), quote=True)
-        chips = "".join(
-            f"<span>{escape(str(chip))}</span>"
-            for chip in list(record.get("chips") or ())[:4]
-        )
+        record_chips = list(record.get("chips") or ())
+        if record.get("kind") != "model":
+            record_chips = record_chips[:4]
+        chips = "".join(f"<span>{escape(str(chip))}</span>" for chip in record_chips)
         cards.append(
             '<article class="e2s-catalog-card" data-kind="'
             + escape(str(record.get("kind") or "model"), quote=True)
@@ -261,6 +262,11 @@ def _catalog_records(page: object | None) -> list[dict[str, object]]:
                 "chips": _catalog_chips(kind, group, badges),
                 "filters": _catalog_filters(kind, badges),
                 "tone": _catalog_tone(badges, kind),
+                **(
+                    {"recommended_vram_gb": _catalog_vram_gb(badges)}
+                    if kind == "model"
+                    else {}
+                ),
             }
         )
     return records
@@ -319,6 +325,19 @@ def _catalog_filters(kind: str, badges: list[str]) -> dict[str, list[str]]:
     }
 
 
+def _catalog_vram_gb(badges: list[str]) -> float | None:
+    gpu_badges = {badge for badge in badges if badge.startswith("gpu:")}
+    # Only one explicit GB recommendation is comparable. Do not infer capacity
+    # from display labels, ranges, CPU labels or multi-GPU configurations.
+    if len(gpu_badges) != 1:
+        return None
+    match = re.fullmatch(r"gpu:([0-9]+(?:\.[0-9]+)?)gb", gpu_badges.pop())
+    if match is None:
+        return None
+    value = float(match[1])
+    return value if math.isfinite(value) else None
+
+
 def _catalog_chips(kind: str, group: str, badges: list[str]) -> list[str]:
     prefixes = (
         ("class", "provider", "backend", "product")
@@ -337,7 +356,21 @@ def _catalog_chips(kind: str, group: str, badges: list[str]) -> list[str]:
             for badge in badges
             if badge.startswith(f"{prefix}:")
         )
-    return list(dict.fromkeys(chip for chip in chips if chip))[:6]
+    chips = list(dict.fromkeys(chip for chip in chips if chip))[:6]
+    if kind == "model":
+        memory_labels = ", ".join(
+            dict.fromkeys(
+                resolve_badge(
+                    badge, _mkdocs_badge_definitions(), _mkdocs_badge_default_color()
+                ).label
+                for badge in badges
+                if badge.startswith("gpu:")
+            )
+        )
+        if _catalog_vram_gb(badges) is None:
+            memory_labels = "unknown" + (f" ({memory_labels})" if memory_labels else "")
+        chips.append(f"Recommended VRAM: {memory_labels}")
+    return chips
 
 
 def _catalog_filter_label(group: str, badge: str) -> str:

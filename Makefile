@@ -80,9 +80,14 @@ coverage:
 	uv run coverage report --fail-under=90 || true
 
 UV_DOCS := uv run --locked --group docs
+DOCS_TEST_PYTHON ?= $(UV_DOCS) python
+
+.PHONY: docs-test
+docs-test:
+	$(DOCS_TEST_PYTHON) -m pytest --confcutdir=test/docs test/docs
 
 .PHONY: docs-generate
-docs-generate:
+docs-generate: docs-test
 	$(UV_DOCS) python docs/generate_api.py
 	$(UV_DOCS) python docs/generate_catalog.py
 	$(UV_DOCS) python docs/generate_install_options.py
