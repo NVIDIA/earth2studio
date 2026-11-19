@@ -106,20 +106,18 @@ frames published every `delta_t`:
 
 | Frame label | Reduction | Result |
 | --- | --- | --- |
-| `t2m` (instantaneous) | `mean` over `7d` | `t2m:mean:7d` |
+| `t2m` (instantaneous) | `mean` over `7d` | `t2m:mean:168h` |
 | `t2m:mean:-1h:23h` (daily mean) | `mean` over `30days` | `t2m:mean:-697h:+23h` |
-| `tp06:sum:6h` | `sum` over `24h` | `tp06:sum:1d` |
+| `tp06:sum:6h` | `sum` over `24h` | `tp06:sum:24h` |
 
-A qualified frame composes only when its method is `mean`, `sum`, `min` or
-`max`, matches the reduction's, and its window equals the cadence: the frames
-then tile the window back to back with equal weight. Registered statistics
-label plain frames only, since they need not compose (a range of daily ranges
-is not a two-day range). Other combinations (a mean of sums, overlapping or gapped windows,
-raw `::` identifiers) raise; reduce them with `relabel=False` to keep the
-frames' labels. Composed durations of whole days are written in days (`7d`),
-others in the largest unit dividing them (`-697h`); `time_statistic_metadata`
-normalizes either spelling to the same modifier, so compare labels through it
-rather than as strings.
+The reduction's method is `mean`, `sum`, `min` or `max`; other statistics need
+not compose (a range of daily ranges is not a two-day range). A qualified frame
+composes only when its method matches the reduction's and its window equals the
+cadence: the frames then tile the window back to back with equal weight. Other
+combinations (a mean of sums, overlapping or gapped windows, raw `::`
+identifiers) are not one statistic of the underlying samples, so the stream
+cannot be reduced. Composed labels use the canonical modifier of
+`time_statistic_metadata`, so a window given as `7d` is labelled `168h`.
 
 ### Source Responsibilities
 

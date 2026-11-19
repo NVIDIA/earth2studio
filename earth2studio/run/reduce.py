@@ -14,35 +14,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Lead-time reductions: store fewer, reduced outputs of a stream.
-
-A reduction turns the outputs a runner yields for one stream into fewer outputs
-on another lead axis, such as weekly means of a daily rollout. Pass one per
-stream to :class:`~earth2studio.run.Pipeline`; the runner itself is unchanged::
-
-    Pipeline(runner, output={"forecast": store},
-             reduction={"forecast": LeadWindow("7d")})
-
-:class:`LeadWindow` is the built-in reduction. Others implement
-:class:`LeadReduction`, which has the same per-item lifecycle as a
-:class:`~earth2studio.run.pipeline.Scorer`. ``Pipeline`` copies each reduction
-once per stream, so a reduction keeps its partial results on itself, and drives
-it as follows::
-
-    stored = reduction.output_coords(signature)        # once, plans the store
-    for item in items:
-        reduction.begin_item(signature, item.final_lead_time)
-        for x in outputs_of_the_stream(item):           # filtered to output_variables
-            for reduced in reduction.update(x):
-                regrid_score_and_write(reduced)
-        reduction.finish_item()                         # raises if incomplete
-"""
+"""Lead-time reductions applied by :class:`~earth2studio.run.Pipeline`."""
 
 from __future__ import annotations
 
-from collections import OrderedDict
 from collections.abc import Callable, Sequence
-from typing import Any, Protocol
+from typing import Any, Literal, Protocol
 
 import numpy as np
 import torch
@@ -51,7 +28,6 @@ import xarray as xr
 from earth2studio.utils.coords import E2S_STATISTICS, coord_array_like
 from earth2studio.utils.cupy import _torch_dtype, from_torch
 from earth2studio.utils.time_statistics import (
-    _TIME_STATISTICS,
     Duration,
     _duration,
     compose_time_statistic,
@@ -61,14 +37,37 @@ from earth2studio.utils.type import CoordinateSystem
 
 _ZERO = np.timedelta64(0, "ns")
 
+# In-place running update of each method; a mean divides by the count at the end.
+_UPDATES: dict[str, Callable[[torch.Tensor, torch.Tensor], Any]] = {
+    "mean": torch.Tensor.add_,
+    "sum": torch.Tensor.add_,
+    "min": lambda total, x: torch.minimum(total, x, out=total),
+    "max": lambda total, x: torch.maximum(total, x, out=total),
+}
+
 
 class LeadReduction(Protocol):
     """Reduce one stream over lead time, item by item.
 
-    ``Pipeline`` applies a reduction after selecting the stream's
-    ``output_variables`` and before its regridder, scorer and store, so it sees
-    the selected variables on the runner's grid. Each stream gets its own copy,
-    which holds the partial results of the current item.
+    A reduction turns the outputs a runner yields for one stream into fewer
+    outputs on another lead axis, such as weekly means of a daily rollout,
+    without changing the runner. ``Pipeline`` applies it after selecting the
+    stream's ``output_variables`` and before its regridder, scorer and store,
+    so it sees the selected variables on the runner's grid.
+
+    The lifecycle matches :class:`~earth2studio.run.Scorer`. ``Pipeline``
+    deep-copies each reduction per stream, so a reduction may keep the current
+    item's partial results on itself, and drives it as follows::
+
+        stored = reduction.output_coords(signature)        # once, plans the store
+        for item in items:
+            reduction.begin_item(signature, item.final_lead_time)
+            for x in outputs_of_the_stream(item):
+                for reduced in reduction.update(x):
+                    regrid_score_and_write(reduced)
+            reduction.finish_item()                         # raises if incomplete
+
+    :class:`LeadWindow` is the built-in implementation.
     """
 
     def output_coords(self, signature: CoordinateSystem) -> CoordinateSystem:
@@ -147,10 +146,6 @@ class LeadReduction(Protocol):
         ...
 
 
-def _ns(value: Any) -> np.timedelta64:
-    return np.timedelta64(value, "ns")
-
-
 def _leads(x: xr.DataArray) -> np.ndarray:
     return np.asarray(x.coords["lead_time"].values).astype("timedelta64[ns]")
 
@@ -165,17 +160,17 @@ class LeadWindow(LeadReduction):
     windows given by ``ends`` may overlap; leads outside every window are
     dropped.
 
-    ``mean``, ``sum``, ``min`` and ``max`` accumulate in place, holding one
-    field per open window. Other registered statistics keep a window's fields
-    until it closes. A missing sample, such as a variable an output does not
-    hold, makes that variable's window NaN for the built-in statistics.
-    Accumulation runs in at least float32, so a half-precision model does not
-    lose precision; results are cast back to the stream's dtype.
+    Each variable is renamed with the qualified label of the reduction, from
+    :func:`~earth2studio.utils.time_statistics.compose_time_statistic`:
+    ``t2m`` becomes ``t2m:mean:168h`` for seven-day means, so stored fields say
+    what they hold and verification can be fetched under the same labels. A
+    stream whose labels do not compose with ``method``, such as a mean of
+    six-hourly sums, cannot be reduced.
 
-    With ``relabel`` set, each variable is renamed with the qualified label of
-    the reduction, from :func:`~earth2studio.utils.time_statistics.compose_time_statistic`:
-    ``t2m`` becomes ``t2m:mean:7d`` for seven-day means, so stored fields say
-    what they hold and verification can be fetched under the same labels.
+    Statistics accumulate in place, one field per open window, in at least
+    float32, so a half-precision model does not lose precision; results are
+    cast back to the stream's dtype. A missing sample, such as a variable an
+    output does not hold, makes that variable's window NaN.
 
     Parameters
     ----------
@@ -183,41 +178,44 @@ class LeadWindow(LeadReduction):
         Window length, such as ``"7d"``, ``"30days"`` or ``"168h"``; a whole
         number of the stream's output cadence. Calendar months are not
         supported; use a number of days.
-    method : str, optional
-        Registered time statistic, by default ``"mean"``
+    method : {"mean", "sum", "min", "max"}, optional
+        Statistic over each window, by default ``"mean"``
     ends : Sequence[str | np.timedelta64] | None, optional
         Lead times at which windows end, each at least ``window``. By default
         ``window, 2 * window, ...`` up to the final lead time, which must then
         be a whole number of windows, by default None
-    relabel : bool, optional
-        Rename variables with the reduction's qualified label, by default True
 
     Examples
     --------
-    >>> weekly = LeadWindow("7d")
-    >>> Pipeline(runner, output={"forecast": store}, reduction={"forecast": weekly})
-    >>> # Days 19-25 and 26-32, as subseasonal benchmarks score them
+    Store weekly means of the ``forecast`` stream:
+
+    >>> Pipeline(
+    ...     runner,
+    ...     output={"forecast": store},
+    ...     reduction={"forecast": LeadWindow("7d")},
+    ... )
+
+    Days 19-25 and 26-32, as subseasonal benchmarks score them:
+
     >>> LeadWindow("7d", ends=["25d", "32d"])
     """
 
     def __init__(
         self,
         window: Duration,
-        method: str = "mean",
+        method: Literal["mean", "sum", "min", "max"] = "mean",
         ends: Sequence[Duration] | None = None,
-        relabel: bool = True,
     ) -> None:
-        self.window = _ns(_duration(window, name="window"))
+        self.window = _duration(window, name="window").astype("timedelta64[ns]")
         if self.window <= _ZERO:
             raise ValueError(f"window must be positive, got {window!r}")
-        self.method = method.strip().lower()
-        if self.method not in _TIME_STATISTICS:
-            raise ValueError(f"Unknown time statistic '{method}'")
+        if method not in _UPDATES:
+            raise ValueError(f"method must be one of {list(_UPDATES)}, got {method!r}")
+        self.method = method
         self.ends: np.ndarray | None = None
         if ends is not None:
             values = np.array(
-                [_ns(_duration(end, name="ends")) for end in ends],
-                dtype="timedelta64[ns]",
+                [_duration(end, name="ends") for end in ends], dtype="timedelta64[ns]"
             )
             if values.size == 0:
                 raise ValueError("ends names no windows")
@@ -230,19 +228,22 @@ class LeadWindow(LeadReduction):
                     "after lead 0"
                 )
             self.ends = np.sort(values)
-        self.relabel = relabel
-        # The current item, set by begin_item.
-        self._item: _Item | None = None
+        # The current item, set by begin_item: its window ends, the samples
+        # each window takes, the planned variables and their labels, the
+        # stream's dtype, and each open window's running total and count.
+        self._item_ends: np.ndarray | None = None
+        self._samples = 0
+        self._variables: np.ndarray | None = None
+        self._labels: np.ndarray | None = None
+        self._dtype: Any = None
+        self._open: dict[np.timedelta64, tuple[torch.Tensor, int]] = {}
+        self._closed: set[np.timedelta64] = set()
 
     def __repr__(self) -> str:
-        ends = (
-            None
-            if self.ends is None
-            else [format_duration(_ns(end), days=True) for end in self.ends]
-        )
+        ends = None if self.ends is None else [format_duration(e) for e in self.ends]
         return (
-            f"LeadWindow({format_duration(self.window, days=True)!r}, "
-            f"method={self.method!r}, ends={ends!r}, relabel={self.relabel!r})"
+            f"LeadWindow({format_duration(self.window)!r}, "
+            f"method={self.method!r}, ends={ends!r})"
         )
 
     # -- planning ------------------------------------------------------------
@@ -251,14 +252,14 @@ class LeadWindow(LeadReduction):
         if "lead_time" not in signature.dims:
             raise ValueError("A lead-time reduction needs a lead_time dimension")
         leads = _leads(signature)
-        positive = leads[leads > _ZERO]
+        positive = np.sort(leads[leads > _ZERO])
         if positive.size == 0:
             raise ValueError("The stream publishes no positive lead time to reduce")
         if positive.size == 1:
-            return _ns(positive[0])
+            return positive[0]
         # Gaps between published leads, so an offset stream such as 3, 9, 15 h
         # has a 6 h cadence rather than the 3 h from zero to its first lead.
-        return _ns(np.min(np.diff(np.sort(positive))))
+        return np.min(np.diff(positive))
 
     def _window_ends(
         self, signature: CoordinateSystem, final_lead_time: np.timedelta64
@@ -270,7 +271,7 @@ class LeadWindow(LeadReduction):
                 f"Window {format_duration(self.window)} is not a whole number of "
                 f"the stream's {format_duration(cadence)} steps"
             )
-        final = _ns(final_lead_time)
+        final = np.timedelta64(final_lead_time, "ns")
         if self.ends is None:
             count, remainder = divmod(final, self.window)
             if count < 1 or remainder:
@@ -293,8 +294,8 @@ class LeadWindow(LeadReduction):
                 )
         return ends.astype("timedelta64[ns]")
 
-    def _labels(self, signature: CoordinateSystem) -> np.ndarray | None:
-        if not self.relabel or "variable" not in signature.dims:
+    def _relabel(self, signature: CoordinateSystem) -> np.ndarray | None:
+        if "variable" not in signature.dims:
             return None
         cadence = self._cadence(signature)
         return np.array(
@@ -315,8 +316,8 @@ class LeadWindow(LeadReduction):
         Returns
         -------
         CoordinateSystem
-            Signature with ``lead_time`` holding every window end and, with
-            ``relabel``, the reduction's qualified variable labels.
+            Signature with ``lead_time`` holding every window end and the
+            reduction's qualified variable labels.
 
         Raises
         ------
@@ -326,15 +327,15 @@ class LeadWindow(LeadReduction):
             lies beyond the longest item, or a label does not compose.
         """
         leads = _leads(signature) if "lead_time" in signature.dims else None
-        final = _ns(leads.max()) if leads is not None and leads.size else _ZERO
+        final = leads.max() if leads is not None and leads.size else _ZERO
         ends = self._window_ends(signature, final)
         if self.ends is not None and ends.size < self.ends.size:
             raise ValueError(
-                f"Window end {format_duration(_ns(self.ends[ends.size]))} lies beyond "
+                f"Window end {format_duration(self.ends[ends.size])} lies beyond "
                 f"the longest item's final lead time {format_duration(final)}"
             )
         replacements: dict[str, Any] = {"lead_time": ends}
-        labels = self._labels(signature)
+        labels = self._relabel(signature)
         if labels is not None:
             replacements["variable"] = labels
         return coord_array_like(signature, replacements)
@@ -359,20 +360,19 @@ class LeadWindow(LeadReduction):
             If the item's final lead time is not a whole number of windows
             (without ``ends``), or the stream misses a lead a window needs.
         """
-        self._item = None
+        self._item_ends = None
+        self._open = {}
+        self._closed = set()
         ends = self._window_ends(signature, final_lead_time)
-        variables = (
+        self._samples = int(self.window // self._cadence(signature))
+        self._variables = (
             np.asarray(signature["variable"].values)
             if "variable" in signature.dims
             else None
         )
-        self._item = _Item(
-            ends=ends,
-            samples=int(self.window // self._cadence(signature)),
-            variables=variables,
-            labels=self._labels(signature),
-            dtype=signature.dtype,
-        )
+        self._labels = self._relabel(signature)
+        self._dtype = signature.dtype
+        self._item_ends = ends
 
     def update(self, x: xr.DataArray) -> list[xr.DataArray]:
         """Add one output to its windows; return the windows it completes.
@@ -387,28 +387,30 @@ class LeadWindow(LeadReduction):
         list[xr.DataArray]
             The reduced output of each window closed by ``x``, in lead order.
         """
-        item = self._current()
+        ends = self._current()
         if "lead_time" not in x.dims:
             raise ValueError("A lead-time reduction needs outputs with lead_time")
-        start = item.ends - self.window
         done: list[xr.DataArray] = []
         for j, lead in enumerate(_leads(x)):
-            windows = item.ends[(start < lead) & (lead <= item.ends)]
+            windows = ends[(ends - self.window < lead) & (lead <= ends)]
             if windows.size == 0:
                 continue
             sample = x.isel(lead_time=[j])
-            tensor = item.tensor(sample)
+            tensor = self._tensor(sample)
             for end in windows:
-                if end in item.closed:
+                if end in self._closed:
                     raise RuntimeError(
                         f"Lead {format_duration(lead)} arrived after the window "
                         f"ending at {format_duration(end)} closed"
                     )
-                if end not in item.open:
-                    item.open[end] = _RunningStatistic(self.method)
-                item.open[end].add(tensor)
+                if end in self._open:
+                    total, count = self._open[end]
+                    _UPDATES[self.method](total, tensor)
+                    self._open[end] = (total, count + 1)
+                else:
+                    self._open[end] = (tensor.clone(), 1)
                 if lead == end:
-                    done.append(item.close(end, sample))
+                    done.append(self._close(end, sample))
         return done
 
     def finish_item(self) -> None:
@@ -419,118 +421,55 @@ class LeadWindow(LeadReduction):
         RuntimeError
             If the runner never published the lead closing some window.
         """
-        item = self._current()
-        self._item = None
-        unclosed = [end for end in item.ends if end not in item.closed]
+        ends = self._current()
+        self._item_ends = None
+        unclosed = [end for end in ends if end not in self._closed]
         if unclosed:
             raise RuntimeError(
                 f"The item ended before the window ending at "
                 f"{format_duration(unclosed[0])} closed"
             )
 
-    def _current(self) -> _Item:
-        if self._item is None:
+    def _current(self) -> np.ndarray:
+        if self._item_ends is None:
             raise RuntimeError("LeadWindow.begin_item was not called for this item")
-        return self._item
+        return self._item_ends
 
-
-class _RunningStatistic:
-    """One window's running statistic over fields of identical shape."""
-
-    _UPDATES: dict[str, Callable[[torch.Tensor, torch.Tensor], torch.Tensor]] = {
-        "mean": torch.Tensor.add_,
-        "sum": torch.Tensor.add_,
-        "min": lambda total, x: torch.minimum(total, x, out=total),
-        "max": lambda total, x: torch.maximum(total, x, out=total),
-    }
-
-    def __init__(self, method: str) -> None:
-        self.method = method
-        self.count = 0
-        self.total: torch.Tensor | None = None
-        self.samples: list[torch.Tensor] = []
-
-    def add(self, x: torch.Tensor) -> None:
-        self.count += 1
-        update = self._UPDATES.get(self.method)
-        if update is None:
-            self.samples.append(x)
-        elif self.total is None:
-            self.total = x.clone()
-        else:
-            update(self.total, x)
-
-    def result(self) -> torch.Tensor:
-        if self.method not in self._UPDATES:
-            stacked = torch.stack(self.samples)
-            coords = OrderedDict(
-                (f"axis{n}", np.arange(size)) for n, size in enumerate(stacked.shape)
-            )
-            array = from_torch(stacked, coords)
-            reduced = _TIME_STATISTICS[self.method](array, "axis0")
-            tensor, _ = reduced.e2s.to_torch()
-            return tensor
-        assert self.total is not None  # noqa: S101 - result follows add
-        if self.method == "mean":
-            return self.total / self.count
-        return self.total
-
-
-class _Item:
-    """One :class:`LeadWindow` item: its windows, open and closed."""
-
-    def __init__(
-        self,
-        ends: np.ndarray,
-        samples: int,
-        variables: np.ndarray | None,
-        labels: np.ndarray | None,
-        dtype: np.dtype,
-    ) -> None:
-        self.ends = ends
-        self.samples = samples
-        self.variables = variables
-        self.labels = labels
-        self.dtype = dtype
-        self.open: dict[np.timedelta64, _RunningStatistic] = {}
-        self.closed: set[np.timedelta64] = set()
-
-    def tensor(self, sample: xr.DataArray) -> torch.Tensor:
+    def _tensor(self, sample: xr.DataArray) -> torch.Tensor:
         """The sample in float32 or wider, NaN for planned variables it lacks."""
         tensor, _ = sample.e2s.to_torch()
         dtype = torch.promote_types(tensor.dtype, torch.float32)
         tensor = tensor.to(dtype)
-        if self.variables is None:
+        if self._variables is None:
             return tensor
         held = np.asarray(sample["variable"].values)
-        if np.array_equal(held, self.variables):
+        if np.array_equal(held, self._variables):
             return tensor
         axis = sample.get_axis_num("variable")
         index = {str(name): n for n, name in enumerate(held)}
         shape = list(tensor.shape)
-        shape[axis] = len(self.variables)
+        shape[axis] = len(self._variables)
         full = torch.full(shape, torch.nan, dtype=dtype, device=tensor.device)
-        for n, name in enumerate(self.variables):
+        for n, name in enumerate(self._variables):
             if str(name) in index:
                 full.select(axis, n).copy_(tensor.select(axis, index[str(name)]))
         return full
 
-    def close(self, end: np.timedelta64, sample: xr.DataArray) -> xr.DataArray:
+    def _close(self, end: np.timedelta64, sample: xr.DataArray) -> xr.DataArray:
         """Reduce the window ending at ``end``, shaped like ``sample``."""
-        statistic = self.open.pop(end)
-        if statistic.count != self.samples:
+        total, count = self._open.pop(end)
+        if count != self._samples:
             raise RuntimeError(
                 f"The window ending at {format_duration(end)} received "
-                f"{statistic.count} outputs, not {self.samples}"
+                f"{count} outputs, not {self._samples}"
             )
-        self.closed.add(end)
+        self._closed.add(end)
+        result = total / count if self.method == "mean" else total
         replacements: dict[str, Any] = {"lead_time": np.array([end])}
-        if self.variables is not None:
-            replacements["variable"] = (
-                self.variables if self.labels is None else self.labels
-            )
+        if self._labels is not None:
+            replacements["variable"] = self._labels
         signature = coord_array_like(sample, replacements)
-        output = from_torch(statistic.result().to(_torch_dtype(self.dtype)), signature)
+        output = from_torch(result.to(_torch_dtype(self._dtype)), signature)
         output.attrs.pop(E2S_STATISTICS, None)
         statistics = signature.attrs.get(E2S_STATISTICS)
         if statistics:

@@ -521,17 +521,12 @@ class Pipeline:
         self, schemas: Mapping[str, CoordinateSystem], items: Sequence[WorkItem]
     ) -> dict[str, Any]:
         written = set(self.output or {})
-        streams = {
-            stream: _stream_manifest(schema, stream in written)
-            for stream, schema in sorted(schemas.items())
-        }
-        # A reduction's settings can change values without changing the stored
-        # schema (another method with relabel=False), so record them too.
-        for stream, reduction in self.reduction.items():
-            streams[stream]["reduction"] = _describe_reduction(reduction)
         return {
             "version": MANIFEST_VERSION,
-            "streams": streams,
+            "streams": {
+                stream: _stream_manifest(schema, stream in written)
+                for stream, schema in sorted(schemas.items())
+            },
             "seed": getattr(self.runner, "seed", None),
             # Stochastic members depend on which members share their batch and
             # on its first member, so a resume must group members the same way.
@@ -671,19 +666,6 @@ def _regridded_signature(
         name=signature.name,
         attrs=regridded.attrs,
     )
-
-
-def _describe_reduction(reduction: LeadReduction) -> str:
-    """Identify a reduction's settings for the progress manifest.
-
-    Uses its ``repr`` when its class defines one, which should name every
-    setting; otherwise only its class, since the default ``repr`` holds a
-    memory address that changes between runs.
-    """
-    cls = type(reduction)
-    if cls.__repr__ is not object.__repr__:
-        return repr(reduction)
-    return f"{cls.__module__}.{cls.__qualname__}"
 
 
 def _stream_manifest(schema: CoordinateSystem, written: bool) -> dict[str, Any]:

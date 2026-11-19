@@ -217,13 +217,11 @@ reduction per stream, so a reduction holds the current item's partial results
 on itself and one instance may still be passed for several streams. Streams
 neither written nor scored are not reduced. An output holding none of a
 reduced stream's selected variables still reaches its reduction, as missing
-samples. Resume is per item, so partial results are never checkpointed.
-The progress manifest records each reduction by its `repr` (by its class when
-it defines none), so a resume with other settings is rejected even when the
-stored schema is unchanged; custom reductions should give a `repr` naming
-every setting.
+samples. Resume is per item, so partial results are never checkpointed. The
+progress manifest records the reduced schema, so a resume with other reduction
+settings is rejected when they change the stored labels or lead axis.
 
-`LeadWindow(window, method="mean", ends=None, relabel=True)` is the built-in
+`LeadWindow(window, method="mean", ends=None)` is the built-in
 reduction. The window ending at lead `e` covers `(e - window, e]` and is
 labelled `e`; a lead-0 initial condition never enters a window starting at 0.
 By default windows end at `window, 2 * window, ...` and every item's final lead
@@ -231,12 +229,13 @@ time must be a whole number of windows; explicit `ends` may overlap, and leads
 outside every window are dropped. The window must be a whole number of the
 stream's cadence (the smallest gap between its planned positive leads), and the
 stream must plan every lead a window needs. Each stream closes its own windows,
-so streams of different cadence reduce independently. Built-in statistics
-accumulate in place in at least float32; a variable an output lacks makes its
-window NaN. With `relabel`, variables take the composed label of
+so streams of different cadence reduce independently. `method` is `mean`, `sum`,
+`min` or `max`, accumulated in place in at least float32; a variable an output
+lacks makes its window NaN. Variables always take the composed label of
 [E2S-03](E2S-03_TIME_STATISTICS_SPEC.md#statistics-of-model-outputs)
-(`t2m` becomes `t2m:mean:7d`), so verification can be fetched under the same
-labels.
+(`t2m` becomes `t2m:mean:168h`), so stored fields say what they hold and
+verification can be fetched under the same labels; a stream whose labels do
+not compose cannot be reduced.
 
 #### Run loop
 
