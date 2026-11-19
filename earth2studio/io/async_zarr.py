@@ -218,11 +218,9 @@ class AsyncZarrBackend:
     through `store`, and Zarr v3 sharding via `shard_coords` keeps the file count of
     large campaigns low.
 
-    See `dev/spec/IO_SPEC.md` for the IO contract this backend implements.
-
     Warning
     -------
-    Write restriction (rule `I6`): a field may hold any subset of the store's labels
+    Write restriction: a field may hold any subset of the store's labels
     along a dimension of `parallel_coords`, but every other dimension must be written
     in full. Those dimensions are a single chunk, so a partial write would make two
     writes share a chunk and race. A narrower write raises `ValueError`. The

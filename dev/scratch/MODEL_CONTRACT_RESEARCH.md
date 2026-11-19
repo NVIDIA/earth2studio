@@ -7,7 +7,7 @@
 
 This note records how other projects specify and enforce a model interface, and what that
 survey implies for Earth2Studio. The normative contract remains in
-`dev/spec/MODEL_CONTRACT_SPEC.md`, and the checker that enforces it lives in
+`docs/specs/E2S-06_MODEL_CONTRACT_SPEC.md`, and the checker that enforces it lives in
 `earth2studio/models/conformance.py`. It was written in response to review feedback asking
 how this system compares and contrasts with existing solutions.
 
@@ -295,7 +295,7 @@ currently indistinguishable from an inapplicable one.
 
 `iter_contract_rules()` already exposes a machine-readable identifier and summary for every
 rule, which is most of the machinery needed. A test asserting that the identifiers in
-`MODEL_CONTRACT_SPEC.md` are exactly those the checker emits would close the drift risk
+`E2S-06_MODEL_CONTRACT_SPEC.md` are exactly those the checker emits would close the drift risk
 cheaply. Adopting RFC 2119 keywords in the rule table would also let severity be derived
 rather than assumed, so a `SHOULD` rule warns where a `MUST` rule fails, which is the split
 Gymnasium makes structurally and Earth2Studio currently cannot express.

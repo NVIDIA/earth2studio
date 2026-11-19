@@ -22,10 +22,7 @@ import xarray as xr
 # --8<-- [start:io-backend-interface]
 @runtime_checkable
 class IOBackend(Protocol):
-    """Interface for a DataArray IO backend.
-
-    See ``dev/spec/IO_SPEC.md`` for the full contract.
-    """
+    """Interface for a DataArray IO backend."""
 
     def add_array(self, template: xr.DataArray) -> None:
         """Create storage for the arrays a template describes.

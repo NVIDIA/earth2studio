@@ -16,7 +16,7 @@
 
 """Model shapes the built-in prognostic runner must carry unchanged.
 
-Integration check 4 of ``dev/spec/EXECUTION_CONTRACT_SPEC.md``: a forced model
+Integration check 4 of ``docs/specs/E2S-11_EXECUTION_CONTRACT_SPEC.md``: a forced model
 (StormCast-shaped) and fused DLESyM run through :class:`PrognosticRunner`
 unchanged. The models here are shaped like those wrappers -- the same dynamic
 prefixes, grids, forcing slots, lead-time cadences and seeding -- with trivial

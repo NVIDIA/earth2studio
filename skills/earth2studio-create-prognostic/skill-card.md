@@ -11,6 +11,10 @@ Apache-2.0 <br>
 ## Use Case: <br>
 Developers and engineers implementing prognostic model wrappers that connect third-party ML weather models to Earth2Studio for time-stepping weather forecasts. <br>
 
+Defaults to protocol-compatible wrappers in the user's own Python project with relevant smoke/contract checks.
+Repository integration, component test suites and repository checks apply only to confirmed contributions.
+If intent is unclear, ask: "Are you planning to contribute this to NVIDIA Earth2Studio?" <br>
+
 ### Deployment Geography for Use: <br>
 Global <br>
 
@@ -23,6 +27,7 @@ Mitigation: Review and scan skill before deployment. <br>
 - [method-templates.py](references/method-templates.py) <br>
 - [testing-guide.py](references/testing-guide.py) <br>
 - [validation-guide.md](references/validation-guide.md) <br>
+- [Earth2Studio Prognostic Models User Guide](https://nvidia.github.io/earth2studio/main/userguide/components/prognostic/) <br>
 
 
 ## Skill Output: <br>

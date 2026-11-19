@@ -376,7 +376,8 @@ conflicts = [
 default-groups = ["dev", "build"]
 # Needed for some packages that build with PEP 518
 no-build-isolation-package = ["earth2grid", "flash-attn", "natten", "torch-harmonics"]
-override-dependencies = []
+# MoviePy 2.2.1 requires Pillow <12; override to use the security-updated release.
+override-dependencies = ["pillow>=13.0.0"]
 
 [tool.uv.extra-build-dependencies]
 earth2grid = ["setuptools", "torch"]
@@ -505,6 +506,7 @@ exclude = [".claude"]
 # Ignore `F401` (import violations) in all `__init__.py` files, and in `docs/*.py`.
 "__init__.py" = ["F401"]
 "docs/*.py" = ["F401", "S603"]
+"docs/readme_hero/*.py" = ["F401", "F403", "F405", "E402", "E731", "E741", "S603"]
 "examples/*.py" = ["E402"]
 "recipes/**/*_notebook.py" = ["E402"]
 # Ignore `S101` (assertions) in all `test` files.

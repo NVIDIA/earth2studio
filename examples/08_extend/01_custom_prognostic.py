@@ -178,7 +178,7 @@ class CustomPrognostic(torch.nn.Module, PrognosticMixin):
 # Defining the input/output coordinate systems is essential for any model in
 # Earth2Studio since this is how both the package and users can learn what type of data
 # the model expects. Ensuring this is correct will set an prognostic model up for
-# success. Have a look at [Coordinate Systems](../../userguide/about/overview.md#coordinates_userguide) for details on
+# success. Have a look at [Data and Metadata](../../userguide/components/coordinates.md) for details on
 # coordinate system.
 #
 # This requires the definition of two functions, `input_coords` and

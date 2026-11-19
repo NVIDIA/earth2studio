@@ -27,7 +27,8 @@ Two evaluation modes for independent DA models such as HealDA:
   ``DataSource`` protocol, so the DA-initialized forecast is the ordinary
   forecast runner reading its initial condition from that source.  A
   :class:`~earth2studio.data.CompositeSource` fills prognostic input variables
-  the analysis lacks from the configured data source.
+  the analysis lacks, and those ``model.fill_variables`` names, from the
+  configured data source.
 
 :class:`ObsSources` resolves the observation inputs, one ``DataFrameSource``
 per model input slot, and declares them for predownload through
@@ -42,7 +43,7 @@ Cycling ``StatefulAssimilationModel`` runs are out of scope, and a
 from __future__ import annotations
 
 import os
-from collections.abc import Iterator, Mapping, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from typing import Any
 
 import hydra
@@ -176,8 +177,12 @@ def _fields_for(source: Any, schema: FrameSchema) -> np.ndarray | None:
     """Columns to request from ``source`` for a slot described by ``schema``.
 
     Schema keys other than ``variable`` are columns; ``variable`` is the list
-    of requested variables and is only a column when the source's ``SCHEMA``
-    says so (long-layout sources such as the UFS GSI readers).  Sources
+    of requested variables.  Only long frames, which hold every value in one
+    ``observation`` column, carry it as a column, and only when the source's
+    ``SCHEMA`` lists it (long-layout sources such as the UFS GSI readers).
+    Wide frames, such as the NNJA inputs of HealDA v2, give each variable its
+    own ``observation_<variable>`` column, and a wide-layout source rejects a
+    ``variable`` field even though its long ``SCHEMA`` lists one.  Sources
     without a ``SCHEMA``, such as predownloaded frame stores, return every
     stored column.
     """
@@ -185,7 +190,8 @@ def _fields_for(source: Any, schema: FrameSchema) -> np.ndarray | None:
     if declared is None:
         return None
     names = set(getattr(declared, "names", ()))
-    fields = [k for k in schema if k != "variable" or k in names]
+    long_frame = "observation" in schema
+    fields = [k for k in schema if k != "variable" or (long_frame and k in names)]
     return np.array(fields, dtype=str)
 
 
@@ -565,6 +571,11 @@ class AnalysisSource:
     per time with :func:`~earth2studio.run.work.member_seed` (member 0), so
     the same analysis initializes every member of an ensemble.
 
+    Online scoring sets :attr:`share` to the ensemble group's
+    :meth:`src.online.GroupComm.share`, so only the group root fetches the
+    observations and runs the model, and the other ranks receive its
+    analyses.
+
     Parameters
     ----------
     model : AssimilationModel
@@ -597,6 +608,7 @@ class AnalysisSource:
         self.signature = analysis_coords(model)
         self.variables = [str(v) for v in self.signature.coords["variable"].values]
         self.device = torch.device("cpu")
+        self.share: Callable[[Callable[[], xr.DataArray]], xr.DataArray] | None = None
 
     @property
     def grid(self) -> GridDefinition:
@@ -635,12 +647,18 @@ class AnalysisSource:
                 f"{type(self.model).__name__} analyses do not provide {missing}; "
                 f"available: {self.variables}"
             )
-        parts: list[xr.DataArray] = []
-        for t in times:
-            _seed_model(self.seed, t, 0, self.model)
-            parts.append(_to_host(analyze(self.model, self.obs, t, self.obs_device)))
-        field = parts[0] if len(parts) == 1 else xr.concat(parts, dim="time")
-        return field.sel(variable=variables)
+
+        def compute() -> xr.DataArray:
+            parts: list[xr.DataArray] = []
+            for t in times:
+                _seed_model(self.seed, t, 0, self.model)
+                parts.append(
+                    _to_host(analyze(self.model, self.obs, t, self.obs_device))
+                )
+            field = parts[0] if len(parts) == 1 else xr.concat(parts, dim="time")
+            return field.sel(variable=variables)
+
+        return compute() if self.share is None else self.share(compute)
 
     async def fetch(self, time: Any, variable: Any) -> xr.DataArray:
         """Async version of :meth:`__call__`."""
@@ -719,7 +737,8 @@ def initial_condition_source(
     ----------
     cfg : DictConfig
         Campaign config; reads ``model.fill_missing_variables`` (default
-        true), ``ic_source``, ``data_source`` and ``output.path``.
+        true), ``model.fill_variables`` (default none), ``ic_source``,
+        ``data_source`` and ``output.path``.
     analysis : AnalysisSource
         Source of DA analyses.
     variables : Sequence[str]
@@ -734,21 +753,35 @@ def initial_condition_source(
     Returns
     -------
     tuple[Any, Any, list[str]]
-        ``(source, fill, missing)``: the initial-condition source, the
-        resolved fill source (``None`` when the analysis covers every
-        variable) and the filled variables.
+        ``(source, fill, filled)``: the initial-condition source, the
+        resolved fill source (``None`` when the analysis serves every
+        variable) and the filled variables, which are those the analysis
+        lacks plus those ``model.fill_variables`` names.
 
     Raises
     ------
     ValueError
-        If the analysis lacks variables and the config disables filling or
-        names no fill source.
+        If ``model.fill_variables`` names a variable the prognostic does not
+        take, or variables need filling and the config disables it or names
+        no fill source.
     """
-    missing = [str(v) for v in variables if str(v) not in analysis.variables]
-    if not missing:
+    names = [str(v) for v in variables]
+    # Variables the prognostic must take from the data source even though the
+    # analysis provides them, for example a field whose training data had
+    # another land mask.
+    forced = [str(v) for v in cfg.model.get("fill_variables", None) or []]
+    unknown = sorted(set(forced) - set(names))
+    if unknown:
+        raise ValueError(
+            f"model.fill_variables names {unknown}, which are not input variables "
+            f"of the prognostic ({names})."
+        )
+    missing = [v for v in names if v not in analysis.variables]
+    filled = [v for v in names if v in missing or v in forced]
+    if not filled:
         logger.info("The DA analysis provides every prognostic input variable.")
         return analysis, None, []
-    if not cfg.model.get("fill_missing_variables", True):
+    if missing and not cfg.model.get("fill_missing_variables", True):
         raise ValueError(
             f"The DA analysis does not provide the prognostic input variables "
             f"{missing}. Allow filling them from the data source "
@@ -766,19 +799,28 @@ def initial_condition_source(
         fill = fallback
     if fill is None:
         raise ValueError(
-            f"Filling {missing} needs 'ic_source' or 'data_source'; neither is "
+            f"Filling {filled} needs 'ic_source' or 'data_source'; neither is "
             "set and the prognostic recommends no source."
         )
-    logger.warning(
-        f"DA analysis lacks {len(missing)} of {len(variables)} prognostic input "
-        f"variables; FILLING {missing} from {type(fill).__name__}."
-    )
+    if missing:
+        logger.warning(
+            f"DA analysis lacks {len(missing)} of {len(names)} prognostic input "
+            f"variables; FILLING {missing} from {type(fill).__name__}."
+        )
+    if forced:
+        logger.warning(
+            f"model.fill_variables: taking {forced} from {type(fill).__name__} "
+            "instead of the DA analysis."
+        )
     aligned = GridAlignedSource(fill, analysis.grid)
     source = CompositeSource(
         {"analysis": analysis, "fill": aligned},
-        {"analysis": analysis.variables, "fill": missing},
+        {
+            "analysis": [v for v in analysis.variables if v not in forced],
+            "fill": filled,
+        },
     )
-    return source, fill, missing
+    return source, fill, filled
 
 
 # -- builders ----------------------------------------------------------------
@@ -843,9 +885,12 @@ def assimilation_forecast(
     ``cfg.model.forecast`` with an :class:`AnalysisSource` as its
     initial-condition source.  When ``cfg.model.fill_missing_variables``
     (default true) allows it, the configured data source fills prognostic
-    input variables the analysis lacks.  The
+    input variables the analysis lacks; it always supplies those
+    ``cfg.model.fill_variables`` names.  The
     returned runner gains ``frame_requests`` (observations behind every
-    analysis an item needs) and ``frame_roles``; ``source_roles`` carries the
+    analysis an item needs), ``frame_roles`` and ``analysis_source``, the
+    :class:`AnalysisSource` that online scoring shares across an ensemble
+    group; ``source_roles`` carries the
     ``data`` role only when a fill source is in use, so predownload caches
     exactly the fill variables.
 
@@ -887,6 +932,8 @@ def assimilation_forecast(
         roles["data"] = fill
     runner.source_roles = roles  # type: ignore[attr-defined]
     runner.frame_roles = obs.roles  # type: ignore[attr-defined]
+    # Online scoring hands the analysis source its ensemble group's share.
+    runner.analysis_source = analysis  # type: ignore[attr-defined]
     ic_leads = runner.input_signature["lead_time"].values
     original_requests = runner.data_requests
 

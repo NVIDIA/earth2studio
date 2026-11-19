@@ -85,34 +85,37 @@ categories:
         summary: ECMWF AIFS model dependencies.
         api_refs:
           - earth2studio.models.px.AIFS
-        warnings:
-          - text: Depends on flash-attn, which can take a long time to build.
-            href: https://github.com/Dao-AILab/flash-attention
-            label: flash-attn
+        notes:
+          - &flash_attn_wheels
+            text: >-
+              FlashAttention (flash-attn) can take a long time to build.
+              Compatible prebuilt wheels are available from the Astral GPU index.
+            href: https://wheels.astral.sh/
+            label: Astral GPU index
       - id: aifsens
         label: AIFS Ensemble
         extra: aifsens
         summary: ECMWF AIFS ensemble model dependencies.
         api_refs:
           - earth2studio.models.px.AIFSENS
-        warnings:
-          - Depends on flash-attn, which can take a long time to build.
+        notes:
+          - *flash_attn_wheels
       - id: aifs2
         label: AIFS 2.0
         extra: aifs2
         summary: ECMWF AIFS 2.0 model dependencies.
         api_refs:
           - earth2studio.models.px.AIFS2
-        warnings:
-          - Depends on flash-attn, which can take a long time to build.
+        notes:
+          - *flash_attn_wheels
       - id: aifs2ens
         label: AIFS 2.0 Ensemble
         extra: aifs2ens
         summary: ECMWF AIFS 2.0 ensemble model dependencies.
         api_refs:
           - earth2studio.models.px.AIFS2ENS
-        warnings:
-          - Depends on flash-attn, which can take a long time to build.
+        notes:
+          - *flash_attn_wheels
       - id: atlas
         label: Atlas
         extra: atlas
@@ -120,9 +123,13 @@ categories:
         api_refs:
           - earth2studio.models.px.Atlas
           - earth2studio.models.px.AtlasCRPS
-        warnings:
-          - Depends on natten for Python versions before 3.14, which can take a long
-            time to build.
+        notes:
+          - &natten_wheels
+            text: >-
+              NATTEN (required for Python versions before 3.14) can take a long
+              time to build. Compatible prebuilt wheels are available from NATTEN.
+            href: https://whl.natten.org
+            label: NATTEN prebuilt wheels
       - id: aurora
         label: Aurora
         extra: aurora
@@ -324,9 +331,8 @@ categories:
           uv:
             pypi:
               - 'uv add "nvidia-physicsnemo@git+https://github.com/NVIDIA/physicsnemo.git@ff4cad2390e412b136e1739476506064d42eefba"'
-        warnings:
-          - Depends on natten for Python versions before 3.14, which can take a long
-            time to build.
+        notes:
+          - *natten_wheels
       - id: stormscope
         label: StormScope
         extra: stormscope
@@ -335,9 +341,8 @@ categories:
           - earth2studio.models.px.StormScopeGOES
           - earth2studio.models.px.StormScopeMRMS
           - earth2studio.models.dx.StormScopeDxNSRDB
-        warnings:
-          - Depends on natten for Python versions before 3.14, which can take a long
-            time to build.
+        notes:
+          - *natten_wheels
       - id: ucast
         label: UCast
         extra: ucast
@@ -397,8 +402,8 @@ categories:
           uv:
             pypi:
               - 'uv add "nvidia-physicsnemo@git+https://github.com/NVIDIA/physicsnemo.git@426f7552da4b4fa675e404e8a4f437e27681b668"'
-        warnings:
-          - Depends on natten for Python versions before 3.14.
+        notes:
+          - *natten_wheels
       - id: cosmo
         label: CorrDiff COSMO-ERA5
         extra: cosmo
@@ -412,8 +417,8 @@ categories:
           uv:
             pypi:
               - 'uv add "nvidia-physicsnemo@git+https://github.com/NVIDIA/physicsnemo.git@ff4cad2390e412b136e1739476506064d42eefba"'
-        warnings:
-          - Depends on natten for Python versions before 3.14.
+        notes:
+          - *natten_wheels
       - id: cyclone
         label: Cyclone Trackers
         extra: cyclone
@@ -497,8 +502,8 @@ categories:
           uv:
             pypi:
               - 'uv add "nvidia-physicsnemo@git+https://github.com/NVIDIA/physicsnemo.git@ff4cad2390e412b136e1739476506064d42eefba"'
-        warnings:
-          - Depends on natten for Python versions before 3.14.
+        notes:
+          - *natten_wheels
       - id: da-healda
         label: HealDA
         extra: da-healda
