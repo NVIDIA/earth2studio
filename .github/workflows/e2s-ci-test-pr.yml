@@ -505,8 +505,8 @@ jobs:
           include-hidden-files: true
           if-no-files-found: ignore
 
-  ci-passed:
-    name: CI passed
+  required-ci-checks:
+    name: Required CI checks
     if: github.repository == 'NVIDIA/earth2studio' && always()
     needs:
       - changes
