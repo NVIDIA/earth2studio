@@ -75,6 +75,11 @@ release candidate.)
 
 ### 2c — Rebase onto main (if needed)
 
+Before rebasing, complete Step 3 on the release branch if final notes have not
+been assembled. This prevents consuming fragments for the next development cycle
+that may already be on main. Commit the assembled notes and fragment deletions
+before the rebase, with user approval.
+
 Check whether the rebase branch already has `main` as an ancestor:
 
 ```bash
@@ -94,45 +99,30 @@ If the branch is already rebased, skip this and proceed.
 
 ---
 
-## Step 3 — Update CHANGELOG.md
+## Step 3 — Assemble Release Notes
 
-Read `CHANGELOG.md` and insert a new blank section **above** the most recent
-version entry. Use `YYYY-MM-xx` as the date placeholder where `YYYY-MM` is the
-month after the released version's date (e.g., if releasing `0.17.0` on
-`2026-07-30`, the next dev section gets `2026-08-xx`).
+Follow [`changes/README.md`](../../changes/README.md). For an RC, preview only:
 
-The new section must look exactly like this (substituting the version number):
-
-```markdown
-## [X.(Y+1).0a0] - YYYY-MM-xx
-
-### Added
-
-### Changed
-
-### Deprecated
-
-### Removed
-
-### Fixed
-
-### Security
-
-### Dependencies
-
+```bash
+uv run --only-dev towncrier build --draft --version X.Y.0rcN
 ```
 
-Also ensure the **released** version section (the one just below):
+For the final release, first check whether `CHANGELOG.md` already contains that
+stable version. If so, do not build it again. Otherwise, assemble once from the
+release branch's fragments using the stable version and confirmed date:
 
-1. Has unused (empty) subsections removed.
-2. Does **not** have the alpha/rc extension in its version (e.g., `[0.14.0]` not
-   `[0.14.0a0]`).
-3. Has a release date set in `YYYY-MM-DD` format.
+```bash
+uv run --only-dev towncrier build --yes --version X.Y.0 --date YYYY-MM-DD
+```
+
+Commit the generated changelog together with consumed-fragment deletions. Preserve
+published history, and do not insert a blank section for the next alpha version.
+Do not consume next-cycle fragments that reached main after the release branch
+diverged; assemble on the release branch before rebasing when that is the case.
 
 ### **[CONFIRM — Release Date]**
 
-If the released section does not already have a date set, ask the user what date
-to use before proceeding.
+Before a final build, ask the user what release date to use.
 
 ---
 
@@ -189,8 +179,7 @@ Update the install documentation to reference the new released version tag.
 ## Step 7 — Update README Latest News
 
 Update the "Latest News" section in `README.md` with highlights from the
-**released** version's CHANGELOG entry (the section just below the new blank
-development section added in Step 3).
+**released** version's CHANGELOG entry assembled in Step 3.
 
 1. Read `CHANGELOG.md` and identify the 3–5 most notable items from the
    released version's `### Added` subsection. Prefer items that introduce new
@@ -236,7 +225,7 @@ reference the new released version.
 Stage only the expected files and commit:
 
 ```bash
-git add CHANGELOG.md
+git add CHANGELOG.md changes/
 git add earth2studio/__init__.py
 git add examples/
 git add README.md

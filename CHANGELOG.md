@@ -7,26 +7,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.1.0a0] - xxxx-xx-xx
-
-### Added
-
-- `Pipeline` lead-time reductions per stream, such as weekly means with `LeadWindow`.
-
-### Changed
-
-### Deprecated
-
-### Removed
-
-### Fixed
-
-- `CFS_FX_Flux` and `CFS_Reforecast_FX_Flux` return `tcc`, `hcc`, `mcc` and `lcc` as
-  a 0-1 fraction instead of the percent stored in the GRIB files.
-
-### Security
-
-### Dependencies
+<!-- towncrier release notes start -->
 
 ## [1.0.0] - 2026-11-18
 

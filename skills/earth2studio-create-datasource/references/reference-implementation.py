@@ -511,7 +511,6 @@ class SourceName:
 #    Add class to the {% autosummary %} block in alphabetical order.
 #    (DataFrameSource goes in datasources_dataframe.md.)
 #
-# 4. CHANGELOG.md
-#    Under the current unreleased version, add:
-#      ### Added
-#      - Added SourceName DataSource for <description> (`SourceName`)
+# 4. changes/<PR-number>.added.md (see changes/README.md)
+#    Add a fragment, without a heading or leading bullet:
+#      Added SourceName DataSource for <description> (`SourceName`).

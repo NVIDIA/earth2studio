@@ -14,7 +14,7 @@ metadata:
 description: >
   Bump the Earth2Studio version on main to start a new development cycle. This
   unblocks commits on main after a release branch has been merged. Performs a
-  CHANGELOG update (new blank section) and a hatch version bump. Use when main
+  hatch version bump. Use when main
   already has the release merge but still carries the old version string, or
   when the developer-release-rebase skill detects the version was already bumped
   during rebase and only the changelog/version housekeeping remains.
@@ -23,7 +23,7 @@ description: >
 # Bump Version — Start New Development Cycle on Main
 
 Bump the Earth2Studio package version on `main` to the next minor alpha and
-insert a blank CHANGELOG section. This is the minimal set of changes needed to
+leave changelog fragments for the next release. This is the minimal set of changes needed to
 unblock further development commits on main after a release branch merge.
 
 Follow every step below **in order**. Each confirmation gate requires explicit
@@ -39,9 +39,8 @@ user approval before proceeding.
    - If current is `X.Y.0rcN` or `X.Y.0aN`, next is `X.(Y+1).0a0`.
    - If the version already ends in `a0` at the expected next minor, the bump
      may already be done — note this and confirm with the user.
-3. Read `CHANGELOG.md` and check whether a section for the target version
-   already exists. If it does, the bump is already complete — inform the user
-   and stop.
+3. If the package already has the confirmed target version, the bump is complete.
+   Do not use changelog sections to detect development versions.
 
 ### **[CONFIRM — Version]**
 
@@ -70,45 +69,14 @@ git checkout -b version-bump-X.(Y+1).0a0
 
 ---
 
-## Step 2 — Update CHANGELOG.md
+## Step 2 — Check Release Notes
 
-Read `CHANGELOG.md` and insert a new blank section **above** the most recent
-version entry. Use `xxxx-xx-xx` as the date placeholder — never fill in today's
-date for the new development version.
+The latest published release should already be in `CHANGELOG.md`. If it is
+missing, ask the user to complete final release assembly using
+[`changes/README.md`](../../changes/README.md).
 
-The new section must look exactly like this (substituting the version number):
-
-```markdown
-## [X.(Y+1).0a0] - xxxx-xx-xx
-
-### Added
-
-### Changed
-
-### Deprecated
-
-### Removed
-
-### Fixed
-
-### Security
-
-### Dependencies
-
-```
-
-Also ensure the **released** version section (the one just below):
-
-1. Has unused (empty) subsections removed.
-2. Does **not** have the alpha/rc extension in its version (e.g., `[0.16.0]`
-   not `[0.16.0a0]`).
-3. Has a release date set in `YYYY-MM-DD` format.
-
-### **[CONFIRM — Release Date]**
-
-If the user doesn't know, just keep it as is, make sure to tell user this is an option.
-If the released section does not already have a date set, ask the user what
-date to use before proceeding.
+Do not add a blank alpha section, consume fragments, or rewrite published history
+as part of a development version bump. New feature notes accumulate in `changes/`.
 
 ---
 
@@ -133,7 +101,7 @@ commit step — note this to the user.
 ## Step 4 — Double-Check User-Facing Release References
 
 Before committing, check that these references match the **released** version
-in the CHANGELOG section immediately below the new development section:
+in the latest published CHANGELOG section:
 
 - `docs/userguide/about/install_options.yml`: `package.release_ref`.
 - `docs/userguide/about/install.md`: release tags in hardcoded install commands.
@@ -152,7 +120,7 @@ files, report any remaining stale references for follow-up.
 Stage only the expected files and commit:
 
 ```bash
-git add CHANGELOG.md earth2studio/__init__.py
+git add earth2studio/__init__.py
 git add docs/userguide/about/install_options.yml docs/userguide/about/install.md
 git add .github/ISSUE_TEMPLATE/bug_report.yml
 git commit -m "Bump version to X.(Y+1).0a0"

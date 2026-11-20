@@ -441,7 +441,8 @@ dev = [
     "ruff",
     "pytest-asyncio>=0.26.0",
     "tox>=4.32.0",
-    "tox-uv>=1.29.0"
+    "tox-uv>=1.29.0",
+    "towncrier==26.9.0",
 ]
 docs = [
     "earth2studio-gallery",
@@ -457,6 +458,42 @@ docs = [
     "scipy",
     "zensical>=0.0.53",
 ]
+
+[tool.towncrier]
+directory = "changes"
+filename = "CHANGELOG.md"
+title_format = "## [{version}] - {project_date}"
+start_string = "<!-- towncrier release notes start -->\n"
+issue_format = "[#{issue}](https://github.com/NVIDIA/earth2studio/pull/{issue})"
+ignore = []
+
+[[tool.towncrier.type]]
+directory = "added"
+name = "Added"
+
+[[tool.towncrier.type]]
+directory = "changed"
+name = "Changed"
+
+[[tool.towncrier.type]]
+directory = "deprecated"
+name = "Deprecated"
+
+[[tool.towncrier.type]]
+directory = "removed"
+name = "Removed"
+
+[[tool.towncrier.type]]
+directory = "fixed"
+name = "Fixed"
+
+[[tool.towncrier.type]]
+directory = "security"
+name = "Security"
+
+[[tool.towncrier.type]]
+directory = "dependencies"
+name = "Dependencies"
 
 [tool.earth2studio-gallery]
 examples_dir = "examples"

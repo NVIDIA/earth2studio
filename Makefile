@@ -35,6 +35,7 @@ interrogate:
 
 .PHONY: lint
 lint:
+	$(MAKE) changelog-check
 	uv run pre-commit run check-added-large-files -a
 	uv run pre-commit run trailing-whitespace -a
 	uv run pre-commit run end-of-file-fixer -a
@@ -44,6 +45,10 @@ lint:
 	uv run pre-commit run pyupgrade -a --show-diff-on-failure
 	uv run pre-commit run ruff -a
 	uv run pre-commit run mypy -a
+
+.PHONY: changelog-check
+changelog-check:
+	uv run --locked --only-dev towncrier build --draft --version unreleased
 
 .PHONY: zizmor
 zizmor:

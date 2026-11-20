@@ -65,10 +65,10 @@ included for manual image upload by the PR author.
 - [x] I am familiar with the [Contributing Guidelines][contrib].
 - [x] New or existing tests cover these changes.
 - [x] The documentation is up to date with these changes.
-- [x] The [CHANGELOG.md][changelog] is up to date with these changes.
+- [x] Added a [changelog fragment][changelog] for these changes.
 - [ ] An [issue][issues] is linked to this pull request.
 - [ ] Assess and address Greptile feedback (AI code review bot).
 
 [contrib]: https://github.com/NVIDIA/earth2studio/blob/main/CONTRIBUTING.md
-[changelog]: https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md
+[changelog]: https://github.com/NVIDIA/earth2studio/blob/main/changes/README.md
 [issues]: https://github.com/NVIDIA/earth2studio/issues

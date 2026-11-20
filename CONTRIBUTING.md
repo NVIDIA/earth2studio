@@ -25,6 +25,14 @@ template.
 
 5. Address reviewer feedback and merge.
 
+## Changelog
+
+Feature PRs should include a Markdown fragment in [`changes/`](./changes/README.md)
+instead of editing `CHANGELOG.md`. Tests-only, docs-only, CI-only, and similar
+maintenance PRs do not need an entry. CI validates fragments when present.
+
+See the [fragment guide](./changes/README.md) for categories and release commands.
+
 ## Issues
 
 We use [GitHub issues](https://github.com/NVIDIA/earth2studio/issues) to track bugs,

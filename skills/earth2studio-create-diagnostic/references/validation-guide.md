@@ -91,7 +91,7 @@ Before opening or updating the PR, verify that packaged diagnostics have a
 `pyproject.toml` optional dependency extra, that the `all` extra includes it,
 that `docs/userguide/about/install_options.yml` has model notes, preinstall
 commands, and `api_refs`, and that the model is listed in
-`docs/modules/models_dx.md` and `CHANGELOG.md` when it is public.
+`docs/modules/models_dx.md` and a fragment in `changes/` when it is public.
 
 Stage only implementation, tests, docs, changelog, dependency metadata, and skill
 updates that belong in the branch. Exclude validation scripts and outputs.
@@ -102,7 +102,7 @@ git add \
   earth2studio/models/dx/__init__.py \
   test/models/dx/test_<filename>.py \
   pyproject.toml \
-  CHANGELOG.md \
+  changes/<PR-number>.added.md \
   docs/modules/models_dx.md \
   docs/userguide/about/install_options.yml
 ```

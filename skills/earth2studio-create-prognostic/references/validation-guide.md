@@ -90,12 +90,12 @@ Before opening or updating the PR, verify that new prognostic models have a
 `pyproject.toml` optional dependency extra, even if empty, that the `all` extra
 includes it, that `docs/userguide/about/install_options.yml` has model notes,
 preinstall commands, and `api_refs`, and that the model is listed in
-`docs/modules/models_px.md` and `CHANGELOG.md`.
+`docs/modules/models_px.md` and a fragment in `changes/`.
 Stage only implementation, tests, docs, changelog, dependency metadata, and skill
 updates that belong in the branch. Exclude validation scripts and outputs.
 
 ```bash
-git add earth2studio/models/px/<filename>.py         earth2studio/models/px/__init__.py         test/models/px/test_<filename>.py         pyproject.toml         CHANGELOG.md         docs/modules/models_px.md         docs/userguide/about/install_options.yml
+git add earth2studio/models/px/<filename>.py         earth2studio/models/px/__init__.py         test/models/px/test_<filename>.py         pyproject.toml         changes/<PR-number>.added.md         docs/modules/models_px.md         docs/userguide/about/install_options.yml
 ```
 
 Create the PR with the body template and then post the validation comment from
