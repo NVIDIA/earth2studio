@@ -374,7 +374,9 @@ def main() -> int:
                         process,
                         directory,
                         args.grace,
-                        live_nodeid=live["nodeid"] if reason == "LIVE TIMEOUT" else None,
+                        live_nodeid=(
+                            live["nodeid"] if reason == "LIVE TIMEOUT" else None
+                        ),
                     ):
                         continue
                     if reason == "SHUTDOWN":
