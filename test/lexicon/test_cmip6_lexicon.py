@@ -16,6 +16,8 @@
 
 """Unit tests for the CMIP6 lexicon."""
 
+import warnings
+
 import numpy as np
 import pytest
 import torch
@@ -97,6 +99,12 @@ def test_cmip6_lexicon_fraction_modifier(variable, cmip6_id):
     assert out.dtype == np.float32
     assert np.allclose(out[0], 0.5) and np.allclose(out[1:], 0.0)
 
-    # The conversion must not depend on the data values
-    x = np.full(4, 0.4, dtype=np.float32)
-    assert np.allclose(mod(x.copy()), 0.004)
+    # Some models store fractions despite the "%" units -> unchanged
+    x = np.array([0.0, 0.25, 1.0], dtype=np.float32)
+    assert np.allclose(mod(x.copy()), x)
+
+    # All-NaN field is returned unchanged, without warnings
+    x = np.full(4, np.nan, dtype=np.float32)
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        assert np.isnan(mod(x.copy())).all()
