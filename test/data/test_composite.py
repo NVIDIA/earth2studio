@@ -228,6 +228,70 @@ def test_mixed_components_present_forecast_interface():
     np.testing.assert_array_equal(array["lead_time"], lead_time)
 
 
+class _PositionSource(_Source):
+    """Adds each time's position in the request, so repeated times differ."""
+
+    def __init__(self, offsets, label=lambda time: time, **kwargs):
+        super().__init__(offsets, **kwargs)
+        self.label = label
+
+    def __call__(self, time, variable):
+        field = self._field(time, variable)
+        position = np.arange(field.sizes["time"]).reshape(-1, 1, 1, 1)
+        field = field + 100.0 * position
+        return field.assign_coords(time=self.label(np.atleast_1d(time)))
+
+
+def test_mixed_components_with_repeated_times():
+    time = np.array([TIME[0], TIME[0], TIME[0] + np.timedelta64(1, "D")])
+    lead_time = np.array([np.timedelta64(0, "h"), np.timedelta64(6, "h")])
+    analysis = _PositionSource({"x": 1.0})
+    source = CompositeForecastSource(
+        {"a": analysis, "b": _ForecastSource({"y": 2.0})},
+        {"a": ["x"], "b": ["y"]},
+    )
+    for array in (
+        source(time, lead_time, np.array(["x", "y"])),
+        asyncio.run(source.fetch(time, lead_time, np.array(["y", "x"]))),
+    ):
+        assert array.dims == ("time", "lead_time", "variable", "lat", "lon")
+        np.testing.assert_array_equal(array["time"], time)
+        np.testing.assert_array_equal(array["lead_time"], lead_time)
+        # Repeated labels keep the values returned at each position.
+        np.testing.assert_allclose(
+            array.sel(variable="x")[:, :, 0, 0],
+            [[1.0, 1.0], [101.0, 101.0], [201.0, 201.0]],
+        )
+        np.testing.assert_allclose(array.sel(variable="y")[:, :, 0, 0], 2.0)
+    assert analysis.times[:2] == [list(time), list(time + lead_time[1])]
+
+    # Unique times are still selected by label.
+    array = source(time[1:], lead_time, np.array(["x", "y"]))
+    np.testing.assert_array_equal(array["time"], time[1:])
+    np.testing.assert_allclose(
+        array.sel(variable="x")[:, :, 0, 0], [[1.0, 1.0], [101.0, 101.0]]
+    )
+
+
+def test_mixed_components_reject_mismatched_repeated_times():
+    time = np.array([TIME[0], TIME[0]])
+    lead_time = np.array([np.timedelta64(0, "h"), np.timedelta64(6, "h")])
+    # The analysis component labels its output with the day, not the valid time.
+    analysis = _PositionSource(
+        {"x": 1.0}, label=lambda valid: valid.astype("datetime64[D]")
+    )
+    source = CompositeForecastSource(
+        {"a": analysis, "b": _ForecastSource({"y": 2.0})},
+        {"a": ["x"], "b": ["y"]},
+    )
+    with pytest.raises(ValueError, match="do not match the request"):
+        source(time, lead_time, np.array(["x", "y"]))
+    with pytest.raises(ValueError, match="do not match the request"):
+        asyncio.run(source.fetch(time, lead_time, np.array(["x", "y"])))
+    with pytest.raises(ValueError, match="do not match the request"):
+        source(time[:1], lead_time, np.array(["x", "y"]))
+
+
 def test_fetch_awaits_components_concurrently():
     async def run():
         barrier = asyncio.Barrier(2)

@@ -32,6 +32,7 @@ from earth2studio.data.utils import (
     _is_ensemble_source,
     _is_forecast_source,
     _offset_times,
+    _select_labels,
     prep_member_inputs,
 )
 from earth2studio.utils.coords import E2S_STATISTICS
@@ -359,7 +360,7 @@ class CompositeForecastSource(_Composite):
                     source(valid, np.array(names), **selection)  # type: ignore[call-arg]
                     for valid in _valid_times(time, lead_time)
                 ]
-                parts[name] = _label_leads(fields, time, lead_time)
+                parts[name] = _label_leads(fields, time, lead_time, source)
             else:
                 parts[name] = source(  # type: ignore[call-arg]
                     time, lead_time, np.array(names), **selection
@@ -410,7 +411,7 @@ class CompositeForecastSource(_Composite):
                     for valid in _valid_times(time, lead_time)
                 )
             )
-            return _label_leads(list(fields), time, lead_time)
+            return _label_leads(list(fields), time, lead_time, source)
 
         parts = await asyncio.gather(
             *(_component(name, names) for name, names in groups.items())
@@ -444,15 +445,23 @@ def _valid_times(time: TimeArray, lead_time: LeadTimeArray) -> list[TimeArray]:
 
 
 def _label_leads(
-    fields: list[xr.DataArray], time: TimeArray, lead_time: LeadTimeArray
+    fields: list[xr.DataArray],
+    time: TimeArray,
+    lead_time: LeadTimeArray,
+    source: DataSource | ForecastSource,
 ) -> xr.DataArray:
-    """Label analysis fields fetched at valid times by initialization and lead."""
+    """Label analysis fields fetched at valid times by initialization and lead.
+
+    Repeated initialization times give repeated valid times, which the component
+    returns in request order; those are kept as returned.
+    """
     time = np.asarray(time)
     leads = []
     for lead, valid, field in zip(
         np.atleast_1d(lead_time), _valid_times(time, lead_time), fields
     ):
-        field = field.sel(time=valid).assign_coords(time=time)
+        field = _select_labels(field, "time", valid, source)
+        field = field.assign_coords(time=time)
         leads.append(field.expand_dims(lead_time=[lead], axis=1))
     return xr.concat(leads, "lead_time")
 

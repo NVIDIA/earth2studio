@@ -21,6 +21,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `CompositeForecastSource` accepts repeated initialization times when it has
+  analysis components.
+
 ### Security
 
 ### Dependencies
