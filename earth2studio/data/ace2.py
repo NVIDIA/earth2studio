@@ -16,6 +16,7 @@
 
 import os
 import shutil
+import tempfile
 from collections.abc import Callable, Sequence
 from datetime import datetime
 from typing import Literal
@@ -145,7 +146,14 @@ class ACE2ERA5Data:
 
             # Download to cache if missing
             if not os.path.exists(path):
-                self._hf_fs.get_file(hf_path, path)
+                # Publish only completed downloads. A timeout may terminate the
+                # process, so partial files must never occupy the cache path.
+                parent = os.path.dirname(path)
+                os.makedirs(parent, exist_ok=True)
+                with tempfile.TemporaryDirectory(dir=parent) as staging:
+                    temporary_path = os.path.join(staging, os.path.basename(path))
+                    self._hf_fs.get_file(hf_path, temporary_path)
+                    os.replace(temporary_path, path)
 
             paths.append(path)
 

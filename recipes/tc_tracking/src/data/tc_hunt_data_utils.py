@@ -14,20 +14,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
 import os
 import re
 from collections import OrderedDict
+from collections.abc import Mapping
+from datetime import datetime
 
 import hydra
 import numpy as np
-import torch
 import xarray as xr
 from huggingface_hub import hf_hub_download
 from omegaconf import DictConfig
 
 from earth2studio.data import DataSource
 from earth2studio.data.utils import datasource_cache_root
-from src.tc_hunt_utils import run_with_rank_ordered_execution
+from earth2studio.run.work import rank0_first
+from earth2studio.utils.time import to_time_array
+from earth2studio.utils.type import TimeArray, VariableArray
 
 
 def resolve_oro_path(oro_path: str) -> str:
@@ -53,7 +57,7 @@ def resolve_oro_path(oro_path: str) -> str:
     return hf_hub_download(repo_id, filename, revision=revision, local_dir=cache_dir)
 
 
-def load_heights(oro_path: str) -> tuple[torch.Tensor, OrderedDict]:
+def load_heights(oro_path: str) -> xr.DataArray:
     """Load orography data and convert geopotential to height.
 
     Parameters
@@ -66,107 +70,184 @@ def load_heights(oro_path: str) -> tuple[torch.Tensor, OrderedDict]:
 
     Returns
     -------
-    tuple[torch.Tensor, OrderedDict]
-        Height field as a tensor and the corresponding coordinate mapping
-        with keys *variable*, *lat*, *lon*.
+    xr.DataArray
+        Surface height in metres, named ``height``, with dimensions
+        ``(lat, lon)``.
     """
-    oro_path = run_with_rank_ordered_execution(resolve_oro_path, oro_path)
+    # rank 0 downloads the file, the others then find it in the cache
+    oro_path = rank0_first(lambda: resolve_oro_path(oro_path))
     oro = xr.load_dataset(oro_path)
 
-    coords = OrderedDict(
-        {
-            "variable": np.array(["height"]),
-            "lat": oro.latitude.values,
-            "lon": oro.longitude.values,
-        }
+    # divide geopotential by gravity to get height
+    geop = oro["Z"].squeeze(drop=True).values / 9.80665
+
+    return xr.DataArray(
+        geop.astype(np.float32),
+        dims=("lat", "lon"),
+        coords={"lat": oro.latitude.values, "lon": oro.longitude.values},
+        name="height",
     )
-    geop = (
-        torch.Tensor(oro["Z"].to_numpy()) / 9.80665
-    )  # divide by gravity to get height
-
-    return geop, coords
 
 
-class DataSourceManager:
-    """Select the right :class:`DataSource` for a given forecast time.
+def data_source_from_config(cfg: DictConfig) -> DataSource:
+    """Build the data source of the ``data_source`` section of a config.
 
-    Supports either a single data source (simple Hydra target) or a mapping
-    of named sources to year ranges, allowing different datasets for
-    different periods, which is eg useful if data is split up in train/valid/test.
+    The section is either a single Hydra target, or named sources, each with
+    a ``source`` target and the ``years`` it provides, a single year or a
+    range such as ``"2000-2010"``. The latter is useful if the data is split
+    by period, e.g. into training, validation and test years.
 
     Parameters
     ----------
     cfg : DictConfig
-        Hydra config object.  Must contain a ``data_source`` key that is
-        either a single Hydra-instantiable target or a mapping of named
-        sources each with ``source`` and ``years`` sub-keys.
+        The ``data_source`` section of the Hydra config
+
+    Returns
+    -------
+    DataSource
+        The source, a :class:`YearRoutedSource` for named sources
     """
+    if "_target_" in cfg:
+        return hydra.utils.instantiate(cfg)
 
-    def __init__(self, cfg: DictConfig) -> None:
-        self.cfg = cfg
+    sources = {}
+    for entry in cfg.values():
+        source = hydra.utils.instantiate(entry.source)
+        first, _, last = str(entry.years).partition("-")
+        for year in range(int(first), int(last or first) + 1):
+            sources[year] = source
+    return YearRoutedSource(sources)
 
-        # build dict of data sources
-        self.data_sources = {}
-        self.data_source_mapping = {}
-        self.single_source = False
-        for name, source in self.cfg.data_source.items():
-            # catch classic case of single source
-            if name == "_target_":
-                self.single_source = True
-                self.data_source = hydra.utils.instantiate(self.cfg.data_source)
-                return
 
-            # instantiate data source
-            self.data_sources[name] = hydra.utils.instantiate(source.source)
+class _SourceWrapper:
+    """Base of data sources passing requests on to other sources."""
 
-            # extract valid years for source and build mapping
-            years = source.years
-            if isinstance(years, str):
-                if "-" not in years:
-                    years = int(years)
+    def __call__(
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        variable: str | list[str] | VariableArray,
+    ) -> xr.DataArray:
+        """Fetch fields, see :class:`~earth2studio.data.DataSource`."""
+        raise NotImplementedError
 
-            if isinstance(years, int):
-                years = [years]
-            else:
-                years = list(
-                    range(int(years.split("-")[0]), int(years.split("-")[1]) + 1)
-                )
-
-            for year in years:
-                self.data_source_mapping[year] = name
-
-        return
-
-    def select_data_source(self, time_stamps: np.datetime64 | np.ndarray) -> DataSource:
-        """Return the data source appropriate for time_stamps.
+    async def fetch(
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        variable: str | list[str] | VariableArray,
+    ) -> xr.DataArray:
+        """Fetch fields asynchronously, running the request in a thread.
 
         Parameters
         ----------
-        time_stamps : np.datetime64 | np.ndarray
-            One or more timestamps whose year determines the source.
+        time : datetime | list[datetime] | TimeArray
+            Times to fetch
+        variable : str | list[str] | VariableArray
+            Variables to fetch
 
         Returns
         -------
-        DataSource
-            The matching data source instance.
+        xr.DataArray
+            The fields
+        """
+        return await asyncio.to_thread(self, time, variable)
+
+
+class YearRoutedSource(_SourceWrapper):
+    """Data source passing each request on to the source of its year.
+
+    Parameters
+    ----------
+    sources : Mapping[int, DataSource]
+        Source of each year
+    """
+
+    def __init__(self, sources: Mapping[int, DataSource]) -> None:
+        self.sources = dict(sources)
+
+    def __call__(
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        variable: str | list[str] | VariableArray,
+    ) -> xr.DataArray:
+        """Fetch the fields from the source of the requested year.
+
+        Parameters
+        ----------
+        time : datetime | list[datetime] | TimeArray
+            Times to fetch, all in the same year
+        variable : str | list[str] | VariableArray
+            Variables to fetch
+
+        Returns
+        -------
+        xr.DataArray
+            The fields, as returned by the source of the year
 
         Raises
         ------
         ValueError
-            If the timestamps span multiple years or no source is
-            configured for the year.
+            If the times span several years, or no source provides their year
         """
-        if self.single_source:
-            return self.data_source
+        years = np.unique(to_time_array(time).astype("datetime64[Y]")).astype(int)
+        if len(years) != 1:
+            raise ValueError(
+                f"times span the years {(years + 1970).tolist()}, request each "
+                "year on its own"
+            )
+        year = int(years[0]) + 1970
+        if year not in self.sources:
+            raise ValueError(f"no data source configured for the year {year}")
+        return self.sources[year](time, variable)
 
-        year = np.unique(time_stamps.astype("datetime64[Y]").astype(int) + 1970)
 
-        if len(year) > 1:
-            raise ValueError("track spans multiple years, which is not yet supported")
+class CachedSource(_SourceWrapper):
+    """Data source keeping the fields of its last requests.
+
+    Initial conditions are requested again for every batch of members started
+    from them and for every retry of an unstable batch. Keeping the last few
+    on the host saves fetching them again.
+
+    Parameters
+    ----------
+    source : DataSource
+        Source to fetch from on a cache miss
+    size : int, optional
+        Number of requests kept, by default 4. A model with two input times,
+        like AIFS-ENS, makes two requests per initial condition.
+    """
+
+    def __init__(self, source: DataSource, size: int = 4) -> None:
+        self.source = source
+        self.size = size
+        self._cache: OrderedDict[tuple, xr.DataArray] = OrderedDict()
+
+    def __call__(
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        variable: str | list[str] | VariableArray,
+    ) -> xr.DataArray:
+        """Return the fields from the cache, or fetch and keep them.
+
+        Parameters
+        ----------
+        time : datetime | list[datetime] | TimeArray
+            Times to fetch
+        variable : str | list[str] | VariableArray
+            Variables to fetch
+
+        Returns
+        -------
+        xr.DataArray
+            The fields, shared with the cache: treat them as read-only
+        """
+        key = (
+            to_time_array(time).astype("datetime64[s]").tobytes(),
+            tuple(np.atleast_1d(variable).astype(str)),
+        )
+        if key in self._cache:
+            self._cache.move_to_end(key)
         else:
-            year = year[0]
-
-        if year not in self.data_source_mapping:
-            raise ValueError(f"no data source provided for year {year}")
-
-        return self.data_sources[self.data_source_mapping[year]]
+            self._cache[key] = self.source(time, variable)
+            while len(self._cache) > self.size:
+                self._cache.popitem(last=False)
+        return self._cache[key].copy(deep=False)
