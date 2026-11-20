@@ -23,14 +23,31 @@ import pytest
 import torch
 import xarray as xr
 
+from earth2studio.data import Random as RandomSource
 from earth2studio.data import fetch_data
 from earth2studio.grids import LatLonGrid
 from earth2studio.models.conformance import check_prognostic_contract
 from earth2studio.models.px import AIFSENS
 from earth2studio.models.px.aifsens import VARIABLES
 from earth2studio.utils import coord_array, coord_array_like
+from earth2studio.utils.coords import E2S_STATISTICS
 from earth2studio.utils.cupy import from_torch
-from test.models.test_random_statistics import RandomStatistics as Random
+from earth2studio.utils.time_statistics import time_statistic_metadata
+
+
+class Random(RandomSource):
+    """Synthetic inputs with metadata for already-aggregated fields."""
+
+    lexicon = type("Lexicon", (), {"TIME_STATISTICS": ("mean", "sum", "min", "max")})
+
+    def __call__(self, time, variable):
+        array = super().__call__(time, variable)
+        array.attrs[E2S_STATISTICS] = {
+            label: time_statistic_metadata(label.partition(":")[2])
+            for label in array.coords["variable"].values
+            if ":" in label
+        }
+        return array
 
 
 @pytest.fixture

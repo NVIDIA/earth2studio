@@ -1,0 +1,3 @@
+# only pyproject.toml is needed to build the image, the code is mounted at runtime
+*
+!pyproject.toml

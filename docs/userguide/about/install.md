@@ -21,31 +21,19 @@
 
 <section class="e2s-install-selector" data-e2s-install-selector></section>
 
-## GPU Dependency Wheels { #gpu-dependency-wheels }
+!!! tip "Get installation help from your agent"
+    Use the [Earth2Studio install skill](https://github.com/NVIDIA/earth2studio/blob/main/skills/earth2studio-install/SKILL.md)
+    with your agent to help with installation commands, optional dependencies,
+    and compatible GPU wheels.
 
-FlashAttention and NATTEN can take a long time to build. Before building
-from source, check for prebuilt wheels compatible with the model's requirements,
-Python ABI, OS/architecture, PyTorch build, CUDA build, and GPU capability.
-Use `torch.__version__` and `torch.version.cuda` to identify the Torch build;
-the CUDA version shown by `nvidia-smi` alone is not sufficient.
+    Install the skill from your project directory (requires Node.js/npm), then
+    select your agent when prompted:
 
-- **FlashAttention:** check the [Astral GPU indexes](https://wheels.astral.sh/)
-  and [uv's extension guide](https://docs.astral.sh/uv/guides/integration/pytorch/#installing-gpu-enabled-pytorch-extensions).
-  Select a matching wheel, use a named `[[tool.uv.index]]` with `explicit = true`,
-  and map `flash-attn` to that index in `[tool.uv.sources]`.
-- **NATTEN:** check the [installation guide](https://natten.org/install/), including
-  older builds, and [prebuilt wheels](https://whl.natten.org). Pin the compatible
-  build including its `+torch...cu...` suffix when applicable and use
-  `--find-links https://whl.natten.org` with `uv add` or `pip install`. Persist
-  `find-links` in `[tool.uv]` for uv projects. Models requiring `libnatten` need
-  that backend, not just an importable NATTEN package; check `natten.HAS_LIBNATTEN`
-  when supported by the installed version.
+    ```bash
+    npx skills add https://github.com/NVIDIA/earth2studio --skill earth2studio-install
+    ```
 
-Configure these sources in your own project; Earth2Studio's uv settings are not
-inherited when installed as a dependency. Preserve existing Torch pins unless
-you choose a compatible environment change. If no matching wheel exists, follow
-the dependency's source-build requirements. Custom/NGC Torch builds may require
-compilation rather than an official-release wheel.
+    Then ask your agent: "Use the earth2studio-install skill to help me install Earth2Studio."
 
 ## Verify Installation
 

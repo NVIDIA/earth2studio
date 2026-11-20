@@ -38,15 +38,119 @@ from earth2studio.models.da.aida import (
     _reports,
     _schema,
 )
-from earth2studio.models.px.weathermesh5c import _iterator
+from earth2studio.models.px.weathermesh5c import WeatherMesh5C, _iterator
 from earth2studio.run import Pipeline, work_items
+from earth2studio.utils.coords import coord_array_like
+from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
     OptionalDependencyError,
     OptionalDependencyFailure,
 )
-from test.models.px.test_weathermesh5c import core_model as core_model
-from test.models.px.test_weathermesh5c import fields as fields
-from test.models.px.test_weathermesh5c import model as model
+
+
+@pytest.fixture
+def core_model(monkeypatch):
+    from weathermesh5c.inference import SURFACE_VARIABLES, Inference, ProductTransform
+
+    mesh = SimpleNamespace(lats=[1.0, 0.0], lons=np.arange(3.0), levels=[500])
+
+    class FakeCore(torch.nn.Module):
+        def move_assets(self, device):
+            pass
+
+    core = FakeCore()
+    core.anl_encoders = core.decoders = [SimpleNamespace(mesh=mesh)]
+    core.obs_encoders = [SimpleNamespace(meshes=[SimpleNamespace(string_id="sfc")])]
+    monkeypatch.setattr(ProductTransform, "from_model", lambda model: None)
+
+    class FakeNumerics:
+        def prepare_sst(self, values, lat, lon):
+            return values
+
+        def prepare_background(self, fields, ocean):
+            return np.asarray(fields.surface["167_2t"].mean() + ocean.mean())
+
+        def prepare_observations(self, source, hours, valid_time, *, max_observations):
+            values = np.concatenate([values for _, values in hours])
+            return torch.as_tensor(np.nanmean(values[:, 6]), device=self.device)
+
+        def encode(self, background, time):
+            return torch.as_tensor(background, device=self.device).reshape(1, 1).float()
+
+        def assimilate(self, background, time, cycles):
+            return self.encode(background, time) + sum(
+                obs["adpsfc"].sum() for obs in cycles.values()
+            )
+
+        def step(self, latent):
+            return latent + 0.125
+
+        def fork(self, latent, *, hour, seed):
+            generator = torch.Generator(device=self.device).manual_seed(seed)
+            return latent + torch.randn(
+                latent.shape, device=self.device, generator=generator
+            )
+
+        def decode(self, latent, *, pressure=True):
+            count = len(self.variables if pressure else SURFACE_VARIABLES)
+            return latent[:, None, :, None].expand(-1, count, 2, 3).cpu().numpy().copy()
+
+    for name, method in vars(FakeNumerics).items():
+        if callable(method):
+            monkeypatch.setattr(Inference, name, method)
+    return core
+
+
+@pytest.fixture
+def model(core_model):
+    return WeatherMesh5C(core_model, variables=("t2m", "u10m", "tp:sum:3h"))
+
+
+@pytest.fixture
+def fields(model, monkeypatch):
+    monkeypatch.setattr(
+        model._runtime,
+        "prepare_sst",
+        lambda values, lat, lon: np.full((2, 3), values[0, 0], dtype=np.float32),
+    )
+    output = []
+    for signature in model.input_coords():
+        layout = coord_array_like(
+            signature,
+            {"batch": [0], "time": np.array(["2026-10-28T09"], dtype="datetime64[ns]")},
+        )
+        values = np.zeros(layout.shape, dtype=np.float32)
+        for i, variable in enumerate(layout.coords["variable"].values):
+            value = 0.001 if variable.startswith("q") else 280.0
+            if variable == "msl":
+                value = 101300
+            if variable == "lsm":
+                value = 0
+            values[..., i, :, :] = value
+        output.append(from_torch(torch.from_numpy(values), layout))
+    return tuple(output)
+
+
+def standard_atmosphere(signature, time="2026-01-01T00", device="cpu"):
+    """Horizontally uniform standard-atmosphere fields for a declared input slot."""
+    layout = coord_array_like(
+        signature, {"batch": [0], "time": np.array([time], dtype="datetime64[ns]")}
+    )
+    values = np.zeros(layout.shape, dtype=np.float32)
+    surface = {"t2m": 288.0, "d2m": 283.0, "skt": 288.0, "sst": 290.0, "msl": 101325.0}
+    for i, name in enumerate(map(str, layout.coords["variable"].values)):
+        if name[0] in "ztq" and name[1:].isdigit():
+            level = int(name[1:])
+            height = 44330.8 * (1 - (level / 1013.25) ** 0.190263)
+            value = {
+                "z": 9.80665 * height,
+                "t": max(216.65, 288.15 - 0.0065 * height),
+                "q": 0.01 * (level / 1000) ** 3,
+            }[name[0]]
+        else:
+            value = surface.get(name, 0.0)
+        values[..., i, :, :] = value
+    return from_torch(torch.from_numpy(values).to(device), layout)
 
 
 def test_missing_runtime_reports_installation_extra(monkeypatch):
@@ -376,7 +480,6 @@ def test_aida_weathermesh_conformance(core_model, fork_hour):
 def test_aida_weathermesh_package():
     if not torch.cuda.is_available():
         pytest.skip("AIDA package test requires CUDA")
-    from test.models.px.test_weathermesh5c import standard_atmosphere
 
     model = AIDAWeatherMesh5C.load_model(
         AIDAWeatherMesh5C.load_default_package(),
