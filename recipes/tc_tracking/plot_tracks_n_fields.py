@@ -39,8 +39,8 @@
 # ### Configuration
 #
 # **Path Settings**
-# - `field_data` - path to NetCDF file (e.g.
-#   `/path/to/outputs_reproduce_helene/helene_2024-09-24T00.00.00_mems0000-0013.nc`)
+# - `field_data` - path to NetCDF file, one per batch (e.g.
+#   `/path/to/outputs_reproduce_helene/helene_2024-09-24T00.00.00_mems0002-0003.nc`)
 # - `track_dir` - folder containing track CSVs (e.g.
 #   `/path/to/outputs_reproduce_helene/cyclone_tracks_te`)
 #
@@ -57,7 +57,7 @@
 # - `fps` - frames per second for animation playback
 
 # %%
-field_data = "/path/to/outputs_reproduce_helene/reproduce_helene_2024-09-24T00.00.00_mems0000-0013.nc"
+field_data = "/path/to/outputs_reproduce_helene/reproduce_helene_2024-09-24T00.00.00_mems0002-0003.nc"
 track_dir = "/path/to/outputs_reproduce_helene/cyclone_tracks_te"
 
 variable = "wind_speed"
