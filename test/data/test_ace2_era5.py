@@ -27,8 +27,6 @@ import earth2studio.data.ace2 as ace2_module
 from earth2studio.data import ACE2ERA5Data
 
 
-# Live timeout budget: 6*25 + 3*10 + 2*15 + 30 = 240s, leaving 60s of
-# the CI runner's 300s file deadline for collection, non-live tests, and cleanup.
 @pytest.mark.live(timeout=25)
 @pytest.mark.parametrize(
     "time",
