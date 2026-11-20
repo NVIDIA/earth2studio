@@ -16,6 +16,8 @@
 
 """Unit tests for the CMIP6 lexicon."""
 
+import warnings
+
 import numpy as np
 import pytest
 import torch
@@ -76,3 +78,33 @@ def test_cmip6_lexicon_z_modifier():
     x = np.array([1.0, 2.0, 3.5], dtype=np.float32)
     out = mod(x.copy())
     assert np.allclose(out, x * 9.80665)
+
+
+@pytest.mark.parametrize("variable,cmip6_id", [("tcc", "clt"), ("sic", "siconc")])
+def test_cmip6_lexicon_fraction_modifier(variable, cmip6_id):
+    """Cloud cover and sea ice concentration are stored in % and returned as 0-1."""
+    (var_id, level), mod = CMIP6Lexicon[variable]
+    assert (var_id, level) == (cmip6_id, -1)
+
+    # Percentage input -> divided by 100
+    x = np.array([0.0, 25.0, 100.0], dtype=np.float32)
+    out = mod(x.copy())
+    assert out.dtype == np.float32
+    assert np.allclose(out, [0.0, 0.25, 1.0])
+
+    # Sparse field: 99 ice-free cells and one at 50% (mean 0.5) is still percent
+    x = np.zeros(100, dtype=np.float32)
+    x[0] = 50.0
+    out = mod(x.copy())
+    assert out.dtype == np.float32
+    assert np.allclose(out[0], 0.5) and np.allclose(out[1:], 0.0)
+
+    # Some models store fractions despite the "%" units -> unchanged
+    x = np.array([0.0, 0.25, 1.0], dtype=np.float32)
+    assert np.allclose(mod(x.copy()), x)
+
+    # All-NaN field is returned unchanged, without warnings
+    x = np.full(4, np.nan, dtype=np.float32)
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        assert np.isnan(mod(x.copy())).all()
