@@ -79,7 +79,8 @@ helpers.
    real-weight tests use `@pytest.mark.package`.
 8. **Contributor only: integrate public models.** Add alphabetical exports in
    `earth2studio/models/px/__init__.py`, API entries in
-   `docs/modules/models_px.md`, and `CHANGELOG.md`. For extras, update
+   `docs/modules/models_px.md`, and a fragment in `changes/` following
+   `changes/README.md` instead of editing `CHANGELOG.md`. For extras, update
    `docs/userguide/about/install_options.yml` with install notes and `api_refs`.
 9. **Verify** local wrappers with the project's relevant smoke/contract checks.
    For contributions, run the new component's test suite, relevant regression tests

@@ -59,7 +59,8 @@ are in [E2S-06: Model Contract][model-spec].
    Extend native model tests, consolidate overlapping cases, and retain numerical observation checks.
    Do not create a separate base-protocol test file or a bespoke conformance framework.
 7. Contributor only: export the wrapper in `earth2studio/models/da/__init__.py`,
-   add it to `docs/modules/models_da.md` alphabetically and update `CHANGELOG.md`.
+   add it to `docs/modules/models_da.md` alphabetically and add a fragment in
+   `changes/` following `changes/README.md` instead of editing `CHANGELOG.md`.
    For optional extras, update `docs/userguide/about/install_options.yml`. Verify with
    `uv run` or the project virtualenv; report dependency skips and untested real weights.
 

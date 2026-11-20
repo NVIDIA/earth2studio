@@ -407,10 +407,10 @@ sample with their own fixtures and imports.
 
 ---
 
-### Step 10 - Update CHANGELOG.md (contributor only)
+### Step 10 - Add a changelog fragment (contributor only)
 
-Add entry under the current unreleased version. See
-`references/reference-implementation.py` REGISTRATION CHECKLIST for the format.
+Add `changes/<PR-number>.added.md`, following `changes/README.md`.
+Use a unique `+name.added.md` if no PR number exists. Do not edit `CHANGELOG.md`.
 
 One line per source. Do NOT add separate lexicon entries.
 
@@ -513,7 +513,7 @@ Agent: [uses contributor paths and checks; submission requires an explicit reque
 ## Reminders
 
 **DO:** use the project environment and conventions; contributors use `loguru.logger`
-and alphabetical order in `__init__.py`/docs autosummary/CHANGELOG. Use
+and alphabetical order in `__init__.py`/docs autosummary. Use
 optional `device` per the protocol guidance, obstore helpers,
 `gather_with_concurrency`, `async_retry`,
 reference URLs in docstrings, `try/finally` cleanup.

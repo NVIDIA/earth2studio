@@ -73,7 +73,8 @@ Diagnostics transform fields without a rollout, forcing API or iterator hooks.
    Mock tests need no downloads; real-weight tests use `@pytest.mark.package`.
 7. **Contributor only: integrate public models.** Add alphabetical exports in
    `earth2studio/models/dx/__init__.py` and API entries in
-   `docs/modules/models_dx.md`; update `CHANGELOG.md`. For extras, update
+   `docs/modules/models_dx.md`; add a fragment in `changes/` following
+   `changes/README.md` instead of editing `CHANGELOG.md`. For extras, update
    `docs/userguide/about/install_options.yml` including install notes and `api_refs`.
 8. **Verify** local wrappers with the project's relevant smoke/contract checks.
    For contributions, run the new component's test suite, relevant regression tests

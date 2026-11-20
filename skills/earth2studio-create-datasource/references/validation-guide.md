@@ -222,7 +222,7 @@ git add earth2studio/data/<filename>.py \
         test/data/test_<filename>.py \
         docs/modules/datasources_*.md \
         pyproject.toml \
-        CHANGELOG.md
+        changes/<PR-number>.added.md
 git commit -m "feat: add <SourceName> data source
 
 Add <SourceName> <source_type> for <brief description>.
@@ -298,7 +298,7 @@ Otherwise, fill in this table:
 
 - [x] New or existing tests cover these changes.
 - [x] The documentation is up to date.
-- [x] The CHANGELOG.md is up to date.
+- [x] Added a changelog fragment in `changes/`.
 - [ ] Assess and address Greptile feedback.
 ````
 
