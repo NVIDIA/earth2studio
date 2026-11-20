@@ -19,7 +19,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- CMIP6 `tcc` and `sic` are now returned as fractions (0-1) instead of percent, detecting percent from the field maximum so sparse fields convert correctly.
+- CMIP6 `tcc` and `sic` are now returned as fractions (0-1) instead of percent, detecting
+  percent from the field maximum so sparse fields convert correctly.
 
 ### Security
 
