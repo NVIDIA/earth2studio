@@ -165,18 +165,14 @@ class CMIP6Lexicon(metaclass=LexiconType):
                 return x
 
         elif val in ["tcc", "sic"]:
-            # CMIP6 stores clt and siconc as percentages (units "%" in the CMOR
-            # tables), while Earth2Studio defines tcc and sic as fractions [0-1].
-            # Some models write clt as 0-1 despite the "%" units, so use the same
-            # heuristic as the native names below.
+            # The CMOR tables define clt and siconc with units "%", while
+            # Earth2Studio defines tcc and sic as fractions [0-1]. The modifier
+            # only receives the array, so the conversion follows the table
+            # definition and never depends on the values (a mean-based guess
+            # fails for sparse fields such as a nearly ice-free siconc).
             def mod(x: np.ndarray) -> np.ndarray:  # noqa: D401
-                """Convert percentage [0-100] to fraction [0-1] if data is in percentage format.
-
-                Uses heuristic: if mean value >= 1, assumes percentage and divides by 100.
-                """
-                if np.nanmean(x) >= 1:
-                    return x / 100.0
-                return x
+                """Convert percentage [0-100] to fraction [0-1]."""
+                return x / 100.0
 
         elif val in [
             "siconc",
