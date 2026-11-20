@@ -9,6 +9,9 @@ For contributions, use the same native-test organization as the DX/PX
 [prognostic](../../earth2studio-create-prognostic/references/testing-guide.py) guides.
 Adapt existing fixtures, rather than copying entire suites or creating a test framework.
 
+Test modules must not import fixtures or helpers from other test files. Define
+them locally so each module collects and runs independently in isolated Tox environments.
+
 | Case | Required behavior |
 | --- | --- |
 | `test_<model>_coords` | Input/forcing/output declarations (singleton, tuple, absent and optional slots), output geometry and `lead_time` offsets, `default_sources` order (inputs then forcing); forcing only for stateful models. Fold into an existing init case when sufficient. |

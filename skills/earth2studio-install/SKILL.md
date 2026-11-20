@@ -98,8 +98,31 @@ incomplete.
    a different version, fetch the matching sources rather than mixing releases.
 3. **Use uv to add Earth2Studio to their Python project.** Ask only what is
    missing (at most 3 initial questions): version choice, existing project, and
-   models or data sources needed. For a new project, follow the guide's
-   "uv Project" setup with **Python 3.13** by default:
+   models or data sources needed. When asking about models, include examples and
+   offer help exploring the package:
+
+   > Which models or data sources would you like to use—for example, AIFS2,
+   > FourCastNet3, AtlasCRPS, or StormScope? If you're unsure, we can use the
+   > earth2studio-discover skill to explore the package and suggest models for
+   > your use case and hardware.
+
+   Treat these names as starting points, not universal recommendations; check
+   availability in the selected version. If the user wants help choosing, invoke
+   `earth2studio-discover` if it is available in their agent. It is a separate
+   skill and may not be installed alongside this one. If unavailable, link to
+   its [instructions on GitHub](https://github.com/NVIDIA/earth2studio/blob/main/skills/earth2studio-discover/SKILL.md)
+   and offer this command for the user to install it:
+
+   ```bash
+   npx skills add https://github.com/NVIDIA/earth2studio --skill earth2studio-discover
+   ```
+
+   After discovery, return here with their selected models to map extras and
+   provide installation commands.
+   If they already named models, proceed directly without asking again.
+
+   For a new project, follow the guide's "uv Project" setup with **Python 3.13**
+   by default:
 
    ```bash
    mkdir earth2studio-project && cd earth2studio-project
