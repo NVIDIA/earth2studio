@@ -88,16 +88,17 @@ categories:
         notes:
           - &flash_attn_wheels
             text: >-
-              Avoid lengthy FlashAttention builds by selecting a compatible
-              prebuilt wheel from the Astral GPU index.
+              By default, installation attempts to build FlashAttention from source.
+              To avoid lengthy builds, look for prebuilt wheels matching your
+              PyTorch and CUDA versions in the linked index.
             href: https://wheels.astral.sh/
-            label: Astral GPU index
+            label: FlashAttention prebuilt wheels (Astral)
           - &attention_compatibility
             text: >-
               Match wheels to your Python, platform, PyTorch, and CUDA build.
-              See the setup guide for uv/pip instructions.
-            href: '#gpu-dependency-wheels'
-            label: GPU dependency wheel setup
+              Use the install skill with your agent for installation guidance.
+            href: https://github.com/NVIDIA/earth2studio/blob/main/skills/earth2studio-install/SKILL.md
+            label: Earth2Studio install skill
       - id: aifsens
         label: AIFS Ensemble
         extra: aifsens
@@ -135,15 +136,12 @@ categories:
         notes:
           - &natten_wheels
             text: >-
-              Avoid lengthy NATTEN builds by pinning a compatible prebuilt wheel
-              and using --find-links https://whl.natten.org.
+              By default, installation attempts to build NATTEN from source.
+              To avoid lengthy builds, look for prebuilt wheels matching your
+              PyTorch and CUDA versions in the linked index.
             href: https://whl.natten.org
             label: NATTEN prebuilt wheels
           - *attention_compatibility
-          - &natten_install_guide
-            text: Check supported builds and GPU requirements.
-            href: https://natten.org/install/
-            label: NATTEN installation guide
       - id: aurora
         label: Aurora
         extra: aurora
@@ -283,7 +281,6 @@ categories:
         notes:
           - *natten_wheels
           - *attention_compatibility
-          - *natten_install_guide
       - id: interp-modafno
         label: InterpModAFNO
         extra: interp-modafno
@@ -352,7 +349,6 @@ categories:
         notes:
           - *natten_wheels
           - *attention_compatibility
-          - *natten_install_guide
       - id: stormscope
         label: StormScope
         extra: stormscope
@@ -364,7 +360,6 @@ categories:
         notes:
           - *natten_wheels
           - *attention_compatibility
-          - *natten_install_guide
       - id: ucast
         label: UCast
         extra: ucast
@@ -427,7 +422,6 @@ categories:
         notes:
           - *natten_wheels
           - *attention_compatibility
-          - *natten_install_guide
       - id: cosmo
         label: CorrDiff COSMO-ERA5
         extra: cosmo
@@ -444,7 +438,6 @@ categories:
         notes:
           - *natten_wheels
           - *attention_compatibility
-          - *natten_install_guide
       - id: cyclone
         label: Cyclone Trackers
         extra: cyclone
@@ -531,7 +524,6 @@ categories:
         notes:
           - *natten_wheels
           - *attention_compatibility
-          - *natten_install_guide
       - id: da-healda
         label: HealDA
         extra: da-healda
