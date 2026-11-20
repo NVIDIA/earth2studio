@@ -23,6 +23,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `CFS_FX_Flux` and `CFS_Reforecast_FX_Flux` return `tcc`, `hcc`, `mcc` and `lcc` as
   a 0-1 fraction instead of the percent stored in the GRIB files.
+- Fixed `ISD` returning multi-hour (3, 6, 12, 24 hour) precipitation totals as
+  hourly `tp`.
 
 ### Security
 
