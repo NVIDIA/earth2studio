@@ -15,6 +15,7 @@ echo "Current version (from hatch): ${VERSION}"
 echo "Previous version (from install.md): ${PREV_VERSION}"
 
 sed -i "s/earth2studio\.git@${PREV_VERSION}/earth2studio\.git@${VERSION}/g" docs/userguide/about/install.md
+sed -i "s/^  release_ref: .*/  release_ref: ${VERSION}/" docs/userguide/about/install_options.yml
 sed -i "s/${PREV_VERSION}/${VERSION}/g" recipes/template/pyproject.toml
 sed -i "s/${PREV_VERSION}/${VERSION}/g" recipes/template/README.md
 sed -i "s/${PREV_VERSION}/${VERSION}/g" .github/ISSUE_TEMPLATE/bug_report.yml

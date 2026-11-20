@@ -1,6 +1,7 @@
 # Developer Guide
 
 - [Overview](overview.md)
+- [Software Maturity](software_maturity.md)
 - [Dependencies](dependency.md)
 - [Style](style.md)
 - [Documentation](documentation.md)
