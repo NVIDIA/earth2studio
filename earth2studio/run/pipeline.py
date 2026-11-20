@@ -17,13 +17,14 @@
 """Pipeline: supervise work items across ranks, resume, scoring, and IO.
 
 :class:`Pipeline` drives any :class:`~earth2studio.run.runner.Runner`: it
-distributes work items over ranks, filters and regrids each yielded stream,
-hands it to an optional :class:`Scorer`, writes it to that stream's store, and
-records finished items so a run can resume.
+distributes work items over ranks, filters, reduces and regrids each yielded
+stream, hands it to an optional :class:`Scorer`, writes it to that stream's
+store, and records finished items so a run can resume.
 """
 
 from __future__ import annotations
 
+import copy
 import hashlib
 import json
 import os
@@ -44,6 +45,7 @@ from earth2studio.models.dx import DiagnosticModel
 from earth2studio.models.px import PrognosticModel
 from earth2studio.run._fields import map_field
 from earth2studio.run.output import OutputManager
+from earth2studio.run.reduce import LeadReduction
 from earth2studio.run.runner import PrognosticRunner, Runner
 from earth2studio.run.work import (
     ProgressStore,
@@ -95,8 +97,8 @@ class Pipeline:
     """Run work items through a runner on every rank, writing one store per stream.
 
     ``Pipeline`` owns everything above a single work item: validating the item
-    list, planning stores from every item, splitting items over ranks, filtering
-    and regridding outputs, scoring, writing, and resume. The runner owns what
+    list, planning stores from every item, splitting items over ranks, filtering,
+    reducing and regridding outputs, scoring, writing, and resume. The runner owns what
     happens inside an item. Launch distributed runs with ``torchrun`` and
     initialize a process group first; without one, ``run`` is single-process.
 
@@ -116,10 +118,17 @@ class Pipeline:
         holding none of them, such as a lead-0 initial condition when only
         output-only variables like ``tp06`` are selected, is skipped and the
         store keeps NaN there, by default None
+    reduction : Mapping[str, LeadReduction] | None, optional
+        Lead-time reduction per stream, such as
+        :class:`~earth2studio.run.reduce.LeadWindow`, applied after variable
+        filtering and before regridding. The scorer and the store receive the
+        reduced outputs, planned on the reduction's lead axis and labels. Each
+        stream gets its own copy of its reduction, so one instance may serve
+        several streams, by default None
     regridder : Mapping[str, Regridder] | None, optional
-        Regridder per stream, applied after variable filtering. Its
-        ``source_grid`` must match the stream's grid; the stream is stored on
-        its ``target_grid``, by default None
+        Regridder per stream, applied after variable filtering and any
+        reduction. Its ``source_grid`` must match the stream's grid; the stream
+        is stored on its ``target_grid``, by default None
     progress : ProgressStore | None, optional
         Records finished items, so a later run skips them, by default None
     device : torch.device | str, optional
@@ -151,6 +160,7 @@ class Pipeline:
         output: Mapping[str, IOBackend] | None = None,
         scorer: Scorer | None = None,
         output_variables: Mapping[str, Sequence[str]] | None = None,
+        reduction: Mapping[str, LeadReduction] | None = None,
         regridder: Mapping[str, Regridder] | None = None,
         progress: ProgressStore | None = None,
         device: torch.device | str = "auto",
@@ -168,12 +178,20 @@ class Pipeline:
                 raise ValueError(f"output_variables names no variables for {stream!r}")
             self.output_variables[stream] = names
         self.regridder = dict(regridder or {})
+        # A copy per stream: a reduction holds the current item's state.
+        self.reduction = {
+            stream: copy.deepcopy(r) for stream, r in (reduction or {}).items()
+        }
         self.progress = progress
         self.device = _default_device() if device == "auto" else torch.device(device)
         self.sync = sync
         # Per-run state, set by run().
         self._outputs: OutputManager | None = None
         self._ensemble = False
+        # Signatures reductions are planned from, and the streams reducing
+        # the current item.
+        self._reduced: dict[str, CoordinateSystem] = {}
+        self._reducing: set[str] = set()
 
     @classmethod
     def from_model(
@@ -236,8 +254,9 @@ class Pipeline:
             ``(time, member)``, mix deterministic and ensemble items, carry
             several members for a runner without member batching, or have a
             final lead time the runner cannot reach; if a per-stream setting names an
-            unknown stream or variable, or a regridder does not match its stream's
-            grid; or if the progress manifest does not match this run.
+            unknown stream or variable, a reduction does not fit its stream or
+            an item's final lead time, or a regridder does not match its
+            stream's grid; or if the progress manifest does not match this run.
         RuntimeError
             On ranks that did not fail themselves, when another rank failed.
         """
@@ -296,9 +315,22 @@ class Pipeline:
         assert outputs is not None  # noqa: S101 - set by run()
         if self.scorer is not None:
             self.scorer.begin_item(item)
+        # Only streams that are scored or written are fed to _emit's reduction.
+        self._reducing = {
+            stream
+            for stream in self._reduced
+            if self.scorer is not None or stream in outputs.backends
+        }
+        for stream in self._reducing:
+            self.reduction[stream].begin_item(
+                self._reduced[stream], item.final_lead_time
+            )
         for step in self.runner.run_item(item):
             for stream, x in step.items():
                 self._emit(item, stream, x)
+        for stream in self._reducing:
+            self.reduction[stream].finish_item()
+        self._reducing = set()
         outputs.flush()
         if self.scorer is not None:
             self.scorer.finish_item(item)
@@ -331,23 +363,37 @@ class Pipeline:
             self.progress.mark_done(item)
 
     def _emit(self, item: WorkItem, stream: str, x: xr.DataArray) -> None:
-        """Filter, regrid, score, add ``ensemble`` if stored, then write."""
+        """Filter and reduce one output, then deliver what is ready."""
         outputs = self._outputs
         assert outputs is not None  # noqa: S101 - set by run()
-        written = stream in outputs.backends
-        if not written and self.scorer is None:
+        if stream not in outputs.backends and self.scorer is None:
             return
         variables = self.output_variables.get(stream)
         if variables is not None:
             # An output may hold a subset of its stream's variables: the
             # published initial condition lacks output-only variables. Keep the
             # selected variables it holds; skip it if it holds none, leaving the
-            # store's fill value.
+            # store's fill value. A reduction still counts it, as missing
+            # samples of every selected variable.
             held = set(np.asarray(x["variable"].values).astype(str))
             present = [name for name in variables if name in held]
-            if not present:
+            if present:
+                x = _select_variables(x, present)
+            elif stream in self._reducing:
+                x = x.isel(variable=slice(0, 0))
+            else:
                 return
-            x = _select_variables(x, present)
+        if stream not in self._reducing:
+            self._deliver(item, stream, x)
+            return
+        for reduced in self.reduction[stream].update(x):
+            self._deliver(item, stream, reduced)
+
+    def _deliver(self, item: WorkItem, stream: str, x: xr.DataArray) -> None:
+        """Regrid, score, add ``ensemble`` if stored, then write."""
+        outputs = self._outputs
+        assert outputs is not None  # noqa: S101 - set by run()
+        written = stream in outputs.backends
         regridder = self.regridder.get(stream)
         if regridder is not None:
             x = regridder(x)
@@ -391,7 +437,18 @@ class Pipeline:
         self.runner.to(self.device)
         self.regridder = {k: r.to(self.device) for k, r in self.regridder.items()}
         final_lead_time = max(item.final_lead_time for item in items)
-        return self._stored_schemas(self.runner.output_coords(final_lead_time))
+        schemas = self._stored_schemas(self.runner.output_coords(final_lead_time))
+        # Every item must reduce, not only the longest.
+        for lead in {item.final_lead_time for item in items}:
+            for stream, signature in self._reduced.items():
+                try:
+                    self.reduction[stream].begin_item(signature, lead)
+                except ValueError as error:
+                    raise ValueError(
+                        f"Cannot reduce stream {stream!r} for items with final "
+                        f"lead time {lead}: {error}"
+                    ) from error
+        return schemas
 
     def _validate(self, items: list[WorkItem]) -> None:
         """Check items before any store or progress is touched."""
@@ -411,10 +468,11 @@ class Pipeline:
     def _stored_schemas(
         self, signatures: Mapping[str, CoordinateSystem]
     ) -> dict[str, CoordinateSystem]:
-        """Apply per-stream variable filters and regridders to stream signatures."""
+        """Apply per-stream variable filters, reductions and regridders to signatures."""
         for setting, keys in (
             ("output", self.output or {}),
             ("output_variables", self.output_variables),
+            ("reduction", self.reduction),
             ("regridder", self.regridder),
         ):
             unknown = sorted(set(keys).difference(signatures))
@@ -428,6 +486,7 @@ class Pipeline:
                 logger.info(f"Stream {stream!r} has no output backend; not writing it")
 
         schemas: dict[str, CoordinateSystem] = {}
+        self._reduced = {}
         for stream, signature in signatures.items():
             variables = self.output_variables.get(stream)
             if variables is not None:
@@ -441,6 +500,15 @@ class Pipeline:
                         f"variables {missing}; it has {sorted(known)}"
                     )
                 signature = _select_variables(signature, variables)
+            reduction = self.reduction.get(stream)
+            if reduction is not None:
+                self._reduced[stream] = signature
+                try:
+                    signature = reduction.output_coords(signature)
+                except ValueError as error:
+                    raise ValueError(
+                        f"Cannot reduce stream {stream!r} with {reduction!r}: {error}"
+                    ) from error
             regridder = self.regridder.get(stream)
             if regridder is not None:
                 signature = _regridded_signature(stream, signature, regridder)
