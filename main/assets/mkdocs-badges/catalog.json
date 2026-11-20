@@ -4585,6 +4585,15 @@
     {
       "classifiers": [],
       "signature": "",
+      "source": "userguide/developer/software_maturity.md",
+      "summary": "The Earth-2 software maturity model describes a repository's **intended usage**, **compatibility commitments**, and **maintenance expectations**.",
+      "symbol": "",
+      "title": "Software Maturity",
+      "url": "userguide/developer/software_maturity/"
+    },
+    {
+      "classifiers": [],
+      "signature": "",
       "source": "userguide/developer/style.md",
       "summary": "<!-- markdownlint-disable MD046 -->",
       "symbol": "",
