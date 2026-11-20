@@ -155,15 +155,16 @@ def test_ace2era5_forcing_static_fields_expand_multiple_times(monkeypatch, tmp_p
         coords={"time": times, "lat": lat, "lon": lon},
     )
 
-    cache_file = tmp_path / "ACE2ERA5" / "forcing_data" / "forcing_1950.nc"
-    cache_file.parent.mkdir(parents=True)
-    cache_file.touch()
     monkeypatch.setattr(ace2_module, "datasource_cache_root", lambda: str(tmp_path))
     monkeypatch.setattr(ace2_module.xr, "open_dataset", lambda *_, **__: dataset)
 
     ds = ACE2ERA5Data(mode="forcing", cache=True, verbose=False)
     ds.lat = lat
     ds.lon = lon
+
+    cache_file = pathlib.Path(ds.cache) / "forcing_data" / "forcing_1950.nc"
+    cache_file.parent.mkdir(parents=True)
+    cache_file.touch()
 
     da = ds(times, ["skt", "z", "global_mean_co2"])
 
