@@ -223,3 +223,39 @@ def test_custom_time_statistic_and_dimension_inference():
             np.datetime64("2026-08-28"),
             np.timedelta64(1, "h"),
         )
+
+
+@pytest.mark.parametrize(
+    "label, method, window, delta_t, expected",
+    [
+        ("t2m", "mean", "7d", 24, "t2m:mean:168h"),
+        ("t2m:mean:-1h:23h", "mean", "30days", 24, "t2m:mean:-697h:+23h"),
+        ("tp:mean:0h:24h", "mean", np.timedelta64(2, "D"), 24, "tp:mean:-24h:+24h"),
+        ("tp06:sum:6h", "SUM", "24h", 6, "tp06:sum:24h"),
+        ("t2m", "mean", "36h", 6, "t2m:mean:36h"),
+        ("t2m:max:6h", "max", "6h", 6, "t2m:max:6h"),
+    ],
+)
+def test_compose_time_statistic(label, method, window, delta_t, expected):
+    composed = e2s.compose_time_statistic(
+        label, method, window, np.timedelta64(delta_t, "h")
+    )
+    assert composed == expected
+    # The composed label is itself a valid declaration.
+    e2s.time_statistic_metadata(composed.partition(":")[2])
+
+
+@pytest.mark.parametrize(
+    "label, method, window, delta_t, error",
+    [
+        ("t2m", "mode", "24h", 6, "only"),
+        ("t2m", "mean", "9h", 6, "positive multiple"),
+        ("t2m", "mean", "-12h", 6, "positive multiple"),
+        ("var::grib", "mean", "12h", 6, "Raw backend"),
+        ("tp:sum:6h", "mean", "24h", 6, "do not compose"),
+        ("t2m:mean:12h", "mean", "24h", 6, "do not compose"),
+    ],
+)
+def test_compose_time_statistic_rejects(label, method, window, delta_t, error):
+    with pytest.raises(ValueError, match=error):
+        e2s.compose_time_statistic(label, method, window, np.timedelta64(delta_t, "h"))
