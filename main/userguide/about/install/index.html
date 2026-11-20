@@ -631,17 +631,6 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#gpu-dependency-wheels" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        GPU Dependency Wheels
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#verify-installation" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3752,17 +3741,6 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#gpu-dependency-wheels" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        GPU Dependency Wheels
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#verify-installation" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3917,35 +3895,22 @@ to the PyTorch and CUDA versions in your environment.</p>
 <h2 id="install-command">Install Selector<a class="headerlink" href="#install-command" title="Permanent link">&para;</a></h2>
 <section class="e2s-install-selector" data-e2s-install-selector></section>
 
-<h2 id="gpu-dependency-wheels">GPU Dependency Wheels<a class="headerlink" href="#gpu-dependency-wheels" title="Permanent link">&para;</a></h2>
-<p>FlashAttention and NATTEN can take a long time to build. Before building
-from source, check for prebuilt wheels compatible with the model's requirements,
-Python ABI, OS/architecture, PyTorch build, CUDA build, and GPU capability.
-Use <code>torch.__version__</code> and <code>torch.version.cuda</code> to identify the Torch build;
-the CUDA version shown by <code>nvidia-smi</code> alone is not sufficient.</p>
-<ul>
-<li><strong>FlashAttention:</strong> check the <a href="https://wheels.astral.sh/">Astral GPU indexes</a>
-  and <a href="https://docs.astral.sh/uv/guides/integration/pytorch/#installing-gpu-enabled-pytorch-extensions">uv's extension guide</a>.
-  Select a matching wheel, use a named <code>[[tool.uv.index]]</code> with <code>explicit = true</code>,
-  and map <code>flash-attn</code> to that index in <code>[tool.uv.sources]</code>.</li>
-<li><strong>NATTEN:</strong> check the <a href="https://natten.org/install/">installation guide</a>, including
-  older builds, and <a href="https://whl.natten.org">prebuilt wheels</a>. Pin the compatible
-  build including its <code>+torch...cu...</code> suffix when applicable and use
-  <code>--find-links https://whl.natten.org</code> with <code>uv add</code> or <code>pip install</code>. Persist
-  <code>find-links</code> in <code>[tool.uv]</code> for uv projects. Models requiring <code>libnatten</code> need
-  that backend, not just an importable NATTEN package; check <code>natten.HAS_LIBNATTEN</code>
-  when supported by the installed version.</li>
-</ul>
-<p>Configure these sources in your own project; Earth2Studio's uv settings are not
-inherited when installed as a dependency. Preserve existing Torch pins unless
-you choose a compatible environment change. If no matching wheel exists, follow
-the dependency's source-build requirements. Custom/NGC Torch builds may require
-compilation rather than an official-release wheel.</p>
+<div class="admonition tip">
+<p class="admonition-title">Get installation help from your agent</p>
+<p>Use the <a href="https://github.com/NVIDIA/earth2studio/blob/main/skills/earth2studio-install/SKILL.md">Earth2Studio install skill</a>
+with your agent to help with installation commands, optional dependencies,
+and compatible GPU wheels.</p>
+<p>Install the skill from your project directory (requires Node.js/npm), then
+select your agent when prompted:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>npx<span class="w"> </span>skills<span class="w"> </span>add<span class="w"> </span>https://github.com/NVIDIA/earth2studio<span class="w"> </span>--skill<span class="w"> </span>earth2studio-install
+</code></pre></div>
+<p>Then ask your agent: "Use the earth2studio-install skill to help me install Earth2Studio."</p>
+</div>
 <h2 id="verify-installation">Verify Installation<a class="headerlink" href="#verify-installation" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>python<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;import earth2studio; print(earth2studio.__version__)&quot;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>python<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;import earth2studio; print(earth2studio.__version__)&quot;</span>
 </code></pre></div>
 <p>If you installed with uv and want to run inside the uv project:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;import earth2studio; print(earth2studio.__version__)&quot;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;import earth2studio; print(earth2studio.__version__)&quot;</span>
 </code></pre></div>
 <h2 id="install_environments">Environments<a class="headerlink" href="#install_environments" title="Permanent link">&para;</a></h2>
 <p>For the best experience, create a fresh environment with uv, Docker, or another
@@ -3955,29 +3920,29 @@ environment manager. For developer environments, refer to the
 <p>Using uv is the recommended way to set up a local Python environment for Earth2Studio.
 Assuming <a href="https://docs.astral.sh/uv/getting-started/installation/">uv is installed</a>, use
 the following commands:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>mkdir<span class="w"> </span>earth2studio-project<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">cd</span><span class="w"> </span>earth2studio-project
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>uv<span class="w"> </span>init<span class="w"> </span>--python<span class="o">=</span><span class="m">3</span>.13
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>uv<span class="w"> </span>add<span class="w"> </span><span class="s2">&quot;earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.20.0&quot;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>mkdir<span class="w"> </span>earth2studio-project<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">cd</span><span class="w"> </span>earth2studio-project
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>uv<span class="w"> </span>init<span class="w"> </span>--python<span class="o">=</span><span class="m">3</span>.13
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>uv<span class="w"> </span>add<span class="w"> </span><span class="s2">&quot;earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.20.0&quot;</span>
 </code></pre></div>
 <h3 id="pytorch_container_environment">Docker Container<a class="headerlink" href="#pytorch_container_environment" title="Permanent link">&para;</a></h3>
 <p>For a Docker environment, the recommended process is to use <code>uv</code> inside a container.
 The <a href="https://catalog.ngc.nvidia.com/orgs/nvidia/containers/pytorch">NVIDIA PyTorch container</a>
 typically provides a good base with many dependencies already installed and optimized
 for NVIDIA hardware.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>docker<span class="w"> </span>run<span class="w"> </span>-it<span class="w"> </span>-t<span class="w"> </span>nvcr.io/nvidia/pytorch:26.04-py3
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>apt-get<span class="w"> </span>update<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>apt-get<span class="w"> </span>install<span class="w"> </span>-y<span class="w"> </span>git<span class="w"> </span>make<span class="w"> </span>curl<span class="w"> </span>cmake<span class="w"> </span>python3-dev<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">    </span>libeccodes-tools<span class="w"> </span>libeccodes-dev
-<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="nb">unset</span><span class="w"> </span>PIP_CONSTRAINT
-<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>curl<span class="w"> </span>-LsSf<span class="w"> </span>https://astral.sh/uv/install.sh<span class="w"> </span><span class="p">|</span><span class="w"> </span>sh<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">source</span><span class="w"> </span><span class="nv">$HOME</span>/.local/bin/env
-<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>--system<span class="w"> </span>--break-system-packages<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="w">    </span><span class="s2">&quot;earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.20.0&quot;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>docker<span class="w"> </span>run<span class="w"> </span>-it<span class="w"> </span>-t<span class="w"> </span>nvcr.io/nvidia/pytorch:26.04-py3
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>apt-get<span class="w"> </span>update<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>apt-get<span class="w"> </span>install<span class="w"> </span>-y<span class="w"> </span>git<span class="w"> </span>make<span class="w"> </span>curl<span class="w"> </span>cmake<span class="w"> </span>python3-dev<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">    </span>libeccodes-tools<span class="w"> </span>libeccodes-dev
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="nb">unset</span><span class="w"> </span>PIP_CONSTRAINT
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>curl<span class="w"> </span>-LsSf<span class="w"> </span>https://astral.sh/uv/install.sh<span class="w"> </span><span class="p">|</span><span class="w"> </span>sh<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">source</span><span class="w"> </span><span class="nv">$HOME</span>/.local/bin/env
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>--system<span class="w"> </span>--break-system-packages<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="w">    </span><span class="s2">&quot;earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.20.0&quot;</span>
 </code></pre></div>
 <div class="admonition note">
 <p class="admonition-title">Extra Dependencies</p>
 <p>Add extras to the <code>uv pip install</code> command in the same way you would for pip:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>--system<span class="w"> </span>--break-system-packages<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">    </span><span class="s2">&quot;earth2studio[aifs,data] @ git+https://github.com/NVIDIA/earth2studio.git@0.20.0&quot;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>--system<span class="w"> </span>--break-system-packages<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">    </span><span class="s2">&quot;earth2studio[aifs,data] @ git+https://github.com/NVIDIA/earth2studio.git@0.20.0&quot;</span>
 </code></pre></div>
 </div>
 <details class="warning">
@@ -3992,9 +3957,9 @@ as a reference for a general-purpose Earth2Studio image.</p>
 <p>It is no longer recommended to use conda environment managers for Earth2Studio when uv
 is available. If conda is required for your system, use it only to create the Python
 environment and install Earth2Studio with standard Python tooling.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>conda<span class="w"> </span>create<span class="w"> </span>-n<span class="w"> </span>earth2studio<span class="w"> </span><span class="nv">python</span><span class="o">=</span><span class="m">3</span>.13
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>conda<span class="w"> </span>activate<span class="w"> </span>earth2studio
-<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>pip<span class="w"> </span>install<span class="w"> </span>earth2studio
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>conda<span class="w"> </span>create<span class="w"> </span>-n<span class="w"> </span>earth2studio<span class="w"> </span><span class="nv">python</span><span class="o">=</span><span class="m">3</span>.13
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>conda<span class="w"> </span>activate<span class="w"> </span>earth2studio
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>pip<span class="w"> </span>install<span class="w"> </span>earth2studio
 </code></pre></div>
 <h2 id="system-recommendations">System Recommendations<a class="headerlink" href="#system-recommendations" title="Permanent link">&para;</a></h2>
 <h3 id="software">Software<a class="headerlink" href="#software" title="Permanent link">&para;</a></h3>
