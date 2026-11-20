@@ -185,14 +185,21 @@ class CFSFluxLexicon(metaclass=LexiconType):
         Returns
         -------
         tuple[str, Callable]
-            `(grib_key, modifier)` pair. `modifier` is the identity for
-            every entry in this lexicon since all surface flux fields are
-            already in physical units.
+            `(grib_key, modifier)` pair. `modifier` converts cloud cover
+            from percent to a 0-1 fraction; all other entries are already
+            in Earth2Studio units and use the identity.
         """
         cfs_key = cls.VOCAB[val]
+        if cfs_key.split("::")[1] == "TCDC":
 
-        def mod(x: np.ndarray) -> np.ndarray:
-            """Identity modifier."""
-            return x
+            def mod(x: np.ndarray) -> np.ndarray:
+                """Convert cloud cover from percent to (0-1)."""
+                return x / 100.0
+
+        else:
+
+            def mod(x: np.ndarray) -> np.ndarray:
+                """Identity modifier."""
+                return x
 
         return cfs_key, mod
