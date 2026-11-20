@@ -20,6 +20,8 @@ on:
   push:
     branches:
       - "pull-request/**"
+  merge_group:
+    types: [checks_requested]
 
 permissions:
   actions: read
@@ -72,11 +74,22 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Resolve PR target branch
+      - name: Resolve CI target branch
         id: base
         uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
         with:
           script: |
+            if (context.eventName === 'merge_group') {
+              const baseRef = context.payload.merge_group?.base_ref;
+              if (typeof baseRef !== 'string' || !/^refs\/heads\/.+/.test(baseRef)) {
+                throw new Error(`Invalid merge-group base ref: ${baseRef}`);
+              }
+              const branch = baseRef.slice('refs/heads/'.length);
+              core.setOutput('branch', branch);
+              core.info(`Using ${branch} as the CI baseline`);
+              return;
+            }
+
             // Copied PRs are push events, so github.base_ref is unavailable.
             const match = /^refs\/heads\/pull-request\/(\d+)$/.exec(context.ref);
             if (!match) throw new Error(`Invalid copied PR ref: ${context.ref}`);
@@ -491,3 +504,59 @@ jobs:
             .coverage
           include-hidden-files: true
           if-no-files-found: ignore
+
+  ci-passed:
+    name: CI passed
+    if: github.repository == 'NVIDIA/earth2studio' && always()
+    needs:
+      - changes
+      - format
+      - lint
+      - docs
+      - test
+      - test-px-models
+      - test-dx-models
+      - test-data
+      - test-perturb
+      - test-stats
+      - test-da-models
+      - test-px-models-conflicts
+      - coverage
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check required CI results
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        env:
+          CI_NEEDS: ${{ toJSON(needs) }}
+        with:
+          script: |
+            const needs = JSON.parse(process.env.CI_NEEDS);
+            const mandatory = ['changes', 'format', 'lint', 'docs', 'test', 'coverage'];
+            const optional = {
+              'test-data': 'data',
+              'test-perturb': 'perturb',
+              'test-stats': 'stats',
+              'test-px-models': 'px_models',
+              'test-dx-models': 'dx_models',
+              'test-da-models': 'da_models',
+              'test-px-models-conflicts': 'px_models',
+            };
+            const failures = [];
+            for (const job of mandatory) {
+              const result = needs[job]?.result;
+              if (result !== 'success') failures.push(`${job}: ${result ?? 'missing'}`);
+            }
+            for (const [job, output] of Object.entries(optional)) {
+              const selected = needs.changes?.outputs?.[output];
+              const result = needs[job]?.result;
+              if (selected !== 'true' && selected !== 'false') {
+                failures.push(`${job}: invalid selection ${selected ?? 'missing'}`);
+              } else if (result !== 'success' && !(selected === 'false' && result === 'skipped')) {
+                failures.push(`${job}: ${result ?? 'missing'} (selected=${selected})`);
+              }
+            }
+            if (failures.length) {
+              core.setFailed(`CI requirements not met:\n${failures.join('\n')}`);
+            } else {
+              core.info('All required CI jobs passed.');
+            }
