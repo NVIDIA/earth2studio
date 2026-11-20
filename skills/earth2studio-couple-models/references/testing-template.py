@@ -16,6 +16,9 @@
 
 """Testing template: check a coupling with hand-computable toy models.
 
+Test modules must not import fixtures or helpers from other test files. Define
+them locally so each module collects and runs independently in isolated Tox environments.
+
 Run as is:
 
     uv run pytest skills/earth2studio-couple-models/references/testing-template.py

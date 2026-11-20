@@ -27,7 +27,7 @@ import earth2studio.data.ace2 as ace2_module
 from earth2studio.data import ACE2ERA5Data
 
 
-@pytest.mark.live(timeout=60)
+@pytest.mark.live(timeout=25)
 @pytest.mark.parametrize(
     "time",
     [
@@ -58,7 +58,7 @@ def test_ace2era5_forcing_fetch(time, variable):
     assert not np.isnan(da.values).any()
 
 
-@pytest.mark.live(timeout=60)
+@pytest.mark.live(timeout=10)
 @pytest.mark.parametrize(
     "time",
     [
@@ -86,7 +86,7 @@ def test_ace2era5_ic_fetch(time, variable):
     assert not np.isnan(da.values).any()
 
 
-@pytest.mark.live(timeout=30)
+@pytest.mark.live(timeout=15)
 @pytest.mark.parametrize(
     "time",
     [np.array([np.datetime64("1979-04-01T00:00")])],
@@ -153,15 +153,16 @@ def test_ace2era5_forcing_static_fields_expand_multiple_times(monkeypatch, tmp_p
         coords={"time": times, "lat": lat, "lon": lon},
     )
 
-    cache_file = tmp_path / "ACE2ERA5" / "forcing_data" / "forcing_1950.nc"
-    cache_file.parent.mkdir(parents=True)
-    cache_file.touch()
     monkeypatch.setattr(ace2_module, "datasource_cache_root", lambda: str(tmp_path))
     monkeypatch.setattr(ace2_module.xr, "open_dataset", lambda *_, **__: dataset)
 
     ds = ACE2ERA5Data(mode="forcing", cache=True, verbose=False)
     ds.lat = lat
     ds.lon = lon
+
+    cache_file = pathlib.Path(ds.cache) / "forcing_data" / "forcing_1950.nc"
+    cache_file.parent.mkdir(parents=True)
+    cache_file.touch()
 
     da = ds(times, ["skt", "z", "global_mean_co2"])
 
@@ -177,7 +178,7 @@ def test_ace2era5_forcing_static_fields_expand_multiple_times(monkeypatch, tmp_p
     assert np.all(da.sel(variable="global_mean_co2").values[1] == 401.0)
 
 
-@pytest.mark.live(timeout=60)
+@pytest.mark.live(timeout=30)
 def test_ace2era5_co2_fn_override():
     # Define a CO2 function that returns predictable values per-time
     def co2_fn(times):
