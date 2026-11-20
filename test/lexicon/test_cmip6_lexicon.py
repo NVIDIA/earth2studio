@@ -90,6 +90,13 @@ def test_cmip6_lexicon_fraction_modifier(variable, cmip6_id):
     assert out.dtype == np.float32
     assert np.allclose(out, [0.0, 0.25, 1.0])
 
-    # Some models store fractions despite the "%" units -> unchanged
-    x = np.array([0.0, 0.25, 1.0], dtype=np.float32)
-    assert np.allclose(mod(x.copy()), x)
+    # Sparse field: 99 ice-free cells and one at 50% (mean 0.5) is still percent
+    x = np.zeros(100, dtype=np.float32)
+    x[0] = 50.0
+    out = mod(x.copy())
+    assert out.dtype == np.float32
+    assert np.allclose(out[0], 0.5) and np.allclose(out[1:], 0.0)
+
+    # The conversion must not depend on the data values
+    x = np.full(4, 0.4, dtype=np.float32)
+    assert np.allclose(mod(x.copy()), 0.004)
