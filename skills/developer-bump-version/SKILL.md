@@ -1,6 +1,6 @@
 ---
 name: developer-bump-version
-version: 0.16.0
+version: 1.0.0
 license: Apache-2.0
 metadata:
   author: NVIDIA Earth-2 Team
@@ -106,7 +106,7 @@ Also ensure the **released** version section (the one just below):
 
 ### **[CONFIRM — Release Date]**
 
-If the use doesn't know, just keep it as is, make sure to tell user this is an option.
+If the user doesn't know, just keep it as is, make sure to tell user this is an option.
 If the released section does not already have a date set, ask the user what
 date to use before proceeding.
 
@@ -130,12 +130,31 @@ commit step — note this to the user.
 
 ---
 
-## Step 4 — Commit and Push
+## Step 4 — Double-Check User-Facing Release References
+
+Before committing, check that these references match the **released** version
+in the CHANGELOG section immediately below the new development section:
+
+- `docs/userguide/about/install_options.yml`: `package.release_ref`.
+- `docs/userguide/about/install.md`: release tags in hardcoded install commands.
+- `.github/ISSUE_TEMPLATE/bug_report.yml`: the example version placeholder.
+
+These can remain stale after a release merge even when the package version and
+changelog are correct. Use the released version (for example, `1.0.0`), not the
+new development version (`1.1.0a0`). Update stale references and report which
+were changed or already correct. If the user limits the scope to particular
+files, report any remaining stale references for follow-up.
+
+---
+
+## Step 5 — Commit and Push
 
 Stage only the expected files and commit:
 
 ```bash
 git add CHANGELOG.md earth2studio/__init__.py
+git add docs/userguide/about/install_options.yml docs/userguide/about/install.md
+git add .github/ISSUE_TEMPLATE/bug_report.yml
 git commit -m "Bump version to X.(Y+1).0a0"
 ```
 

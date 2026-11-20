@@ -1,11 +1,14 @@
 # Validation Guide for Prognostic Model Wrappers
 
 This guide covers reference comparison, sanity plots, PR text, and PR review
-comments for prognostic model wrappers.
+comments for prognostic model wrappers. Local wrappers need only relevant
+smoke/contract checks in their own project; use the comparison procedure when
+requested. PR sections and repository integration are contributor only.
 
 ## Step 10 - Reference Comparison and Validation
 
-Create validation scripts in the repo root and do not commit them:
+When comparison is requested, create scripts in the user's project workspace
+(the repository root for contributions); keep contribution review scripts out of commits:
 
 1. `reference_<model>_vanilla.py` - runs the third-party/original inference path without Earth2Studio imports.
 2. `reference_<model>_e2s.py` - runs the Earth2Studio wrapper on matched inputs.
@@ -41,7 +44,7 @@ When exact agreement is impossible because of stochastic sampling, interpolation
 non-deterministic kernels, or mixed precision, explain the tolerance source in
 the PR comment and report reproducible seeds/settings.
 
-## PR Body
+## PR Body (contributor only)
 
 Use `pr-body-template.md`. Keep the structured sections from the template:
 
@@ -57,7 +60,7 @@ names, hostnames, absolute filesystem paths, cache paths, device inventory, or
 image upload links. The PR body should say that plots are available in the PR
 comment as placeholders for manual upload.
 
-## PR Validation Comment
+## PR Validation Comment (contributor only)
 
 Use `pr-comment-template.md`. The comment should include:
 
@@ -78,7 +81,10 @@ Use TODO placeholders so the PR author can upload plots manually in the browser.
 Do not include absolute paths, hostnames, machine names, cache directories, or
 machine-identifying details.
 
-## Branch, Commit, and PR
+## Branch, Commit, and PR (contributor only, when requested)
+
+Commit, push and create a PR only when explicitly requested. Follow
+`CONTRIBUTING.md` and the developer guide; use `earth2studio-install` for dependency setup.
 
 Before opening or updating the PR, verify that new prognostic models have a
 `pyproject.toml` optional dependency extra, even if empty, that the `all` extra
@@ -95,7 +101,7 @@ git add earth2studio/models/px/<filename>.py         earth2studio/models/px/__in
 Create the PR with the body template and then post the validation comment from
 `pr-comment-template.md`.
 
-## Code Review Follow-up
+## Code Review Follow-up (contributor only)
 
 After the PR is open, inspect review and bot feedback. Fix correctness,
 coordinate, dependency, documentation, and test issues. For each follow-up,

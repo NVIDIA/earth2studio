@@ -68,11 +68,9 @@ def test_configuration_preserves_resources_and_is_idempotent(allocators, policy)
         memory._configure_rmm()
     assert memory._configure_rmm.configured
     allocators.switch.assert_called_once_with(allocators.torch_allocator)
-    allocators.mr.PoolMemoryResource.assert_called_once_with(
-        allocators.resources[0], initial_pool_size=0
-    )
+    allocators.mr.CudaAsyncMemoryResource.assert_called_once_with()
     allocators.mr.set_per_device_resource.assert_called_once_with(
-        0, allocators.mr.PoolMemoryResource.return_value
+        0, allocators.mr.CudaAsyncMemoryResource.return_value
     )
     allocators.cp.cuda.set_allocator.assert_called_with(allocators.cupy_allocator)
 

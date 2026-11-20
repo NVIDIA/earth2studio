@@ -14,9 +14,10 @@ an output backend.
 | [Perturbations](perturbation.md) | Generate perturbed fields for ensembles. |
 | [IO backends](io.md) | Store labelled outputs in memory or on disk. |
 | [Statistics](statistics.md) | Reduce fields and compare predictions with observations. |
+| [Pipelines and runners](execution.md) | Run components over many forecasts and stream outputs to storage. |
 
 Start with [Data and Metadata](coordinates.md) for the data exchanged between
-components. See the [Overview](../about/overview.md) for composing them into pipelines.
+components. See [Pipelines and Runners](execution.md) for running them at scale.
 
 Each component page introduces its interface, shows usage, and explains how to
 implement your own component. Full requirements live in the

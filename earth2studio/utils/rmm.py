@@ -76,9 +76,9 @@ class _RMMConfiguration:
                 resource = rmm.mr.get_current_device_resource()
                 # Only wrap RMM's default; preserve existing pools/custom resources.
                 if type(resource) is rmm.mr.CudaMemoryResource:
-                    pools[device] = rmm.mr.PoolMemoryResource(
-                        resource, initial_pool_size=0
-                    )
+                    # cudaMallocAsync's pool avoids the fragmentation of a
+                    # growing PoolMemoryResource (see issue #1392).
+                    pools[device] = rmm.mr.CudaAsyncMemoryResource()
 
         try:
             torch.cuda.memory.change_current_allocator(rmm_torch_allocator)

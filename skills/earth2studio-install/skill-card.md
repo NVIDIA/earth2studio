@@ -19,10 +19,10 @@ Risk: Review before execution as proposals could introduce incorrect or misleadi
 Mitigation: Review and scan skill before deployment. <br>
 
 ## Reference(s): <br>
-- [Earth2Studio Installation Guide](https://nvidia.github.io/earth2studio/userguide/about/install.html) <br>
+- [Earth2Studio Installation Guide](https://nvidia.github.io/earth2studio/main/userguide/about/install/) <br>
 - [uv Package Manager Installation](https://docs.astral.sh/uv/getting-started/installation/) <br>
-- [Earth2Studio Troubleshooting](https://nvidia.github.io/earth2studio/userguide/support/troubleshooting.html) <br>
-- [Earth2Studio FAQ](https://nvidia.github.io/earth2studio/userguide/support/faq.html) <br>
+- [Earth2Studio Troubleshooting](https://nvidia.github.io/earth2studio/main/userguide/support/troubleshooting/) <br>
+- [Earth2Studio FAQ](https://nvidia.github.io/earth2studio/main/userguide/support/faq/) <br>
 
 
 ## Skill Output: <br>
