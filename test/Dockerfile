@@ -59,13 +59,19 @@ COPY earth2studio/__init__.py earth2studio/__init__.py
 
 # Warm uv's package/build cache into the image. CI runs use this same cache
 # directory, avoiding a large GitHub Actions uv cache archive.
-# Use the same locked CUDA 13.2 Torch/attention wheels as fresh CI environments.
-# Fail rather than compile attention packages if a compatible wheel is missing.
+# Skip attention source builds here; cache compatible wheels below instead.
+# These wheels match the locked PyPI Torch 2.13.0 (CUDA 13.0) build.
 RUN uv venv --python="${PYTHON_VERSION}" \
-    && uv sync --locked --no-install-project --no-build-package flash-attn --no-build-package natten \
+    && uv sync --locked --no-install-project --no-install-package flash-attn --no-install-package natten \
     && for EXTRA in all aifs aifs2 aifs2ens aifsens stormcast-conus; do \
-        uv sync --locked --no-install-project --no-build-package flash-attn --no-build-package natten --extra "${EXTRA}" || exit 1; \
+        uv sync --locked --no-install-project --no-install-package flash-attn --no-install-package natten --extra "${EXTRA}" || exit 1; \
     done \
+    && uv pip install --no-deps --only-binary :all: \
+        --index https://wheels.astral.sh/simple/cu130/ \
+        'flash-attn==2.8.3.post1+cu.13.0.torch.2.13' \
+    && uv pip install --no-deps --only-binary :all: \
+        --find-links https://whl.natten.org \
+        'natten==0.21.7+torch2130cu130' \
     && TORCH_VERSION="$(.venv/bin/python -c 'from importlib.metadata import version; print(version("torch"))')" \
     && printf 'export TORCH_VERSION=%s\n' "${TORCH_VERSION}" > /opt/earth2studio-ci-env \
     && chmod -R a+rwX "${UV_CACHE_DIR}"
