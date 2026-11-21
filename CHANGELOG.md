@@ -25,6 +25,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   a 0-1 fraction instead of the percent stored in the GRIB files.
 - Fixed `ISD` returning multi-hour (3, 6, 12, 24 hour) precipitation totals as
   hourly `tp`.
+- Fixed `ISD` returning duplicate observations when the tolerance windows of
+  several requested times overlap, and missing observations from the neighboring
+  year when a window crosses a year boundary.
 
 ### Security
 
@@ -77,9 +80,6 @@ Breaking API changes; see [MIGRATION.md](MIGRATION.md) for upgrade instructions.
 - HRRR snow depth and GEFS 0.25° precipitation now use meters.
 - ISD wind components remain NaN when wind direction is missing.
 - Corrected longitude-bound selection and rejected source grids with insufficient coverage.
-- Fixed `ISD` returning duplicate observations when the tolerance windows of
-  several requested times overlap, and missing observations from the neighboring
-  year when a window crosses a year boundary.
 
 ### Security
 
