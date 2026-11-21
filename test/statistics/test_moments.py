@@ -317,7 +317,6 @@ def test_weighted_var(device: str) -> None:
 @pytest.mark.parametrize("ensemble_axis", [0, 1])
 @pytest.mark.parametrize("weighted", [False, True])
 def test_batch_var_std(device, ensemble_axis, weighted) -> None:
-
     big_x = torch.randn((100, 10, 10), device=device)
     big_coords = OrderedDict(
         {
@@ -334,7 +333,6 @@ def test_batch_var_std(device, ensemble_axis, weighted) -> None:
         )
     reduced_coords = OrderedDict({"lat": big_coords["lat"], "lon": big_coords["lon"]})
 
-    # Unequal weights for the ten members of each batch, not summing to ten
     weights = torch.linspace(0.05, 0.5, 10, device=device) if weighted else None
     std = moments.std(["ensemble"], weights=weights, batch_update=True)
     var = moments.variance(["ensemble"], weights=weights, batch_update=True)
@@ -348,17 +346,27 @@ def test_batch_var_std(device, ensemble_axis, weighted) -> None:
         coords["ensemble"] = coords["ensemble"][inds : inds + 10]
         x = from_torch(big_x.narrow(ensemble_axis, inds, 10), coords)
 
+        if weighted:
+            aweights = weights.repeat(inds // 10 + 1).cpu().numpy()
+            expected_var = np.apply_along_axis(
+                lambda m: np.cov(m, aweights=aweights),
+                ensemble_axis,
+                accumulated.cpu().numpy(),
+            )
+        else:
+            expected_var = torch.var(accumulated, dim=ensemble_axis).cpu().numpy()
+
         y = std(x)
-        expected = torch.std(accumulated, dim=ensemble_axis).cpu().numpy()
-        assert np.allclose(_to_np(y), expected, rtol=1e-4, atol=1e-6)
+        assert np.allclose(
+            _to_np(y), np.sqrt(expected_var), rtol=1e-4, atol=1e-6
+        )
         assert y.dims == tuple(reduced_coords)
         for d, v in reduced_coords.items():
             assert np.array_equal(y.coords[d].values, v)
         _check_output_coords(std, x, y)
 
         y = var(x)
-        expected = torch.var(accumulated, dim=ensemble_axis).cpu().numpy()
-        assert np.allclose(_to_np(y), expected, rtol=1e-4, atol=1e-6)
+        assert np.allclose(_to_np(y), expected_var, rtol=1e-4, atol=1e-6)
         assert y.dims == tuple(reduced_coords)
         for d, v in reduced_coords.items():
             assert np.array_equal(y.coords[d].values, v)
