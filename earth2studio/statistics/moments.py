@@ -280,8 +280,7 @@ class variance:
                 self.n += temp_n
                 self.n2 += temp_n2
 
-            # Same weighted denominator as the non-batched path, n - 1 without
-            # weights. A single sample keeps returning zero instead of NaN.
+            # Match non-batched normalization (n - 1 unweighted); keep singleton variance zero
             div = self.n - self.n2 / self.n
             return (
                 self.sum2 / torch.where(div > 0, div, torch.ones_like(div)),
