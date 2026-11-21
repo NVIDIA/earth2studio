@@ -179,6 +179,7 @@ class variance:
         self.batch_update = batch_update
         if self.batch_update:
             self.n: Any = 0
+            self.n2: Any = 0
             self.sum: Any = None
             self.sum2: Any = None
 
@@ -239,6 +240,7 @@ class variance:
 
         # If batch updating then calculate updated variance
         temp_n = weights_sum
+        temp_n2 = torch.sum(weights**2)
         temp_sum = torch.sum(weights * x_t, dim=dims)
         temp_mean = torch.sum(weights * x_t, dim=dims, keepdim=True) / temp_n
         temp_sum2 = torch.sum(weights * (x_t - temp_mean) ** 2, dim=dims)
@@ -246,6 +248,7 @@ class variance:
         # First batch then no correction
         if self.n == 0:
             self.n = temp_n
+            self.n2 = temp_n2
             self.sum = temp_sum
             self.sum2 = temp_sum2
         # Second-order correction with each batch
@@ -256,8 +259,14 @@ class variance:
                 self.sum2 + temp_sum2 + self.n / temp_n / (self.n + temp_n) * delta**2
             )
             self.n = self.n + temp_n
+            self.n2 = self.n2 + temp_n2
 
-        return from_torch(self.sum2 / torch.clamp(self.n - 1.0, min=1.0), signature)
+        # Match non-batched normalization; keep singleton variance zero.
+        div = self.n - self.n2 / self.n
+        return from_torch(
+            self.sum2 / torch.where(div > 0, div, torch.ones_like(div)),
+            signature,
+        )
 
 
 class std:
