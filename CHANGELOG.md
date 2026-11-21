@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `Pipeline` lead-time reductions per stream, such as weekly means with `LeadWindow`.
+
 ### Changed
 
 ### Deprecated
@@ -19,6 +21,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `CFS_FX_Flux` and `CFS_Reforecast_FX_Flux` return `tcc`, `hcc`, `mcc` and `lcc` as
+  a 0-1 fraction instead of the percent stored in the GRIB files.
+- Fixed `ISD` returning multi-hour (3, 6, 12, 24 hour) precipitation totals as
+  hourly `tp`.
+- Fixed `ISD` returning duplicate observations when the tolerance windows of
+  several requested times overlap, and missing observations from the neighboring
+  year when a window crosses a year boundary.
 - CMIP6 `tcc` and `sic` are now returned as fractions (0-1) instead of percent, detecting
   percent from the field maximum so sparse fields convert correctly.
 

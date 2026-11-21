@@ -88,10 +88,17 @@ categories:
         notes:
           - &flash_attn_wheels
             text: >-
-              FlashAttention (flash-attn) can take a long time to build.
-              Compatible prebuilt wheels are available from the Astral GPU index.
+              By default, installation attempts to build FlashAttention from source.
+              To avoid lengthy builds, look for prebuilt wheels matching your
+              PyTorch and CUDA versions in the linked index.
             href: https://wheels.astral.sh/
-            label: Astral GPU index
+            label: FlashAttention prebuilt wheels (Astral)
+          - &attention_compatibility
+            text: >-
+              Match wheels to your Python, platform, PyTorch, and CUDA build.
+              Use the install skill with your agent for installation guidance.
+            href: https://github.com/NVIDIA/earth2studio/blob/main/skills/earth2studio-install/SKILL.md
+            label: Earth2Studio install skill
       - id: aifsens
         label: AIFS Ensemble
         extra: aifsens
@@ -100,6 +107,7 @@ categories:
           - earth2studio.models.px.AIFSENS
         notes:
           - *flash_attn_wheels
+          - *attention_compatibility
       - id: aifs2
         label: AIFS 2.0
         extra: aifs2
@@ -108,6 +116,7 @@ categories:
           - earth2studio.models.px.AIFS2
         notes:
           - *flash_attn_wheels
+          - *attention_compatibility
       - id: aifs2ens
         label: AIFS 2.0 Ensemble
         extra: aifs2ens
@@ -116,6 +125,7 @@ categories:
           - earth2studio.models.px.AIFS2ENS
         notes:
           - *flash_attn_wheels
+          - *attention_compatibility
       - id: atlas
         label: Atlas
         extra: atlas
@@ -126,10 +136,12 @@ categories:
         notes:
           - &natten_wheels
             text: >-
-              NATTEN (required for Python versions before 3.14) can take a long
-              time to build. Compatible prebuilt wheels are available from NATTEN.
+              By default, installation attempts to build NATTEN from source.
+              To avoid lengthy builds, look for prebuilt wheels matching your
+              PyTorch and CUDA versions in the linked index.
             href: https://whl.natten.org
             label: NATTEN prebuilt wheels
+          - *attention_compatibility
       - id: aurora
         label: Aurora
         extra: aurora
@@ -266,6 +278,9 @@ categories:
         summary: Dependencies for the InterpCRPSDiT CRPS temporal interpolation model. Requires a base prognostic model.
         api_refs:
           - earth2studio.models.px.InterpCRPSDiT
+        notes:
+          - *natten_wheels
+          - *attention_compatibility
       - id: interp-modafno
         label: InterpModAFNO
         extra: interp-modafno
@@ -333,6 +348,7 @@ categories:
               - 'uv add "nvidia-physicsnemo@git+https://github.com/NVIDIA/physicsnemo.git@ff4cad2390e412b136e1739476506064d42eefba"'
         notes:
           - *natten_wheels
+          - *attention_compatibility
       - id: stormscope
         label: StormScope
         extra: stormscope
@@ -343,6 +359,7 @@ categories:
           - earth2studio.models.dx.StormScopeDxNSRDB
         notes:
           - *natten_wheels
+          - *attention_compatibility
       - id: ucast
         label: UCast
         extra: ucast
@@ -404,6 +421,7 @@ categories:
               - 'uv add "nvidia-physicsnemo@git+https://github.com/NVIDIA/physicsnemo.git@426f7552da4b4fa675e404e8a4f437e27681b668"'
         notes:
           - *natten_wheels
+          - *attention_compatibility
       - id: cosmo
         label: CorrDiff COSMO-ERA5
         extra: cosmo
@@ -419,6 +437,7 @@ categories:
               - 'uv add "nvidia-physicsnemo@git+https://github.com/NVIDIA/physicsnemo.git@ff4cad2390e412b136e1739476506064d42eefba"'
         notes:
           - *natten_wheels
+          - *attention_compatibility
       - id: cyclone
         label: Cyclone Trackers
         extra: cyclone
@@ -504,6 +523,7 @@ categories:
               - 'uv add "nvidia-physicsnemo@git+https://github.com/NVIDIA/physicsnemo.git@ff4cad2390e412b136e1739476506064d42eefba"'
         notes:
           - *natten_wheels
+          - *attention_compatibility
       - id: da-healda
         label: HealDA
         extra: da-healda

@@ -537,6 +537,7 @@ nav:
   - Developer Guide:
     - userguide/developer/index.md
     - Overview: userguide/developer/overview.md
+    - Software Maturity: userguide/developer/software_maturity.md
     - Dependencies: userguide/developer/dependency.md
     - Style: userguide/developer/style.md
     - Documentation: userguide/developer/documentation.md

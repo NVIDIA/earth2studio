@@ -67,10 +67,10 @@ workflow with its own unique value.
 Use components directly in Python or assemble them with the execution tools:
 
 - **`Pipeline`** (`earth2studio.run`) manages work items such as initialization times,
-  forecast horizons, and ensemble members. It handles output selection, regridding,
-  storage, optional scoring, distribution, and resuming completed work.
-  `Pipeline.from_model(...)` builds a prognostic runner from a model and data sources,
-  with optional diagnostics.
+  forecast horizons, and ensemble members. It handles output selection, lead-time
+  reductions, regridding, storage, optional scoring, distribution, and resuming
+  completed work. `Pipeline.from_model(...)` builds a prognostic runner from a model
+  and data sources, with optional diagnostics.
 - **`CoupledRunner`** (`earth2studio.coupling`) connects models through `Connector`
   declarations. Connectors describe which producer supplies a consumer's inputs,
   including variable mapping, time selection, and optional regridding. The runner

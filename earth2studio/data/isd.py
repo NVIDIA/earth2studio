@@ -239,36 +239,41 @@ class ISD:
                 logger.error(f"variable id {v} not found in ISD lexicon")
                 raise e
 
-        # Load dataframes for each station-year (cached parquet if available)
-        func_map: list[Any] = []
-        for station in self.stations:
-            for dt in time:
-                func_map.append(  # noqa: PERF401
-                    self._fetch_station_year(station, dt.year)
+        # Load dataframes for each unique station-year, covering every year touched
+        # by a tolerance window so windows crossing a year boundary are not cut off
+        station_years = sorted(
+            {
+                (station, year)
+                for station in self.stations
+                for dt in time
+                for year in range(
+                    (dt + self._tolerance_lower).year,
+                    (dt + self._tolerance_upper).year + 1,
                 )
+            }
+        )
+        func_map: list[Any] = [
+            self._fetch_station_year(station, year) for station, year in station_years
+        ]
 
         # Launch all fetch requests
         station_year_dfs = await tqdm.gather(
             *func_map, desc="Fetching NOAA ISD data", disable=(not self._verbose)
         )
 
-        # Gather all dataframes by station and by year
+        # Select observations in the window of any requested time. One mask per
+        # station-year so overlapping windows do not return a row twice
         filtered_df = []
-        index = 0
-        for station in self.stations:
+        for df in station_year_dfs:
+            if df.empty:
+                continue
+            mask = pd.Series(False, index=df.index)
             for dt in time:
-                df = station_year_dfs[index]
-                index += 1
-
-                tmin = dt + self._tolerance_lower
-                tmax = dt + self._tolerance_upper
-
-                if df.empty:
-                    continue
-
-                df_window = df[(df["DATE"] >= tmin) & (df["DATE"] <= tmax)]
-                if not df_window.empty:
-                    filtered_df.append(df_window)
+                mask |= (df["DATE"] >= dt + self._tolerance_lower) & (
+                    df["DATE"] <= dt + self._tolerance_upper
+                )
+            if mask.any():
+                filtered_df.append(df[mask])
 
         if len(filtered_df) == 0:
             return pd.DataFrame(columns=schema.names)
@@ -611,7 +616,9 @@ class ISD:
         """Extract the hourly total precipitation in meters
 
         Liquid precipitation period quantity is indicated by column AA1 and is provided
-        in mm at a scale factor of 10 (so 10^-5). 9999 is missing
+        in mm at a scale factor of 10 (so 10^-5). 9999 is missing. AA1 is a string
+        field (period (hours), depth, condition code, quality code); only one hour
+        periods are kept, since reports of 3, 6 or 24 hour totals are not hourly.
         """
         if "AA1" not in df:
             df["tp"] = np.nan
@@ -621,9 +628,10 @@ class ISD:
         if parts.shape[1] < 2:
             df["tp"] = np.nan
             return df
+        period = pd.to_numeric(parts[0], errors="coerce")
         amt = pd.to_numeric(parts[1], errors="coerce")
-        # 9999 indicates missing
-        amt = amt.where(amt != 9999.0, np.nan) / 10000.0
+        # 9999 indicates missing, only keep one hour accumulation periods
+        amt = amt.where((amt != 9999.0) & (period == 1), np.nan) / 10000.0
         df["tp"] = amt
         return df
 
