@@ -357,9 +357,7 @@ def test_batch_var_std(device, ensemble_axis, weighted) -> None:
             expected_var = torch.var(accumulated, dim=ensemble_axis).cpu().numpy()
 
         y = std(x)
-        assert np.allclose(
-            _to_np(y), np.sqrt(expected_var), rtol=1e-4, atol=1e-6
-        )
+        assert np.allclose(_to_np(y), np.sqrt(expected_var), rtol=1e-4, atol=1e-6)
         assert y.dims == tuple(reduced_coords)
         for d, v in reduced_coords.items():
             assert np.array_equal(y.coords[d].values, v)
