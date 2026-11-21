@@ -146,12 +146,3 @@ docs-serve:
 	uv sync --locked --group docs
 	$(MAKE) docs-generate
 	E2S_GALLERY_EXECUTE=never $(UV_DOCS) zensical serve -a 0.0.0.0:$(PORT)
-
-.PHONY: container-service
-# Example DOCKER_REPO?=nvcr.io/dycvht5ows21
-E2S_RELEASE_TAG?=0.15.0
-E2S_IMAGE_NAME=$(DOCKER_REPO)/earth2studio-scicomp
-E2S_IMAGE_TAG=v$(E2S_RELEASE_TAG).20260514.0
-container-service:
-	@test -n "$(DOCKER_REPO)" || (echo "DOCKER_REPO is not set!" && exit 1)
-	DOCKER_BUILDKIT=1 docker build -t $(E2S_IMAGE_NAME):$(E2S_IMAGE_TAG) -f serve/Dockerfile .

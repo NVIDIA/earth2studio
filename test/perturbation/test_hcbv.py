@@ -22,14 +22,41 @@ import pytest
 import torch
 
 from earth2studio.data import Constant, Random
-from earth2studio.models.batch import batch_coords, batch_func
+from earth2studio.models.batch import batch_func
 from earth2studio.models.px.persistence import Persistence
 from earth2studio.perturbation import (
     Brown,
     Gaussian,
     HemisphericCentredBredVector,
 )
-from earth2studio.utils.type import CoordSystem
+from earth2studio.utils.coords import coord_array, coord_array_like
+from earth2studio.utils.cupy import from_torch
+
+
+def test_breeding_casts_source_to_model_dtype():
+    class FloatModel(Persistence):
+        def __call__(self, x):
+            assert x.dtype == np.float32
+            return super().__call__(x)
+
+    model = FloatModel(
+        np.array(["z500"]),
+        OrderedDict(lat=np.linspace(90, -90, 16), lon=np.arange(16)),
+    )
+    # Constant, like GFS, supplies double-precision fields.
+    source = Constant(OrderedDict(lat=np.linspace(90, -90, 16), lon=np.arange(16)))
+    perturbation = HemisphericCentredBredVector(
+        model=model,
+        data=source,
+        integration_steps=1,
+        seeding_perturbation_method=Gaussian(),
+    )
+    result = next(
+        perturbation.create_generator(
+            np.array([np.datetime64("2024-09-24T12")]), 2, torch.device("cpu")
+        )
+    )
+    assert result.dtype == torch.float32
 
 
 # Fake PX model
@@ -45,16 +72,15 @@ def model():
         def input_coords(self):
             return self._input_coords
 
-        @batch_coords()
-        def output_coords(self, input_coords: CoordSystem):
-            output_coords = input_coords.copy()
-            output_coords["lead_time"] = np.array([np.timedelta64(1, "s")])
-            return output_coords
+        def output_coords(self, input_coords):
+            return coord_array_like(
+                input_coords, {"lead_time": np.array([np.timedelta64(1, "s")])}
+            )
 
         @batch_func()
-        def forward(self, x, coords):
+        def forward(self, x):
             self.index += 1
-            return self.scale * x, coords
+            return x * self.scale.item()
 
     return FooModel()
 
@@ -108,7 +134,7 @@ def test_hem_centered_bred(
         ]
     )
     fc.update(dc)
-    model._input_coords = fc
+    model._input_coords = coord_array(tuple(fc), fc, dynamic=("batch",))
     model = model.to(device)
     model.index = 0
 
@@ -132,7 +158,12 @@ def test_hem_centered_bred(
         noise_amplitude=amplitude,
         integration_steps=steps,
     )
-    xout, coords = prtb(x, coords)
+    xda = from_torch(x, coords, attrs={"a": 1})
+    xout_da = prtb(xda)
+    assert xout_da.dims == xda.dims
+    assert xout_da.attrs == xda.attrs
+    assert xout_da.e2s.is_cupy == (device != "cpu")
+    xout = xout_da.e2s.to_torch()[0]
     dx = xout - x
 
     # Don't have a good statistical test for this at the moment
@@ -164,7 +195,7 @@ def test_hem_centered_bred(
         noise_amplitude=amplitude,
         integration_steps=steps,
     )
-    xout, coords = prtb(x, coords)
+    xout = prtb(xda).e2s.to_torch()[0]
     # Don't have a good statistical test for this at the moment
     assert xout.shape == x.shape
     assert xout.device == x.device
@@ -229,8 +260,8 @@ def test_hem_centered_bred_batching(steps, device):
         noise_amplitude=1.0,
         integration_steps=steps,
     )
-    xout1, coords = prtb(x, coords)
-    xout2, coords = prtb(x, coords)
+    xout1 = prtb(from_torch(x, coords)).e2s.to_torch()[0]
+    xout2 = prtb(from_torch(x, coords)).e2s.to_torch()[0]
 
     assert torch.allclose(xout1, -xout2)
 
@@ -244,8 +275,8 @@ def test_hem_centered_bred_batching(steps, device):
         integration_steps=steps,
     )
     coords["ensemble"] = np.arange(3)
-    xout1a, coords = prtb(x, coords)
-    xout1b, coords = prtb(x2, coords)
+    xout1a = prtb(from_torch(x.repeat(3, 1, 1, 1, 1, 1), coords)).e2s.to_torch()[0]
+    xout1b = prtb(from_torch(x2.repeat(3, 1, 1, 1, 1, 1), coords)).e2s.to_torch()[0]
 
     prtb = HemisphericCentredBredVector(
         model=model,
@@ -255,7 +286,7 @@ def test_hem_centered_bred_batching(steps, device):
         integration_steps=steps,
     )
     coords["ensemble"] = np.arange(6)
-    xout2, coords = prtb(x, coords)
+    xout2 = prtb(from_torch(x.repeat(6, 1, 1, 1, 1, 1), coords)).e2s.to_torch()[0]
 
     # Note that the last two batches are not gaurenteed to be the same here
     # since the batch size 3 run requires two different generators

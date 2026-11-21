@@ -27,9 +27,7 @@ from obstore.store import GCSStore, HTTPStore, S3Store
 from earth2studio.data import HRRR, HRRR_FX
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(30)
+@pytest.mark.live(timeout=30)
 @pytest.mark.parametrize(
     "time",
     [
@@ -65,9 +63,7 @@ def test_hrrr_fetch(time, variable):
     assert np.array_equal(data.coords["variable"].values, np.array(variable))
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(30)
+@pytest.mark.live(timeout=30)
 @pytest.mark.parametrize(
     "time,lead_time",
     [
@@ -142,16 +138,14 @@ def test_hrrr_init():
         HRRR(source="azure")
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(30)
+@pytest.mark.live(timeout=30)
 @pytest.mark.parametrize(
     "time",
     [
         np.array([np.datetime64("2024-01-01T00:00")]),
     ],
 )
-@pytest.mark.parametrize("variable", [["t2m", "sp", "t10hl"]])
+@pytest.mark.parametrize("variable", [["t2m", "t10hl"]])
 @pytest.mark.parametrize("cache", [True, False])
 def test_hrrr_cache(time, variable, cache):
 
@@ -308,84 +302,6 @@ def test_hrrr_index_parser_max_byte_size(tmp_path):
 # ----------------------------------------------------------------------
 
 
-@pytest.mark.timeout(15)
-@pytest.mark.parametrize("source", ["aws", "google"])
-def test_hrrr_call_mock(source, tmp_path, monkeypatch):
-    """Exercise the full __call__ path using mocked index + grib decode.
-
-    The real (offline) store construction runs for both the aws (S3) and
-    google (GCS) sources; only the remote reads are mocked out.
-    """
-    monkeypatch.setenv("EARTH2STUDIO_CACHE", str(tmp_path))
-
-    fake_index = {
-        "1::TMP::2 m above ground::anl": (0, 65300),
-        "2::HGT::500 mb::anl": (65300, 31215),
-    }
-    fake_grid = np.random.rand(1059, 1799).astype(np.float32)
-
-    async def _fake_fetch_index(uri):
-        return fake_index
-
-    async def _fake_fetch_remote_file(*args, **kwargs):
-        return str(tmp_path / "ignored.grib2")
-
-    ds = HRRR(source=source, cache=True, verbose=False)
-
-    with (
-        patch.object(ds, "_fetch_index", side_effect=_fake_fetch_index),
-        patch.object(ds, "_fetch_remote_file", side_effect=_fake_fetch_remote_file),
-        patch("earth2studio.data.hrrr.decode_grib_message", return_value=fake_grid),
-    ):
-        data = ds(datetime(2024, 1, 1), ["t2m", "z500"])
-
-    # Store was built lazily for the requested source
-    assert isinstance(ds.store, S3Store if source == "aws" else GCSStore)
-    assert data.shape == (1, 2, 1059, 1799)
-    # t2m is identity, z500 multiplies HGT by 9.81 — both records used the
-    # same mock grid, so t2m matches the grid and z500 = grid * 9.81.
-    np.testing.assert_allclose(data.sel(variable="t2m").values[0], fake_grid)
-    np.testing.assert_allclose(
-        data.sel(variable="z500").values[0], fake_grid * 9.81, rtol=1e-6
-    )
-
-
-@pytest.mark.timeout(15)
-def test_hrrr_fx_call_mock(tmp_path, monkeypatch):
-    """Exercise the HRRR_FX __call__ path with multiple lead times."""
-    monkeypatch.setenv("EARTH2STUDIO_CACHE", str(tmp_path))
-
-    fake_index = {
-        "1::TMP::2 m above ground::anl": (0, 65300),
-        "2::TMP::2 m above ground::6 hour fcst": (65300, 65300),
-    }
-    fake_grid = np.random.rand(1059, 1799).astype(np.float32)
-
-    async def _fake_fetch_index(uri):
-        return fake_index
-
-    async def _fake_fetch_remote_file(*args, **kwargs):
-        return str(tmp_path / "ignored.grib2")
-
-    ds = HRRR_FX(source="aws", cache=True, verbose=False)
-
-    with (
-        patch.object(ds, "_fetch_index", side_effect=_fake_fetch_index),
-        patch.object(ds, "_fetch_remote_file", side_effect=_fake_fetch_remote_file),
-        patch("earth2studio.data.hrrr.decode_grib_message", return_value=fake_grid),
-    ):
-        data = ds(
-            datetime(2024, 1, 1),
-            [timedelta(hours=0), timedelta(hours=6)],
-            ["t2m", "z500"],
-        )
-
-    assert data.shape == (1, 2, 2, 1059, 1799)
-    for j in range(2):
-        np.testing.assert_allclose(data.sel(variable="t2m").values[0, j], fake_grid)
-    assert np.isnan(data.sel(variable="z500").values).all()
-
-
 @pytest.mark.timeout(10)
 def test_hrrr_special_variable_lookups():
     fake_index = {
@@ -396,32 +312,36 @@ def test_hrrr_special_variable_lookups():
         "70::SNOD::surface::1 hour fcst": (410, 10),
         "69::SNOWC::surface::1 hour fcst": (510, 10),
     }
-    time = [datetime(2026, 7, 20)]
+    time = datetime(2026, 7, 20)
     analysis = HRRR(cache=False, verbose=False)
     forecast = HRRR_FX(cache=False, verbose=False)
-    fetch_index = AsyncMock(return_value=fake_index)
-    with (
-        patch.object(analysis, "_fetch_index", new=fetch_index),
-        patch.object(forecast, "_fetch_index", new=fetch_index),
-    ):
-        [analysis_task] = asyncio.run(
-            analysis._create_tasks(time, [timedelta(0)], ["tp"])
-        )
-        forecast_tasks = asyncio.run(
-            forecast._create_tasks(
-                time,
-                [timedelta(hours=1)],
-                ["tp", "tcc", "sd", "sde", "snowc"],
-            )
-        )
-    offsets = [task.hrrr_byte_offset for task in forecast_tasks]
-    assert analysis_task.hrrr_byte_offset == 100
-    assert offsets == [110, 210, 310, 410, 510]
+    for ds, lead, variables, expected in [
+        (analysis, timedelta(0), ["tp"], [100]),
+        (
+            forecast,
+            timedelta(hours=1),
+            ["tp", "tcc", "sd", "sde", "snowc"],
+            [110, 210, 310, 410, 510],
+        ),
+    ]:
+        offsets = []
+
+        async def fetch_array(uri, offset, length, modifier):
+            offsets.append(offset)
+            return np.zeros((1, 1))
+
+        with (
+            patch.object(ds, "_fetch_index", new=AsyncMock(return_value=fake_index)),
+            patch.object(ds, "fetch_array", new=fetch_array),
+        ):
+            for v in variables:
+                asyncio.run(ds._fetch_sample(time, lead, v))
+        assert offsets == expected
 
 
 @pytest.mark.timeout(15)
 def test_hrrr_missing_variable_mock(tmp_path, monkeypatch):
-    # If the requested variable is absent from the .idx, _create_tasks warns
+    # If the requested variable is absent from the .idx, the source warns
     # and skips it, so the output slot must remain detectably missing.
     monkeypatch.setenv("EARTH2STUDIO_CACHE", str(tmp_path))
 
@@ -445,3 +365,89 @@ def test_hrrr_missing_variable_mock(tmp_path, monkeypatch):
 
     np.testing.assert_allclose(data.sel(variable="t2m").values[0], fake_grid)
     assert np.isnan(data.sel(variable="z500").values).all()
+
+
+@pytest.mark.timeout(30)
+@pytest.mark.parametrize("source", ["aws", "google"])
+def test_hrrr_call_mock(source, mock_statistic_grib):
+    ds = HRRR(source=source, cache=True, verbose=True)
+    variables = ["t2m", "t2m:mean:3h", "t2m:sum:3h", "t2m:max:3h", "t2m:min:3h"]
+    index_calls = mock_statistic_grib(ds)
+    data = ds(datetime(2024, 1, 2), variables)
+    assert isinstance(ds.store, S3Store if source == "aws" else GCSStore)
+    # Window (-3h, 0h] holds the hourly analyses at 22z, 23z and 00z (22..24 h)
+    assert data.shape == (1, 5, 2, 2)
+    values = [float(data.sel(variable=v).values[0, 0, 0]) for v in variables]
+    assert values == [24.0, 23.0, 69.0, 24.0, 22.0]
+    assert set(data.attrs["earth2studio_statistics"]) == set(variables[1:])
+    # Instantaneous (shared with the window) plus two extra analysis times
+    assert len({u for u in index_calls if "wrfsfc" in u}) == 3
+    # Windows holding a missing sample propagate NaN
+    np.testing.assert_allclose(
+        data.values[0, :, 0, 1], [24] + [np.nan] * 4, equal_nan=True
+    )
+    np.testing.assert_allclose(data.values[0, :, 1, 0], np.nan, equal_nan=True)
+    data = ds(datetime(2024, 1, 2), ["t2m", "z500"])
+    np.testing.assert_allclose(data.values[0, :, 0, 0], [24, 24 * 9.81])
+
+
+@pytest.mark.timeout(30)
+def test_hrrr_fx_call_mock(mock_statistic_grib):
+    fx = HRRR_FX(source="aws", cache=True, verbose=True)
+    variables = [
+        "t2m",
+        "t2m:mean:3h",
+        "t2m:sum:+0h:+3h",
+        "t2m:max:-2h:+0h",
+        "t2m:min:3h",
+    ]
+    index_calls = mock_statistic_grib(fx)
+    data = fx(datetime(2024, 1, 1), [timedelta(hours=6), timedelta(hours=7)], variables)
+    with pytest.raises(ValueError, match="lead time"):
+        fx(datetime(2024, 1, 1), [timedelta(hours=0)], ["t2m:mean:3h"])
+    assert data.shape == (1, 2, 5, 2, 2)
+    # lead 6: mean(4,5,6)=5, sum(7,8,9)=24, max(5,6)=6; lead 7 is shifted by 1h
+    np.testing.assert_allclose(
+        data.values[0, :, :, 0, 0], [[6, 5, 24, 6, 4], [7, 6, 27, 7, 5]]
+    )
+    assert set(data.attrs["earth2studio_statistics"]) == set(variables[1:])
+    # Only leads 4..10 are indexed
+    assert len({u for u in index_calls if "wrfsfc" in u}) == 7
+    np.testing.assert_allclose(data.values[0, :, 1, 0, 1], np.nan, equal_nan=True)
+    data = fx(datetime(2024, 1, 1), [timedelta(0), timedelta(hours=6)], ["t2m", "msl"])
+    np.testing.assert_allclose(data.sel(variable="t2m").values[0, :, 0, 0], [0, 6])
+    assert np.isnan(data.sel(variable="msl").values).all()
+
+
+def test_hrrr_shared_index_download(monkeypatch, tmp_path):
+    """Concurrent index fetches share one atomic download per cache file."""
+    import earth2studio.data.hrrr as hrrr_module
+
+    calls = []
+
+    async def fake_fetch(
+        store,
+        key,
+        cache_dir,
+        byte_offset=0,
+        byte_length=None,
+        cache_key=None,
+        chunked=False,
+        atomic=False,
+    ):
+        calls.append((key, byte_offset, atomic))
+        await asyncio.sleep(0.01)
+        return str(tmp_path / cache_key)
+
+    monkeypatch.setattr(hrrr_module, "obstore_fetch_to_cache", fake_fetch)
+    ds = HRRR_FX(source="aws", cache=False, verbose=False)
+    ds.store = object()
+    uri = ds.uri_prefix + "/hrrr.20240101/conus/hrrr.t00z.wrfsfcf01.grib2.idx"
+
+    async def run():
+        return await asyncio.gather(*[ds._fetch_remote_file(uri) for _ in range(8)])
+
+    paths = asyncio.run(run())
+    assert len(set(paths)) == 1
+    assert len(calls) == 1 and calls[0][2] is True
+    assert not ds._inflight_downloads

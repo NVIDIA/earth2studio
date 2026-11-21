@@ -58,6 +58,7 @@ def test_nnja_obs_sat_lexicon_routes_and_quantity_identity():
         "amsub": "amsub::TMBR",
         "airs": "airs::TMBR",
         "iasi": "iasi::SCRA",
+        "iasi_radiance": "iasi::SCRA",
         "cris": "cris::SRAD",
     }
 

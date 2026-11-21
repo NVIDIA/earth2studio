@@ -16,6 +16,7 @@
 
 import os
 import shutil
+import tempfile
 from collections.abc import Callable, Sequence
 from datetime import datetime
 from typing import Literal
@@ -25,26 +26,18 @@ import tqdm
 import xarray as xr
 from huggingface_hub import HfFileSystem
 
-from earth2studio.data.utils import datasource_cache_root, prep_data_inputs
-from earth2studio.lexicon.ace import ACELexicon
-from earth2studio.utils.imports import (
-    OptionalDependencyFailure,
-    check_optional_dependencies,
+from earth2studio.data.utils import (
+    datasource_cache_root,
+    prep_data_inputs,
 )
+from earth2studio.grids import resolve_grid, with_grid_metadata
+from earth2studio.lexicon.ace import ACELexicon
+from earth2studio.utils.imports import check_optional_dependencies
 from earth2studio.utils.type import TimeArray, VariableArray
 
-try:
-    # ACE2 uses F90 regular gaussian grid internally
-    # https://confluence.ecmwf.int/display/OIFS/4.3+OpenIFS%3A+Horizontal+Resolution+and+Configurations
-    # Compute gaussian grid latitudes using legendre polynomials
-    from scipy.special import roots_legendre
-
-    ACE_GRID_LAT = np.degrees(np.arcsin(roots_legendre(2 * 90)[0]))
-    ACE_GRID_LON = np.linspace(0.5, 359.5, 4 * 90, endpoint=True)
-except ImportError:
-    OptionalDependencyFailure("data")
-    ACE_GRID_LAT = None
-    ACE_GRID_LON = None
+# Share the exact Gaussian axes with the model's registered input signature.
+ACE_GRID_LAT = resolve_grid("gaussian-f90").coords()["lat"].values
+ACE_GRID_LON = resolve_grid("gaussian-f90").coords()["lon"].values
 
 
 @check_optional_dependencies("ace2")
@@ -153,7 +146,14 @@ class ACE2ERA5Data:
 
             # Download to cache if missing
             if not os.path.exists(path):
-                self._hf_fs.get_file(hf_path, path)
+                # Publish only completed downloads. A timeout may terminate the
+                # process, so partial files must never occupy the cache path.
+                parent = os.path.dirname(path)
+                os.makedirs(parent, exist_ok=True)
+                with tempfile.TemporaryDirectory(dir=parent) as staging:
+                    temporary_path = os.path.join(staging, os.path.basename(path))
+                    self._hf_fs.get_file(hf_path, temporary_path)
+                    os.replace(temporary_path, path)
 
             paths.append(path)
 
@@ -209,7 +209,7 @@ class ACE2ERA5Data:
         if not self._cache:
             shutil.rmtree(self.cache)
 
-        return stacked
+        return with_grid_metadata(stacked, "gaussian-f90")
 
     async def fetch(
         self,

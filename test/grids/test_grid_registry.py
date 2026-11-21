@@ -1,0 +1,261 @@
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import runpy
+from unittest.mock import Mock
+
+import numpy as np
+import pytest
+import xarray as xr
+
+import earth2studio.grids as grids
+from earth2studio.grids import (
+    E2S_CRS,
+    E2S_GRID_ID,
+    GridDefinition,
+    HEALPixGrid,
+    ProjectedGrid,
+    infer_grid,
+    list_grids,
+    register_grid,
+    resolve_grid,
+)
+
+GRID = ProjectedGrid([0, 3000], [0, 3000, 6000], "EPSG:3857")
+
+
+def test_builtin_grids_are_lazy_and_cached(monkeypatch):
+    constructors = []
+    for module, name in (
+        (grids.latlon, "LatLonGrid"),
+        (grids.projected, "ProjectedGrid"),
+        (grids.healpix, "HEALPixGrid"),
+    ):
+        constructor = Mock(wraps=getattr(module, name))
+        monkeypatch.setattr(module, name, constructor)
+        constructors.append(constructor)
+    registry = runpy.run_path(grids.__file__)
+    names = registry["list_grids"]()
+    assert "healpix-l10-nested" in names
+    assert all(constructor.call_count == 0 for constructor in constructors)
+    resolve = registry["resolve_grid"]
+    grid = resolve("hpx3")
+    assert grid.level == 3
+    assert resolve("healpix-l3-nested") is resolve("hpx3") is grid
+    assert [constructor.call_count for constructor in constructors] == [0, 0, 1]
+    assert registry["list_grids"]() == names
+    # Pending built-ins reserve names/aliases and retain idempotent registration.
+    registry["register_grid"]("latlon-1deg", resolve("latlon-1deg"))
+    with pytest.raises(ValueError, match="conflicts"):
+        registry["register_grid"]("custom-grid", GRID, aliases=("hpx10",))
+    with pytest.raises(ValueError, match="conflicts"):
+        registry["register_grid"]("healpix-l6-nested", GRID)
+
+
+def test_grid_registry_builtins():
+    assert {"latlon-0.25deg", "hrrr-conus-3km", "healpix-l6-nested"} <= set(
+        list_grids()
+    )
+    assert resolve_grid("fcn1").shape == (720, 1440)
+    assert isinstance(resolve_grid("hrrr"), GridDefinition)
+
+
+@pytest.mark.parametrize(
+    "position,satellites",
+    [("east", ("goes16", "goes19")), ("west", ("goes17", "goes18"))],
+)
+def test_goes_grid_builtins(position, satellites):
+    from earth2studio.data import GOES
+
+    grid = resolve_grid(f"goes-{position}-conus")
+    coords = grid.coords()
+    for satellite in satellites:
+        # Labels are the source's scan angles, so source fields regrid unchanged.
+        y, x = GOES.CONTINENTAL_US_YX[satellite]
+        np.testing.assert_array_equal(grid.y, y)
+        np.testing.assert_array_equal(grid.x, x)
+        latitude, longitude = GOES.grid(satellite=satellite, scan_mode="C")
+        # Off-disk points are non-finite in both; regridders skip them.
+        disk = np.isfinite(latitude)
+        np.testing.assert_array_equal(np.isfinite(coords["lat"].values), disk)
+        np.testing.assert_allclose(
+            coords["lat"].values[disk], latitude[disk], rtol=0, atol=1e-7
+        )
+        np.testing.assert_allclose(
+            coords["lon"].values[disk],
+            np.mod(longitude[disk], 360),
+            rtol=0,
+            atol=1e-7,
+        )
+
+    full = resolve_grid(f"goes-{position}-fulldisk")
+    assert full.shape == GOES.SCAN_DIMENSIONS["F"]
+    assert full.crs == grid.crs
+    np.testing.assert_array_equal(full.y, GOES.FULL_DISK_YX[0])
+    center = full.coords({"y": np.array([0.0]), "x": np.array([0.0])})
+    np.testing.assert_allclose(center["lat"], 0.0, atol=1e-9)
+    np.testing.assert_allclose(
+        center["lon"],
+        np.mod(GOES.LONGITUDE_OF_PROJECTION_ORIGIN[satellites[0]], 360),
+        atol=1e-9,
+    )
+
+
+def test_fci_grid_builtins():
+    from earth2studio.data import MeteosatFCI
+
+    grids = {res: resolve_grid(f"mtg-fci-fulldisk-{res}") for res in ("2km", "1km")}
+    for res, grid in grids.items():
+        # Labels are the source's scan angles, so source fields regrid unchanged.
+        np.testing.assert_array_equal(grid.y, MeteosatFCI.FCI_Y[res])
+        np.testing.assert_array_equal(grid.x, MeteosatFCI.FCI_X[res])
+    # Each 2 km pixel is the centre of a 2x2 block of 1 km pixels.
+    for axis in ("y", "x"):
+        fine, coarse = getattr(grids["1km"], axis), getattr(grids["2km"], axis)
+        np.testing.assert_allclose(fine.reshape(-1, 2).mean(1), coarse, atol=1e-9)
+
+    # Pixel (row, column): latitude and longitude of the StormScope package, which
+    # navigates FCI with sweep=y and a west-positive x scan angle.
+    grid = grids["2km"]
+    for (row, column), expected in {
+        (4880, 3072): (44.274174, 7.622921),
+        (5320, 2156): (62.918877, -28.507347),
+        (4420, 4156): (33.118618, 32.779476),
+    }.items():
+        coords = grid.coords({"y": grid.y[[row]], "x": grid.x[[column]]})
+        longitude = (coords["lon"].values.item() + 180) % 360 - 180
+        np.testing.assert_allclose(
+            (coords["lat"].values.item(), longitude), expected, atol=1e-5
+        )
+
+
+def test_observation_latlon_grid_builtins():
+    from earth2studio.data import GOESGLMGrid
+
+    mrms = resolve_grid("mrms-conus-0.01deg").coords()
+    assert mrms["lat"].shape == (3500,) and mrms["lon"].shape == (7000,)
+    np.testing.assert_allclose(mrms["lat"][[0, -1]], [54.995, 20.005], atol=1e-9)
+    np.testing.assert_allclose(mrms["lon"][[0, -1]], [230.005, 299.995], atol=1e-9)
+
+    glm = resolve_grid("glm-conus-0.1deg").coords()
+    source = GOESGLMGrid(cache=False, verbose=False)
+    np.testing.assert_allclose(glm["lat"], source.lat, rtol=0, atol=1e-9)
+    np.testing.assert_allclose(glm["lon"], source.lon, rtol=0, atol=1e-9)
+
+
+def test_grid_registry_registration():
+    register_grid("test-registry-grid", GRID, aliases=("test-registry-alias",))
+    register_grid("test-registry-grid", GRID, aliases=("test-registry-alias",))
+    assert resolve_grid("test-registry-alias") is GRID
+    for name, definition, message in (
+        ("test-registry-alias", GRID, "conflicts"),
+        ("EPSG:4326", GRID, "valid CRS"),
+        ("invalid-grid", object(), "implement GridDefinition"),
+    ):
+        with pytest.raises((TypeError, ValueError), match=message):
+            register_grid(name, definition)  # type: ignore[arg-type]
+
+
+def test_grid_registry_inference_validation():
+    register_grid("test-explicit-grid", GRID)
+    array = xr.DataArray(
+        np.ones(GRID.shape),
+        dims=GRID.dims,
+        coords={"y": GRID.y, "x": GRID.x},
+        attrs={E2S_CRS: "EPSG:3857", E2S_GRID_ID: "test-explicit-grid"},
+    )
+    assert infer_grid(array) is GRID
+    assert infer_grid(array.expand_dims(time=[0])) is GRID
+    assert infer_grid(array.isel(x=slice(2))).shape == (2, 2)
+
+
+def test_grid_registry_errors():
+    for operation, message in (
+        (lambda: resolve_grid("missing"), "Unknown"),
+        (lambda: resolve_grid("EPSG:4326"), "does not define"),
+        (lambda: infer_grid(xr.DataArray(np.ones(1), dims="x")), "Cannot infer"),
+    ):
+        with pytest.raises(ValueError, match=message):
+            operation()
+
+
+@pytest.mark.parametrize("resolution,shape", [(1, (181, 360)), (1.5, (121, 240))])
+def test_global_latlon_builtins(resolution, shape):
+    grid = resolve_grid(f"latlon-{resolution}deg")
+    coords = grid.coords()
+    assert grid.shape == shape
+    np.testing.assert_array_equal(
+        coords["lat"], np.arange(90, -90 - resolution, -resolution)
+    )
+    np.testing.assert_array_equal(coords["lon"], np.arange(0, 360, resolution))
+
+
+def test_gaussian_f90_builtin():
+    from scipy.special import roots_legendre
+
+    grid = resolve_grid("gaussian-f90")
+    coords = grid.coords()
+    assert grid.shape == (180, 360)
+    np.testing.assert_allclose(
+        coords["lat"], np.degrees(np.arcsin(roots_legendre(180)[0])), rtol=0, atol=1e-12
+    )
+    np.testing.assert_array_equal(coords["lon"], np.arange(0.5, 360, 1))
+    assert np.all(np.diff(coords["lat"]) > 0)
+
+
+@pytest.mark.parametrize("level", [3, 6, 10])
+def test_healpix_builtin_orderings(level):
+    fingerprints = set()
+    for suffix, kwargs in (
+        ("nested", {"ordering": "nested"}),
+        ("ring", {"ordering": "ring"}),
+        (
+            "xy-north-clockwise",
+            {"ordering": "xy", "xy_origin": "north", "xy_clockwise": True},
+        ),
+        (
+            "xy-north-clockwise-face",
+            {
+                "ordering": "xy",
+                "xy_origin": "north",
+                "xy_clockwise": True,
+                "layout": "face",
+            },
+        ),
+    ):
+        grid = resolve_grid(f"healpix-l{level}-{suffix}")
+        expected = HEALPixGrid(level, **kwargs)
+        assert grid.shape == expected.shape
+        assert grid.attrs == expected.attrs
+        indexes = {
+            dim: np.array([0, size - 1]) for dim, size in zip(grid.dims, grid.shape)
+        }
+        xr.testing.assert_identical(
+            grid.coords(indexes).to_dataset(), expected.coords(indexes).to_dataset()
+        )
+        fingerprints.add(grid.fingerprint())
+    assert len(fingerprints) == 4
+
+
+@pytest.mark.parametrize(
+    "y,x", [(slice(273, 785), slice(579, 1219)), (slice(17, 1041), slice(3, 1795))]
+)
+def test_hrrr_model_domain_selection(y, x):
+    parent = resolve_grid("hrrr")
+    indexes = parent.coords(only_index=True).to_dataset().isel(y=y, x=x).coords
+    selected = parent.coords({dim: indexes[dim].values for dim in parent.dims})
+    expected = ProjectedGrid(parent.y[y], parent.x[x], parent.crs)
+    xr.testing.assert_identical(selected.to_dataset(), expected.coords().to_dataset())

@@ -13,7 +13,7 @@ defaults:
 package:
   name: earth2studio
   github: https://github.com/NVIDIA/earth2studio.git
-  release_ref: 0.20.0
+  release_ref: 1.0.0
   main_ref: main
 
 managers:
@@ -85,34 +85,47 @@ categories:
         summary: ECMWF AIFS model dependencies.
         api_refs:
           - earth2studio.models.px.AIFS
-        warnings:
-          - text: Depends on flash-attn, which can take a long time to build.
-            href: https://github.com/Dao-AILab/flash-attention
-            label: flash-attn
+        notes:
+          - &flash_attn_wheels
+            text: >-
+              By default, installation attempts to build FlashAttention from source.
+              To avoid lengthy builds, look for prebuilt wheels matching your
+              PyTorch and CUDA versions in the linked index.
+            href: https://wheels.astral.sh/
+            label: FlashAttention prebuilt wheels (Astral)
+          - &attention_compatibility
+            text: >-
+              Match wheels to your Python, platform, PyTorch, and CUDA build.
+              Use the install skill with your agent for installation guidance.
+            href: https://github.com/NVIDIA/earth2studio/blob/main/skills/earth2studio-install/SKILL.md
+            label: Earth2Studio install skill
       - id: aifsens
         label: AIFS Ensemble
         extra: aifsens
         summary: ECMWF AIFS ensemble model dependencies.
         api_refs:
           - earth2studio.models.px.AIFSENS
-        warnings:
-          - Depends on flash-attn, which can take a long time to build.
+        notes:
+          - *flash_attn_wheels
+          - *attention_compatibility
       - id: aifs2
         label: AIFS 2.0
         extra: aifs2
         summary: ECMWF AIFS 2.0 model dependencies.
         api_refs:
           - earth2studio.models.px.AIFS2
-        warnings:
-          - Depends on flash-attn, which can take a long time to build.
+        notes:
+          - *flash_attn_wheels
+          - *attention_compatibility
       - id: aifs2ens
         label: AIFS 2.0 Ensemble
         extra: aifs2ens
         summary: ECMWF AIFS 2.0 ensemble model dependencies.
         api_refs:
           - earth2studio.models.px.AIFS2ENS
-        warnings:
-          - Depends on flash-attn, which can take a long time to build.
+        notes:
+          - *flash_attn_wheels
+          - *attention_compatibility
       - id: atlas
         label: Atlas
         extra: atlas
@@ -120,9 +133,15 @@ categories:
         api_refs:
           - earth2studio.models.px.Atlas
           - earth2studio.models.px.AtlasCRPS
-        warnings:
-          - Depends on natten for Python versions before 3.14, which can take a long
-            time to build.
+        notes:
+          - &natten_wheels
+            text: >-
+              By default, installation attempts to build NATTEN from source.
+              To avoid lengthy builds, look for prebuilt wheels matching your
+              PyTorch and CUDA versions in the linked index.
+            href: https://whl.natten.org
+            label: NATTEN prebuilt wheels
+          - *attention_compatibility
       - id: aurora
         label: Aurora
         extra: aurora
@@ -139,9 +158,11 @@ categories:
         summary: DLESyM model dependencies.
         api_refs:
           - earth2studio.models.px.DLESyM
-          - earth2studio.models.px.DLESyMLatLon
+          - earth2studio.models.px.DLESyMAtmos
+          - earth2studio.models.px.DLESyMOcean
           - earth2studio.models.px.DLESyMv0_ISCCP_ERA5
-          - earth2studio.models.px.DLESyMv0_ISCCP_ERA5LatLon
+          - earth2studio.models.px.DLESyMv0_ISCCP_ERA5Atmos
+          - earth2studio.models.px.DLESyMv0_ISCCP_ERA5Ocean
           - earth2studio.models.dx.DLESyMv0_ISCCP_ERA5Precip
         # TODO: Remove with psn release 2.3.0
         preinstall:
@@ -257,6 +278,9 @@ categories:
         summary: Dependencies for the InterpCRPSDiT CRPS temporal interpolation model. Requires a base prognostic model.
         api_refs:
           - earth2studio.models.px.InterpCRPSDiT
+        notes:
+          - *natten_wheels
+          - *attention_compatibility
       - id: interp-modafno
         label: InterpModAFNO
         extra: interp-modafno
@@ -314,6 +338,7 @@ categories:
         summary: StormCast-CONUS model dependencies.
         api_refs:
           - earth2studio.models.px.StormCastCONUS
+          - earth2studio.models.da.StormCastConusSDA
         # TODO: Removed with psn release 2.2.0
         preinstall:
           pip:
@@ -321,9 +346,9 @@ categories:
           uv:
             pypi:
               - 'uv add "nvidia-physicsnemo@git+https://github.com/NVIDIA/physicsnemo.git@ff4cad2390e412b136e1739476506064d42eefba"'
-        warnings:
-          - Depends on natten for Python versions before 3.14, which can take a long
-            time to build.
+        notes:
+          - *natten_wheels
+          - *attention_compatibility
       - id: stormscope
         label: StormScope
         extra: stormscope
@@ -332,15 +357,29 @@ categories:
           - earth2studio.models.px.StormScopeGOES
           - earth2studio.models.px.StormScopeMRMS
           - earth2studio.models.dx.StormScopeDxNSRDB
-        warnings:
-          - Depends on natten for Python versions before 3.14, which can take a long
-            time to build.
+        notes:
+          - *natten_wheels
+          - *attention_compatibility
       - id: ucast
         label: UCast
         extra: ucast
         summary: UCast model dependencies.
         api_refs:
           - earth2studio.models.px.UCast
+      - id: weathermesh5c
+        label: WeatherMesh-5c
+        extra: weathermesh5c
+        summary: WindBorne WeatherMesh-5c global forecast model.
+        api_refs:
+          - earth2studio.models.px.WeatherMesh5C
+        preinstall: &weathermesh5c_preinstall
+          pip:
+            - 'pip install "weathermesh-5c[windborne] @ git+https://github.com/windborne/weathermesh-5c.git@b27c315175982f5bb057c644d4bc0e1a16e0f790"'
+          uv:
+            default:
+              - 'uv add "weathermesh-5c[windborne] @ git+https://github.com/windborne/weathermesh-5c.git@b27c315175982f5bb057c644d4bc0e1a16e0f790"'
+        notes:
+          - The runtime is installed from the pinned public Git repository, not PyPI.
 
   - id: diagnostic
     label: Diagnostic Models
@@ -380,8 +419,9 @@ categories:
           uv:
             pypi:
               - 'uv add "nvidia-physicsnemo@git+https://github.com/NVIDIA/physicsnemo.git@426f7552da4b4fa675e404e8a4f437e27681b668"'
-        warnings:
-          - Depends on natten for Python versions before 3.14.
+        notes:
+          - *natten_wheels
+          - *attention_compatibility
       - id: cosmo
         label: CorrDiff COSMO-ERA5
         extra: cosmo
@@ -395,8 +435,9 @@ categories:
           uv:
             pypi:
               - 'uv add "nvidia-physicsnemo@git+https://github.com/NVIDIA/physicsnemo.git@ff4cad2390e412b136e1739476506064d42eefba"'
-        warnings:
-          - Depends on natten for Python versions before 3.14.
+        notes:
+          - *natten_wheels
+          - *attention_compatibility
       - id: cyclone
         label: Cyclone Trackers
         extra: cyclone
@@ -459,6 +500,14 @@ categories:
       - Data assimilation APIs are currently in beta and may change in future releases.
       - Data assimilation extras install CUDA-dependent CuPy and cuDF packages.
     items:
+      - id: da-aida
+        label: AIDA
+        extra: da-aida
+        summary: AIDA observation-based analysis, alone or with WeatherMesh-5c forecasts.
+        api_refs:
+          - earth2studio.models.da.AIDA
+          - earth2studio.models.da.AIDAWeatherMesh5C
+        preinstall: *weathermesh5c_preinstall
       - id: da-cosmo
         label: CorrDiff COSMO SDA
         extra: da-cosmo
@@ -472,8 +521,9 @@ categories:
           uv:
             pypi:
               - 'uv add "nvidia-physicsnemo@git+https://github.com/NVIDIA/physicsnemo.git@ff4cad2390e412b136e1739476506064d42eefba"'
-        warnings:
-          - Depends on natten for Python versions before 3.14.
+        notes:
+          - *natten_wheels
+          - *attention_compatibility
       - id: da-healda
         label: HealDA
         extra: da-healda

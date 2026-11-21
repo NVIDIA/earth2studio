@@ -16,10 +16,19 @@
 
 from collections import OrderedDict
 
+import numpy as np
 import pytest
 import torch
 
-from earth2studio.perturbation import Brown
+from earth2studio.perturbation import Brown, Perturbation
+from earth2studio.utils.cupy import from_torch
+
+
+def _da(x, dims):
+    """Wrap tensor as DataArray with integer coordinates"""
+    return from_torch(
+        x, OrderedDict((d, np.arange(n)) for d, n in zip(dims, x.shape)), attrs={"a": 1}
+    )
 
 
 @pytest.mark.parametrize(
@@ -27,11 +36,11 @@ from earth2studio.perturbation import Brown
     [
         [
             torch.randn(2, 16, 16, 16),
-            OrderedDict([("a", []), ("variable", []), ("lat", []), ("lon", [])]),
+            ("a", "variable", "lat", "lon"),
         ],
         [
             torch.randn(2, 32, 16),
-            OrderedDict([("variable", []), ("lat", []), ("lon", [])]),
+            ("variable", "lat", "lon"),
         ],
     ],
 )
@@ -54,21 +63,27 @@ from earth2studio.perturbation import Brown
 def test_brown(x, coords, amplitude, reddening, device):
 
     x = x.to(device)
+    xda = _da(x, coords)
 
     if amplitude == "tensor":
         amplitude = torch.randn(
             [x.shape[list(coords).index("variable")], 1, 1], device=device
         )
     prtb = Brown(amplitude, reddening)
-    xout, coords = prtb(x, coords)
+    assert isinstance(prtb, Perturbation)
+    out = prtb(xda)
+    xout = out.e2s.to_torch()[0]
     dx = xout - x
 
     # Don't have a good statistical test for this at the moment
+    assert out.dims == xda.dims
+    assert out.attrs == xda.attrs
     assert dx.shape == x.shape
     assert torch.allclose(
         torch.mean(dx), torch.Tensor([0]).to(device), rtol=1e-2, atol=1e-1
     )
     assert dx.device == x.device
+    assert out.e2s.is_cupy == xda.e2s.is_cupy
 
 
 @pytest.mark.parametrize(
@@ -76,12 +91,12 @@ def test_brown(x, coords, amplitude, reddening, device):
     [
         [
             torch.randn(2, 8, 8, 8),
-            OrderedDict([("a", []), ("b", []), ("not_lat", []), ("lon", [])]),
+            ("a", "b", "not_lat", "lon"),
             KeyError,
         ],
         [
             torch.randn(2, 8, 8, 8),
-            OrderedDict([("a", []), ("lat", []), ("b", []), ("lon", [])]),
+            ("a", "lat", "b", "lon"),
             ValueError,
         ],
     ],
@@ -89,4 +104,20 @@ def test_brown(x, coords, amplitude, reddening, device):
 def test_brown_failure(x, coords, error):
     with pytest.raises(error):
         prtb = Brown()
-        prtb(x, coords)
+        prtb(_da(x, coords))
+
+
+def test_brown_set_rng_seeds_an_isolated_stream():
+    method = Brown()
+    x = _da(torch.zeros(2, 3, 16, 32), ("time", "variable", "lat", "lon"))
+    before = torch.random.get_rng_state()
+    method.set_rng(5)
+    first, second = method(x), method(x)
+    assert torch.equal(torch.random.get_rng_state(), before)
+    assert not np.allclose(first.values, second.values)
+    method.set_rng(5)
+    np.testing.assert_array_equal(method(x).values, first.values)
+    method.set_rng(6, reset=False)
+    np.testing.assert_array_equal(method(x).values, second.values)
+    method.set_rng(6)
+    assert not np.allclose(method(x).values, first.values)

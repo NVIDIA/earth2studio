@@ -239,36 +239,41 @@ class ISD:
                 logger.error(f"variable id {v} not found in ISD lexicon")
                 raise e
 
-        # Load dataframes for each station-year (cached parquet if available)
-        func_map: list[Any] = []
-        for station in self.stations:
-            for dt in time:
-                func_map.append(  # noqa: PERF401
-                    self._fetch_station_year(station, dt.year)
+        # Load dataframes for each unique station-year, covering every year touched
+        # by a tolerance window so windows crossing a year boundary are not cut off
+        station_years = sorted(
+            {
+                (station, year)
+                for station in self.stations
+                for dt in time
+                for year in range(
+                    (dt + self._tolerance_lower).year,
+                    (dt + self._tolerance_upper).year + 1,
                 )
+            }
+        )
+        func_map: list[Any] = [
+            self._fetch_station_year(station, year) for station, year in station_years
+        ]
 
         # Launch all fetch requests
         station_year_dfs = await tqdm.gather(
             *func_map, desc="Fetching NOAA ISD data", disable=(not self._verbose)
         )
 
-        # Gather all dataframes by station and by year
+        # Select observations in the window of any requested time. One mask per
+        # station-year so overlapping windows do not return a row twice
         filtered_df = []
-        index = 0
-        for station in self.stations:
+        for df in station_year_dfs:
+            if df.empty:
+                continue
+            mask = pd.Series(False, index=df.index)
             for dt in time:
-                df = station_year_dfs[index]
-                index += 1
-
-                tmin = dt + self._tolerance_lower
-                tmax = dt + self._tolerance_upper
-
-                if df.empty:
-                    continue
-
-                df_window = df[(df["DATE"] >= tmin) & (df["DATE"] <= tmax)]
-                if not df_window.empty:
-                    filtered_df.append(df_window)
+                mask |= (df["DATE"] >= dt + self._tolerance_lower) & (
+                    df["DATE"] <= dt + self._tolerance_upper
+                )
+            if mask.any():
+                filtered_df.append(df[mask])
 
         if len(filtered_df) == 0:
             return pd.DataFrame(columns=schema.names)
@@ -570,6 +575,9 @@ class ISD:
             (direction(deg), direction quality code, type_code, speed(0.1 m/s), speed quality code)
         Components follow the meteorological convention (direction wind blows from):
         u = -speed * sin(dir), v = -speed * cos(dir)
+
+        A direction of 999 means missing (variable when type code is ``V``), in which
+        case the components are NaN. Calm winds (type code ``C``, or a zero speed) are 0.
         """
         if "WND" not in df:
             df["u10m"] = np.nan
@@ -588,9 +596,12 @@ class ISD:
         speed = pd.to_numeric(parts[3], errors="coerce")
         # Missing speed handling and scale
         speed = speed.where(speed != 9999, np.nan) / 10.0
-        # Calm condition: reported 'C' or reported 9 with non-nan speed
-        calm_mask = (type_code == "C") | ((direction == 9) & type_code.notna())
+        # 999 is the missing direction code
+        direction = direction.where(direction != 999, np.nan)
+        # Calm condition: type code 'C', or zero speed (type 9 with 0000 is calm)
+        calm_mask = (type_code == "C") | (speed == 0)
         speed = speed.mask(calm_mask, 0.0)
+        direction = direction.mask(calm_mask, 0.0)
 
         rad = np.radians(direction)
         u = -np.sin(rad) * speed
@@ -605,7 +616,9 @@ class ISD:
         """Extract the hourly total precipitation in meters
 
         Liquid precipitation period quantity is indicated by column AA1 and is provided
-        in mm at a scale factor of 10 (so 10^-5). 9999 is missing
+        in mm at a scale factor of 10 (so 10^-5). 9999 is missing. AA1 is a string
+        field (period (hours), depth, condition code, quality code); only one hour
+        periods are kept, since reports of 3, 6 or 24 hour totals are not hourly.
         """
         if "AA1" not in df:
             df["tp"] = np.nan
@@ -615,9 +628,10 @@ class ISD:
         if parts.shape[1] < 2:
             df["tp"] = np.nan
             return df
+        period = pd.to_numeric(parts[0], errors="coerce")
         amt = pd.to_numeric(parts[1], errors="coerce")
-        # 9999 indicates missing
-        amt = amt.where(amt != 9999.0, np.nan) / 10000.0
+        # 9999 indicates missing, only keep one hour accumulation periods
+        amt = amt.where((amt != 9999.0) & (period == 1), np.nan) / 10000.0
         df["tp"] = amt
         return df
 

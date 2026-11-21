@@ -21,6 +21,20 @@
 
 <section class="e2s-install-selector" data-e2s-install-selector></section>
 
+!!! tip "Get installation help from your agent"
+    Use the [Earth2Studio install skill](https://github.com/NVIDIA/earth2studio/blob/main/skills/earth2studio-install/SKILL.md)
+    with your agent to help with installation commands, optional dependencies,
+    and compatible GPU wheels.
+
+    Install the skill from your project directory (requires Node.js/npm), then
+    select your agent when prompted:
+
+    ```bash
+    npx skills add https://github.com/NVIDIA/earth2studio --skill earth2studio-install
+    ```
+
+    Then ask your agent: "Use the earth2studio-install skill to help me install Earth2Studio."
+
 ## Verify Installation
 
 ```bash

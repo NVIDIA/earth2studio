@@ -15,25 +15,32 @@
 # limitations under the License.
 
 import warnings
-from collections import OrderedDict
 from datetime import datetime, timezone
+from typing import TYPE_CHECKING
 
 import numpy as np
 import torch
 import xarray as xr
 
 from earth2studio.models.auto import AutoModelMixin, Package
-from earth2studio.models.batch import batch_coords, batch_func
+from earth2studio.models.batch import batch_func
 from earth2studio.models.dx.base import DiagnosticModel
 from earth2studio.utils import (
-    handshake_coords,
+    coord_array,
+    coord_array_like,
+    handshake_dataarray,
     handshake_dim,
+    handshake_time,
 )
+from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
-from earth2studio.utils.type import CoordSystem
+from earth2studio.utils.type import CoordinateSystem
+
+if TYPE_CHECKING:
+    from earth2studio.data.base import DataSource
 
 try:
     from physicsnemo.utils.zenith_angle import cos_zenith_angle
@@ -105,6 +112,8 @@ class PrecipitationAFNOv2(torch.nn.Module, AutoModelMixin):
     provider:nvidia backend:pytorch
     """
 
+    stochastic = False
+
     def __init__(
         self,
         core_model: torch.nn.Module,
@@ -129,51 +138,58 @@ class PrecipitationAFNOv2(torch.nn.Module, AutoModelMixin):
             (orography),
         )
 
-    def input_coords(self) -> CoordSystem:
-        """Input coordinate system of diagnostic model
+    def default_sources(self) -> "DataSource":
+        """Recommend the ARCO ERA5 data source.
 
         Returns
         -------
-        CoordSystem
-            Coordinate system dictionary
+        DataSource
+            ``ARCO_ERA5`` data source for the input slot.
         """
-        return OrderedDict(
-            {
-                "batch": np.empty(0),
-                "time": np.empty(0),
-                "lead_time": np.empty(0),
-                "variable": np.array(VARIABLES),
-                "lat": np.linspace(90, -90, 720, endpoint=False),
-                "lon": np.linspace(0, 360, 1440, endpoint=False),
-            }
+        from earth2studio.data import ARCO_ERA5
+
+        return ARCO_ERA5()
+
+    def input_coords(self) -> CoordinateSystem:
+        """Input coordinate system of the diagnostic model.
+
+        Returns
+        -------
+        CoordinateSystem
+            Allocation-free DataArray input signature for atmospheric fields
+            on the FCN grid.
+        """
+        return coord_array(
+            ("batch", "time", "lead_time", "variable", "lat", "lon"),
+            {"variable": np.array(VARIABLES)},
+            dynamic=("batch", "time", "lead_time"),
+            grid="latlon-0.25deg-south-pole-excluded",
         )
 
-    @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
-        """Output coordinate system of diagnostic model
+    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
+        """Output coordinate system of the diagnostic model.
 
         Parameters
         ----------
-        input_coords : CoordSystem
-            Input coordinate system to transform into output_coords
-            by default None, will use self.input_coords.
+        input_coords : CoordinateSystem
+            Input coordinate signature or DataArray to validate and transform,
+            with datetime time and timedelta lead-time labels.
 
         Returns
         -------
-        CoordSystem
-            Coordinate system dictionary
+        CoordinateSystem
+            Allocation-free DataArray output signature for precipitation
+            accumulated over the next six hours, preserving input metadata
+            and grid.
         """
-        target_input_coords = self.input_coords()
-        handshake_dim(input_coords, "lon", 5)
-        handshake_dim(input_coords, "lat", 4)
-        handshake_dim(input_coords, "variable", 3)
-        handshake_coords(input_coords, target_input_coords, "lon")
-        handshake_coords(input_coords, target_input_coords, "lat")
-        handshake_coords(input_coords, target_input_coords, "variable")
-
-        output_coords = input_coords.copy()
-        output_coords["variable"] = np.array(["tp06"])
-        return output_coords
+        handshake_dataarray(input_coords, self.input_coords())
+        handshake_dim(input_coords, "time", -5)
+        handshake_dim(input_coords, "lead_time", -4)
+        handshake_time(input_coords, allow_dynamic=True)
+        handshake_time(input_coords, "lead_time", allow_dynamic=True)
+        output = coord_array_like(input_coords, {"variable": ["tp06"]})
+        output.encoding = input_coords.encoding.copy()
+        return output
 
     def __str__(self) -> str:
         return "PrecipNet"
@@ -239,23 +255,38 @@ class PrecipitationAFNOv2(torch.nn.Module, AutoModelMixin):
     @batch_func()
     def __call__(
         self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
-        """Forward pass of diagnostic"""
-        output_coords = self.output_coords(coords)
+        x: xr.DataArray,
+    ) -> xr.DataArray:
+        """Predict precipitation accumulated over the next six hours.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Atmospheric fields matching ``input_coords()``, with datetime time
+            and timedelta lead-time coordinates.
+
+        Returns
+        -------
+        xr.DataArray
+            Precipitation fields matching ``output_coords(x)``, including the
+            six-hour accumulation window and input grid.
+        """
+        output_coords = self.output_coords(x)
+        coords = x.coords
+        encoding = x.encoding.copy()
+        x, _ = x.e2s.to_torch()
         out = torch.zeros_like(x[..., :1, :, :])
         x = (x - self.center) / self.scale
 
         lat_grid, lon_grid = torch.meshgrid(
-            torch.tensor(coords["lat"]),
-            torch.tensor(coords["lon"]),
+            torch.tensor(coords["lat"].values),
+            torch.tensor(coords["lon"].values),
             indexing="ij",
         )
 
-        for j, _ in enumerate(coords["batch"]):
-            for k, t in enumerate(coords["time"]):
-                for lt, dt in enumerate(coords["lead_time"]):
+        for j in range(x.shape[0]):
+            for k, t in enumerate(coords["time"].values):
+                for lt, dt in enumerate(coords["lead_time"].values):
                     sza = (
                         self._compute_sza(lon_grid, lat_grid, t, dt)
                         .unsqueeze(0)
@@ -272,4 +303,6 @@ class PrecipitationAFNOv2(torch.nn.Module, AutoModelMixin):
         # convert from mm to m
         out = out / 1000.0
         out[out < 0] = 0
-        return out, output_coords
+        output = from_torch(out, output_coords)
+        output.encoding = encoding
+        return output

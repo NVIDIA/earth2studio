@@ -26,9 +26,7 @@ import pytest
 from earth2studio.data import ISD
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(30)
+@pytest.mark.live(timeout=30)
 @pytest.mark.parametrize(
     "time",
     [
@@ -79,9 +77,7 @@ def test_isd_fetch(stations, time, variable, tol):
     assert time_union["time"].all()
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(30)
+@pytest.mark.live(timeout=30)
 @pytest.mark.parametrize(
     "time",
     [
@@ -118,9 +114,7 @@ def test_isd_cache(time, variable, cache):
         pass
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(30)
+@pytest.mark.live(timeout=30)
 def test_isd_schema_fields():
     station = "72033063853"
     time = np.array(["2025-01-01T12:00:00"], dtype=np.datetime64)
@@ -189,8 +183,7 @@ def test_isd_exceptions():
         ds(np.datetime64("2025-01-01T12:00:00"), ["t2m"], fields=wrong_type_schema)
 
 
-@pytest.mark.xfail
-@pytest.mark.timeout(30)
+@pytest.mark.live(timeout=30)
 @pytest.mark.parametrize(
     "bbox",
     [
@@ -274,6 +267,14 @@ class TestISDExtractors:
             (["100"], [np.nan], [np.nan]),  # insufficient parts
             (["999,0,C,0000,0"], [0.0], [0.0]),  # calm -> 0
             (["090,0,X,0100,0"], [-10.0], [0.0]),  # 10 m/s from 90 deg
+            (["999,9,9,0000,1"], [0.0], [0.0]),  # type 9 with zero speed is calm
+            (["999,9,V,0040,5"], [np.nan], [np.nan]),  # variable, direction missing
+            (["999,9,N,0060,5"], [np.nan], [np.nan]),  # direction missing, speed valid
+            (
+                ["009,1,N,0100,1"],
+                [-1.5643447],
+                [-9.8768834],
+            ),  # 9 deg is a valid direction
         ],
     )
     def test_extract_uv(self, wnd, expected_u, expected_v):
@@ -293,6 +294,12 @@ class TestISDExtractors:
             (None, [np.nan]),  # missing column
             (["01"], [np.nan]),  # insufficient parts
             (["01,0010,9,5"], [0.001]),  # 10 / 10000 m
+            (["24,0500,9,5"], [np.nan]),  # 24 hour total is not hourly
+            (["06,0100,9,5"], [np.nan]),  # 6 hour total is not hourly
+            (
+                ["01,0010,9,5", "06,0100,9,5", "24,0500,9,5"],
+                [0.001, np.nan, np.nan],
+            ),  # mixed periods are masked row by row
         ],
     )
     def test_extract_tp(self, aa1, expected):
@@ -373,3 +380,56 @@ class TestISDExtractors:
         np.testing.assert_allclose(
             out["tcc"].to_numpy(), np.array([expected]), equal_nan=True
         )
+
+
+def _station_year_frame(dates: list[str]) -> pd.DataFrame:
+    return pd.DataFrame(
+        {
+            "STATION": "72403093738",
+            "DATE": pd.to_datetime(dates),
+            "SOURCE": "7",
+            "REPORT_TYPE": "FM-15",
+            "LATITUDE": 38.9,
+            "LONGITUDE": -77.4,
+            "ELEVATION": 89.5,
+            "NAME": "TEST",
+            "TMP": "+0100,1",
+        }
+    )
+
+
+@pytest.mark.parametrize(
+    "time, tol, expected",
+    [
+        # Overlapping windows must not return an observation twice
+        (
+            [datetime(2024, 1, 1, 6), datetime(2024, 1, 1, 7)],
+            timedelta(hours=1),
+            3,
+        ),
+        # A window crossing the year boundary also reads the next year
+        ([datetime(2024, 12, 31, 23, 30)], timedelta(hours=1), 3),
+        ([datetime(2025, 1, 1, 0, 30)], timedelta(hours=1), 3),
+    ],
+)
+def test_isd_window_selection(time, tol, expected):
+    frames = {
+        2024: _station_year_frame(
+            [
+                "2024-01-01T05:30",
+                "2024-01-01T06:30",
+                "2024-01-01T07:30",
+                "2024-12-31T23:45",
+            ]
+        ),
+        2025: _station_year_frame(["2025-01-01T00:00", "2025-01-01T00:20"]),
+    }
+
+    async def fetch_station_year(station_id, year):
+        return frames.get(year, pd.DataFrame())
+
+    ds = ISD(stations=["72403093738"], time_tolerance=tol, cache=False, verbose=False)
+    ds._fetch_station_year = fetch_station_year
+    df = ds(time, ["t2m"])
+    assert len(df) == expected
+    assert not df.duplicated(subset=["time", "station", "variable"]).any()

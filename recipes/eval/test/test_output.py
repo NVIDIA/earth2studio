@@ -14,521 +14,166 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Output regridding: the ``output.regrid`` block and its lazy regridder."""
+
 from __future__ import annotations
 
-import os
-from collections import OrderedDict
-from unittest.mock import patch
+from types import SimpleNamespace
 
 import numpy as np
 import pytest
-import torch
+import xarray as xr
 from omegaconf import OmegaConf
 from src.output import (
-    OutputManager,
-    _spatial_dims,
-    build_forecast_coords,
-    build_predownload_coords,
+    OutputRegridder,
+    build_regridders,
+    check_shared_layout,
+    regrid_spec,
 )
 
-from earth2studio.utils.coords import CoordSystem
+from earth2studio.grids import LatLonGrid, resolve_regridder
+from earth2studio.utils.coords import coord_array
+from test.conftest import SMALL_LAT, SMALL_LON
+
+CROP = {
+    "lat": {"start": 90.0, "stop": -90.0, "num": 2},
+    "lon": {"start": 0.0, "stop": 180.0, "num": 2},
+}
+OFF_GRID = {
+    "lat": {"start": 60.0, "stop": -60.0, "num": 2},
+    "lon": {"start": 10.0, "stop": 190.0, "num": 2},
+}
 
 
-def _make_dist_mock(*, rank: int = 0, world_size: int = 1, distributed: bool = False):
-    class _FakeDist:
-        def __init__(self):
-            self.rank = rank
-            self.world_size = world_size
-            self.distributed = distributed
-
-    return _FakeDist()
+def _cfg(regrid) -> OmegaConf:
+    return OmegaConf.create({"output": {"regrid": regrid}})
 
 
-_DIST_PATH = "src.output.DistributedManager"
-_RANK0_PATH = "src.output.run_on_rank0_first"
-
-VARIABLES = ["t2m", "z500"]
-
-
-class TestBuildForecastCoords:
-    def test_deterministic_no_ensemble(self, prognostic):
-        times = np.array([np.datetime64("2024-01-01")])
-        coords = build_forecast_coords(prognostic, times, nsteps=2, ensemble_size=1)
-        assert "ensemble" not in coords
-        assert "time" in coords
-        assert "lead_time" in coords
-        # nsteps+1 lead times (step 0 = analysis, steps 1..nsteps = forecast)
-        assert len(coords["lead_time"]) == 3
-
-    def test_ensemble_coord_added(self, prognostic):
-        times = np.array([np.datetime64("2024-01-01")])
-        coords = build_forecast_coords(prognostic, times, nsteps=2, ensemble_size=3)
-        assert "ensemble" in coords
-        np.testing.assert_array_equal(coords["ensemble"], np.arange(3))
-
-    def test_lead_time_length(self, prognostic):
-        times = np.array([np.datetime64("2024-01-01")])
-        coords = build_forecast_coords(prognostic, times, nsteps=5)
-        assert len(coords["lead_time"]) == 6
-
-    def test_spatial_dims_from_model(self, prognostic):
-        times = np.array([np.datetime64("2024-01-01")])
-        coords = build_forecast_coords(prognostic, times, nsteps=1)
-        assert "lat" in coords
-        assert "lon" in coords
+def _field() -> xr.DataArray:
+    values = np.arange(len(SMALL_LAT) * len(SMALL_LON), dtype="float32")
+    return xr.DataArray(
+        values.reshape(1, len(SMALL_LAT), len(SMALL_LON)),
+        dims=("variable", "lat", "lon"),
+        coords={"variable": np.array(["t2m"]), "lat": SMALL_LAT, "lon": SMALL_LON},
+    )
 
 
-class TestOutputManager:
-    @pytest.fixture()
-    def cfg(self, tmp_path):
-        return OmegaConf.create(
+def test_regrid_spec_is_off_by_default() -> None:
+    assert regrid_spec(_cfg(None)) is None
+
+
+def test_regrid_spec_reads_the_options_block_and_flat_keys() -> None:
+    spec = regrid_spec(
+        _cfg(
             {
-                "output": {
-                    "path": str(tmp_path / "out"),
-                    "overwrite": True,
-                    "thread_writers": 0,
-                    "chunks": {"time": 1, "lead_time": 1},
-                },
+                "grid": CROP,
+                "method": "nearest",
+                "options": {"max_dist_km": "auto"},
+                "fill_value": 0.0,
             }
         )
+    )
+    assert spec is not None
+    assert spec.method == "nearest"
+    assert spec.options == {"max_dist_km": "auto", "fill_value": 0.0}
+    assert isinstance(spec.target, LatLonGrid)
+    np.testing.assert_array_equal(spec.target_grid.coords()["lat"], [90.0, -90.0])
 
-    @pytest.fixture()
-    def total_coords(self, prognostic):
-        times = np.array([np.datetime64("2024-01-01")])
-        return build_forecast_coords(prognostic, times, nsteps=2)
 
-    def test_creates_zarr_store(self, cfg, total_coords, tmp_path):
-        with patch(_DIST_PATH, return_value=_make_dist_mock()):
-            with patch(_RANK0_PATH, side_effect=lambda fn, *a, **kw: fn(*a, **kw)):
-                with OutputManager(cfg) as mgr:
-                    mgr.validate_output_store(total_coords, VARIABLES)
-                    assert os.path.exists(mgr._path)
-                    assert "t2m" in mgr.io
-                    assert "z500" in mgr.io
+def test_regrid_spec_defaults_to_nearest_and_needs_a_grid() -> None:
+    spec = regrid_spec(_cfg({"grid": "latlon-small"}))
+    assert spec is not None and spec.method == "nearest" and spec.options == {}
+    with pytest.raises(ValueError, match="grid"):
+        regrid_spec(_cfg({"method": "nearest"}))
 
-    def test_error_without_validate(self, cfg):
-        with patch(_DIST_PATH, return_value=_make_dist_mock()):
-            mgr = OutputManager(cfg)
-            with pytest.raises(RuntimeError, match="validate_output_store"):
-                _ = mgr.io
 
-    def test_overwrite_removes_existing_store(self, cfg, total_coords, tmp_path):
-        with patch(_DIST_PATH, return_value=_make_dist_mock()):
-            with patch(_RANK0_PATH, side_effect=lambda fn, *a, **kw: fn(*a, **kw)):
-                with OutputManager(cfg) as mgr:
-                    mgr.validate_output_store(total_coords, VARIABLES)
+def test_output_regridder_crops_exact_subsets() -> None:
+    regrid = OutputRegridder(regrid_spec(_cfg({"grid": CROP, "method": "bilinear"})))
+    out = regrid(_field())
+    assert out.shape == (1, 2, 2)
+    np.testing.assert_array_equal(out["lat"].values, [90.0, -90.0])
+    np.testing.assert_array_equal(
+        out.values, _field().sel(lat=[90.0, -90.0], lon=[0.0, 180.0]).values
+    )
+    # Already on the target: untouched.
+    assert regrid(out) is out
 
-                # Opening again with overwrite=True should succeed
-                with OutputManager(cfg) as mgr2:
-                    mgr2.validate_output_store(total_coords, VARIABLES)
-                    assert os.path.exists(mgr2._path)
 
-    def test_overwrite_false_raises_when_store_exists(
-        self, prognostic, total_coords, tmp_path
-    ):
-        no_overwrite_cfg = OmegaConf.create(
+def test_output_regridder_uses_the_configured_method(small_grid) -> None:
+    spec = regrid_spec(_cfg({"grid": OFF_GRID, "method": "bilinear"}))
+    regrid = OutputRegridder(spec)
+    field = _field()
+    out = regrid(field)
+    bilinear = resolve_regridder(small_grid, spec.target, "bilinear")(field)
+    nearest = resolve_regridder(small_grid, spec.target, "nearest")(field)
+    np.testing.assert_allclose(out.values, bilinear.values, rtol=1e-6)
+    assert not np.allclose(out.values, nearest.values)
+    # One regridder serves every field on the same source grid.
+    assert regrid(field) is not out
+    assert regrid._regridder is not None
+
+
+def test_build_regridders_accepts_the_options_block(small_grid) -> None:
+    cfg = _cfg({"grid": CROP, "method": "nearest", "options": {"fill_value": 0.0}})
+    schema = coord_array(
+        ("lead_time", "variable", "lat", "lon"),
+        {
+            "lead_time": np.array([np.timedelta64(0, "h")]),
+            "variable": np.array(["t2m"]),
+        },
+        grid=small_grid,
+    )
+    regridders = build_regridders(cfg, {"forecast": schema})
+    assert list(regridders) == ["forecast"]
+    assert build_regridders(_cfg(None), {"forecast": schema}) == {}
+
+
+def _schema(leads: np.ndarray, lat: np.ndarray = SMALL_LAT) -> xr.DataArray:
+    return coord_array(
+        ("lead_time", "variable", "lat", "lon"),
+        {
+            "lead_time": leads.astype("timedelta64[ns]"),
+            "variable": np.array(["t2m"]),
+            "lat": lat,
+            "lon": SMALL_LON,
+        },
+    )
+
+
+def test_check_shared_layout_rejects_mixed_cadences_and_grids() -> None:
+    hourly = np.arange(1, 4) * np.timedelta64(1, "h")
+    schemas = {
+        "a": _schema(hourly),
+        "b": _schema(hourly),
+        "slow": _schema(hourly[1::2]),
+        "coarse": _schema(hourly, SMALL_LAT[::2]),
+    }
+    check_shared_layout(schemas, {}, ["a", "b"])
+    with pytest.raises(ValueError, match="different lead times"):
+        check_shared_layout(schemas, {}, ["a", "slow"])
+    with pytest.raises(ValueError, match="different grids"):
+        check_shared_layout(schemas, {}, ["a", "coarse"])
+    # A regridder landing the coarse stream on the first grid reconciles them.
+    onto_first = SimpleNamespace(target_grid=LatLonGrid(SMALL_LAT, SMALL_LON))
+    check_shared_layout(schemas, {"coarse": onto_first}, ["a", "coarse"])
+
+
+def test_check_shared_layout_tolerates_grids_without_identity() -> None:
+    hourly = np.arange(1, 4) * np.timedelta64(1, "h")
+
+    def index_schema(ny: int) -> xr.DataArray:
+        return coord_array(
+            ("lead_time", "variable", "y", "x"),
             {
-                "output": {
-                    "path": str(tmp_path / "out"),
-                    "overwrite": False,
-                    "thread_writers": 0,
-                    "chunks": {"time": 1, "lead_time": 1},
-                },
-            }
-        )
-        with patch(_DIST_PATH, return_value=_make_dist_mock()):
-            with patch(_RANK0_PATH, side_effect=lambda fn, *a, **kw: fn(*a, **kw)):
-                with OutputManager(no_overwrite_cfg) as mgr:
-                    mgr.validate_output_store(total_coords, VARIABLES)
-
-                with OutputManager(no_overwrite_cfg) as mgr2:
-                    with pytest.raises(FileExistsError, match="already exists"):
-                        mgr2.validate_output_store(total_coords, VARIABLES)
-
-    def test_threaded_writes_produce_same_output(self, prognostic, tmp_path):
-        threaded_cfg = OmegaConf.create(
-            {
-                "output": {
-                    "path": str(tmp_path / "threaded_out"),
-                    "overwrite": True,
-                    "thread_writers": 2,
-                    "chunks": {"time": 1, "lead_time": 1},
-                },
-            }
-        )
-        times = np.array([np.datetime64("2024-01-01")])
-        total_coords = build_forecast_coords(prognostic, times, nsteps=2)
-        with patch(_DIST_PATH, return_value=_make_dist_mock()):
-            with patch(_RANK0_PATH, side_effect=lambda fn, *a, **kw: fn(*a, **kw)):
-                with OutputManager(threaded_cfg) as mgr:
-                    mgr.validate_output_store(total_coords, VARIABLES)
-                    n_var = len(VARIABLES)
-                    n_lat = len(total_coords["lat"])
-                    n_lon = len(total_coords["lon"])
-
-                    for step in range(3):
-                        lead = np.array([total_coords["lead_time"][step]])
-                        write_coords: CoordSystem = OrderedDict(
-                            {
-                                "time": times,
-                                "lead_time": lead,
-                                "variable": np.array(VARIABLES),
-                                "lat": total_coords["lat"],
-                                "lon": total_coords["lon"],
-                            }
-                        )
-                        data = torch.randn(1, 1, n_var, n_lat, n_lon)
-                        mgr.write(data, write_coords)
-
-                assert os.path.exists(mgr._path)
-                assert "t2m" in mgr.io
-                assert "z500" in mgr.io
-
-
-class TestSpatialDims:
-    def test_lat_lon(self):
-        coords = OrderedDict(
-            {
-                "time": np.array([np.datetime64("2024-01-01")]),
-                "lead_time": np.array([np.timedelta64(0, "ns")]),
-                "variable": np.array(["t2m"]),
-                "lat": np.array([90, 0, -90]),
-                "lon": np.array([0, 180]),
-            }
-        )
-        assert _spatial_dims(coords) == ["lat", "lon"]
-
-    def test_non_standard_spatial_dims(self):
-        coords = OrderedDict(
-            {
-                "variable": np.array(["t2m"]),
-                "x": np.arange(10),
-                "y": np.arange(20),
-                "face": np.arange(6),
-            }
-        )
-        assert _spatial_dims(coords) == ["x", "y", "face"]
-
-    def test_no_spatial_dims(self):
-        coords = OrderedDict(
-            {
-                "time": np.array([np.datetime64("2024-01-01")]),
-                "variable": np.array(["t2m"]),
-            }
-        )
-        assert _spatial_dims(coords) == []
-
-    def test_excludes_all_structural_dims(self):
-        coords = OrderedDict(
-            {
-                "batch": np.array([0]),
-                "time": np.array([np.datetime64("2024-01-01")]),
-                "lead_time": np.array([np.timedelta64(0, "ns")]),
-                "variable": np.array(["t2m"]),
-                "ensemble": np.arange(3),
-                "lat": np.array([0.0]),
-            }
-        )
-        assert _spatial_dims(coords) == ["lat"]
-
-
-class TestBuildPredownloadCoords:
-    def test_basic(self):
-        spatial_ref = OrderedDict(
-            {
-                "variable": np.array(["t2m"]),
-                "lat": np.array([90.0, 0.0, -90.0]),
-                "lon": np.array([0.0, 180.0]),
-            }
-        )
-        times = np.array(
-            [np.datetime64("2024-01-01"), np.datetime64("2024-01-02")],
-            dtype="datetime64[ns]",
-        )
-        coords = build_predownload_coords(spatial_ref, times)
-
-        assert list(coords.keys()) == ["time", "lat", "lon"]
-        assert len(coords["time"]) == 2
-        np.testing.assert_array_equal(coords["lat"], spatial_ref["lat"])
-
-    def test_non_latlon_spatial(self):
-        spatial_ref = OrderedDict(
-            {
-                "lead_time": np.array([np.timedelta64(6, "h")]),
-                "variable": np.array(["t2m"]),
-                "x": np.arange(10),
-                "y": np.arange(20),
-            }
-        )
-        times = np.array([np.datetime64("2024-01-01")], dtype="datetime64[ns]")
-        coords = build_predownload_coords(spatial_ref, times)
-
-        assert list(coords.keys()) == ["time", "x", "y"]
-
-    def test_variable_not_included(self):
-        spatial_ref = OrderedDict(
-            {
-                "variable": np.array(["t2m", "z500"]),
-                "lat": np.array([0.0]),
-                "lon": np.array([0.0]),
-            }
-        )
-        times = np.array([np.datetime64("2024-01-01")], dtype="datetime64[ns]")
-        coords = build_predownload_coords(spatial_ref, times)
-
-        assert "variable" not in coords
-
-
-class TestOutputManagerStoreName:
-    @pytest.fixture()
-    def cfg(self, tmp_path):
-        return OmegaConf.create(
-            {
-                "output": {
-                    "path": str(tmp_path / "out"),
-                    "overwrite": True,
-                    "thread_writers": 0,
-                    "chunks": {"time": 1},
-                },
-            }
+                "lead_time": hourly.astype("timedelta64[ns]"),
+                "variable": np.array(["refc"]),
+                "y": np.arange(ny),
+                "x": np.arange(6),
+            },
         )
 
-    def test_custom_store_name(self, cfg, tmp_path):
-        predownload_coords = OrderedDict(
-            {
-                "time": np.array([np.datetime64("2024-01-01")], dtype="datetime64[ns]"),
-                "lat": np.array([90.0, 0.0, -90.0]),
-                "lon": np.array([0.0, 180.0]),
-            }
-        )
-        with patch(_DIST_PATH, return_value=_make_dist_mock()):
-            with patch(_RANK0_PATH, side_effect=lambda fn, *a, **kw: fn(*a, **kw)):
-                with OutputManager(cfg, store_name="data.zarr") as mgr:
-                    mgr.validate_output_store(predownload_coords, VARIABLES)
-                    assert mgr._path.endswith("data.zarr")
-                    assert os.path.exists(mgr._path)
-
-    def test_overwrite_override(self, cfg, tmp_path):
-        """Constructor overwrite parameter overrides config."""
-        with patch(_DIST_PATH, return_value=_make_dist_mock()):
-            mgr = OutputManager(cfg, overwrite=False)
-            assert mgr._overwrite is False
-
-    def test_resume_override(self, cfg, tmp_path):
-        """Constructor resume parameter overrides config."""
-        with patch(_DIST_PATH, return_value=_make_dist_mock()):
-            mgr = OutputManager(cfg, resume=True)
-            assert mgr._resume is True
-
-
-class TestIOBackendSelection:
-    """`output.io_backend` must be a drop-in switch, with guarded config."""
-
-    @pytest.fixture()
-    def total_coords(self, prognostic):
-        times = np.array([np.datetime64("2024-01-01")])
-        return build_forecast_coords(prognostic, times, nsteps=2)
-
-    def _cfg(self, tmp_path, **overrides):
-        output = {
-            "path": str(tmp_path / "out"),
-            "overwrite": True,
-            "thread_writers": 0,
-            "chunks": {"time": 1, "lead_time": 1},
-            "io_backend": "async_zarr",
-        }
-        output.update(overrides)
-        return OmegaConf.create({"output": output})
-
-    @pytest.mark.parametrize("thread_writers", [0, 4])
-    def test_both_backends_write_the_same_data(
-        self, tmp_path, total_coords, prognostic, thread_writers
-    ):
-        import zarr
-
-        n_var = len(VARIABLES)
-        n_lat = len(total_coords["lat"])
-        n_lon = len(total_coords["lon"])
-
-        def run(backend):
-            cfg = self._cfg(
-                tmp_path / backend,
-                io_backend=backend,
-                thread_writers=thread_writers,
-            )
-            cfg.output.path = str(tmp_path / backend)
-            with patch(_DIST_PATH, return_value=_make_dist_mock()):
-                with patch(_RANK0_PATH, side_effect=lambda fn, *a, **kw: fn(*a, **kw)):
-                    with OutputManager(cfg) as mgr:
-                        mgr.validate_output_store(total_coords, VARIABLES)
-                        for step, lead in enumerate(total_coords["lead_time"]):
-                            coords = OrderedDict(
-                                {
-                                    "time": total_coords["time"],
-                                    "lead_time": np.array([lead]),
-                                    "variable": np.array(VARIABLES),
-                                    "lat": total_coords["lat"],
-                                    "lon": total_coords["lon"],
-                                }
-                            )
-                            mgr.write(
-                                torch.full((1, 1, n_var, n_lat, n_lon), float(step)),
-                                coords,
-                            )
-                        mgr.flush()
-                    return zarr.open(mgr._path)
-
-        a, b = run("zarr"), run("async_zarr")
-        for v in VARIABLES:
-            np.testing.assert_array_equal(np.asarray(a[v][:]), np.asarray(b[v][:]))
-
-    def test_rejects_unknown_backend(self, tmp_path):
-        with patch(_DIST_PATH, return_value=_make_dist_mock()):
-            with pytest.raises(ValueError, match="io_backend"):
-                OutputManager(self._cfg(tmp_path, io_backend="parquet"))
-
-    @pytest.mark.parametrize("axis", ["time", "lead_time", "ensemble"])
-    def test_rejects_non_unit_chunk_on_iteration_axis(self, tmp_path, axis):
-        with patch(_DIST_PATH, return_value=_make_dist_mock()):
-            with pytest.raises(ValueError, match="chunk size 1"):
-                OutputManager(self._cfg(tmp_path, chunks={"time": 1, axis: 2}))
-
-    def test_allows_chunking_a_spatial_axis(self, tmp_path):
-        with patch(_DIST_PATH, return_value=_make_dist_mock()):
-            OutputManager(self._cfg(tmp_path, chunks={"time": 1, "lat": 4}))
-
-    @pytest.mark.parametrize("axis", ["time", "ensemble"])
-    def test_rejects_sharding_a_distributed_axis(self, tmp_path, axis):
-        dist = _make_dist_mock(world_size=2, distributed=True)
-        with patch(_DIST_PATH, return_value=dist):
-            with pytest.raises(ValueError, match="lead_time"):
-                OutputManager(self._cfg(tmp_path, shard_coords={axis: 4}))
-
-    def test_allows_sharding_any_axis_single_process(self, tmp_path):
-        with patch(_DIST_PATH, return_value=_make_dist_mock()):
-            OutputManager(self._cfg(tmp_path, shard_coords={"time": 4}))
-
-    def test_rejects_sharding_with_zarr_backend(self, tmp_path):
-        with patch(_DIST_PATH, return_value=_make_dist_mock()):
-            with pytest.raises(ValueError, match="async_zarr"):
-                OutputManager(
-                    self._cfg(
-                        tmp_path, io_backend="zarr", shard_coords={"lead_time": 4}
-                    )
-                )
-
-    def test_sharded_write_roundtrips(self, tmp_path, total_coords):
-        import zarr
-
-        n_var = len(VARIABLES)
-        n_lat = len(total_coords["lat"])
-        n_lon = len(total_coords["lon"])
-        cfg = self._cfg(tmp_path, thread_writers=2, shard_coords={"lead_time": 2})
-        with patch(_DIST_PATH, return_value=_make_dist_mock()):
-            with patch(_RANK0_PATH, side_effect=lambda fn, *a, **kw: fn(*a, **kw)):
-                with OutputManager(cfg) as mgr:
-                    mgr.validate_output_store(total_coords, VARIABLES)
-                    for step, lead in enumerate(total_coords["lead_time"]):
-                        coords = OrderedDict(
-                            {
-                                "time": total_coords["time"],
-                                "lead_time": np.array([lead]),
-                                "variable": np.array(VARIABLES),
-                                "lat": total_coords["lat"],
-                                "lon": total_coords["lon"],
-                            }
-                        )
-                        mgr.write(
-                            torch.full((1, 1, n_var, n_lat, n_lon), float(step)), coords
-                        )
-                stored = zarr.open(mgr._path)["t2m"][:]
-        for step in range(len(total_coords["lead_time"])):
-            assert np.all(stored[0, step] == float(step))
-
-    def _create_store(self, tmp_path, total_coords, **overrides):
-        cfg = self._cfg(tmp_path, **overrides)
-        with patch(_DIST_PATH, return_value=_make_dist_mock()):
-            with patch(_RANK0_PATH, side_effect=lambda fn, *a, **kw: fn(*a, **kw)):
-                with OutputManager(cfg) as mgr:
-                    mgr.validate_output_store(total_coords, VARIABLES)
-        return cfg
-
-    def test_resume_async_rejects_store_with_chunked_iteration_axis(
-        self, tmp_path, total_coords
-    ):
-        """A store created under io_backend=zarr may have chunks > 1 on an
-        iteration axis; async slice-at-a-time writes into a shared chunk are
-        last-writer-wins, so resuming it with async_zarr must be rejected."""
-        self._create_store(
-            tmp_path,
-            total_coords,
-            io_backend="zarr",
-            chunks={"time": 1, "lead_time": 3},
-        )
-        with patch(_DIST_PATH, return_value=_make_dist_mock()):
-            with patch(_RANK0_PATH, side_effect=lambda fn, *a, **kw: fn(*a, **kw)):
-                mgr = OutputManager(self._cfg(tmp_path, overwrite=False), resume=True)
-                with pytest.raises(ValueError, match="chunk size"):
-                    mgr.validate_output_store(total_coords, VARIABLES)
-
-    def test_resume_zarr_allows_store_with_chunked_iteration_axis(
-        self, tmp_path, total_coords
-    ):
-        create_cfg = dict(io_backend="zarr", chunks={"time": 1, "lead_time": 3})
-        self._create_store(tmp_path, total_coords, **create_cfg)
-        with patch(_DIST_PATH, return_value=_make_dist_mock()):
-            with patch(_RANK0_PATH, side_effect=lambda fn, *a, **kw: fn(*a, **kw)):
-                mgr = OutputManager(
-                    self._cfg(tmp_path, overwrite=False, **create_cfg), resume=True
-                )
-                mgr.validate_output_store(total_coords, VARIABLES)
-                assert "t2m" in mgr.io
-
-    def test_resume_multirank_rejects_store_sharded_on_distributed_axis(
-        self, tmp_path, total_coords
-    ):
-        """The config guard can be sidestepped by an earlier single-process run;
-        the store's actual shard geometry must be re-checked on resume."""
-        self._create_store(tmp_path, total_coords, shard_coords={"time": 4})
-        dist = _make_dist_mock(world_size=2, distributed=True)
-        with patch(_DIST_PATH, return_value=dist):
-            with patch(_RANK0_PATH, side_effect=lambda fn, *a, **kw: fn(*a, **kw)):
-                mgr = OutputManager(
-                    self._cfg(tmp_path, overwrite=False, shard_coords={}),
-                    resume=True,
-                )
-                with pytest.raises(ValueError, match="sharded on 'time'"):
-                    mgr.validate_output_store(total_coords, VARIABLES)
-
-    def test_resume_multirank_allows_lead_time_sharded_store(
-        self, tmp_path, total_coords
-    ):
-        self._create_store(tmp_path, total_coords, shard_coords={"lead_time": 2})
-        dist = _make_dist_mock(world_size=2, distributed=True)
-        with patch(_DIST_PATH, return_value=dist):
-            with patch(_RANK0_PATH, side_effect=lambda fn, *a, **kw: fn(*a, **kw)):
-                mgr = OutputManager(
-                    self._cfg(tmp_path, overwrite=False, shard_coords={"lead_time": 2}),
-                    resume=True,
-                )
-                mgr.validate_output_store(total_coords, VARIABLES)
-                assert "t2m" in mgr.io
-
-    def test_resume_multirank_allows_unsharded_store(self, tmp_path, total_coords):
-        self._create_store(tmp_path, total_coords)
-        dist = _make_dist_mock(world_size=2, distributed=True)
-        with patch(_DIST_PATH, return_value=dist):
-            with patch(_RANK0_PATH, side_effect=lambda fn, *a, **kw: fn(*a, **kw)):
-                mgr = OutputManager(self._cfg(tmp_path, overwrite=False), resume=True)
-                mgr.validate_output_store(total_coords, VARIABLES)
-                assert "t2m" in mgr.io
-
-    def test_shard_coords_parameter_overrides_config(self, tmp_path):
-        """Predownload passes shard_coords={} so its stores are never sharded,
-        even when the campaign config shards the forecast store."""
-        dist = _make_dist_mock(world_size=2, distributed=True)
-        with patch(_DIST_PATH, return_value=dist):
-            mgr = OutputManager(
-                self._cfg(tmp_path, shard_coords={"time": 4}), shard_coords={}
-            )
-            assert mgr._shard_coords == {}
+    schemas = {"a": index_schema(4), "b": index_schema(4), "c": index_schema(5)}
+    check_shared_layout(schemas, {}, ["a"])
+    check_shared_layout(schemas, {}, ["a", "b"])
+    with pytest.raises(ValueError, match="different grids"):
+        check_shared_layout(schemas, {}, ["a", "c"])

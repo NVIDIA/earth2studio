@@ -43,9 +43,7 @@ _CIRRUS_RATE_YX = (2200, 1900)
 # ==========================================================================
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(180)
+@pytest.mark.live(timeout=180)
 @pytest.mark.parametrize(
     "time,variable,expected_yx",
     [
@@ -81,9 +79,7 @@ def test_opera_fetch(time, variable, expected_yx):
     assert np.array_equal(data.coords["variable"].values, np.array(variable))
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(60)
+@pytest.mark.live(timeout=60)
 def test_opera_mixed_grid_raises():
     """CIRRUS era DBZH + RATE/ACRR in one call raises due to differing grids."""
     ds = OPERA(cache=False)
@@ -96,9 +92,7 @@ def test_opera_mixed_grid_raises():
 # ==========================================================================
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(180)
+@pytest.mark.live(timeout=180)
 @pytest.mark.parametrize("cache", [True, False])
 def test_opera_cache(cache, tmp_path, monkeypatch):
     monkeypatch.setenv("EARTH2STUDIO_CACHE", str(tmp_path))

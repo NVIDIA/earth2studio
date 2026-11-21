@@ -513,6 +513,7 @@ nav:
   - Catalog: userguide/about/catalog.md
   - Core Components:
     - userguide/components/index.md
+    - Data and Metadata: userguide/components/coordinates.md
     - Prognostic Models: userguide/components/prognostic.md
     - Diagnostic Models: userguide/components/diagnostic.md
     - Data Assimilation Models: userguide/components/data_assimilation.md
@@ -520,18 +521,23 @@ nav:
     - Perturbations: userguide/components/perturbation.md
     - IO Backends: userguide/components/io.md
     - Statistics: userguide/components/statistics.md
+    - Pipelines and Runners: userguide/components/execution.md
   - Advanced Usage:
     - userguide/advanced/index.md
     - Checkpointing: userguide/advanced/checkpointing.md
+    - Advanced Output Handling: userguide/advanced/io.md
+    - Adaptive Model Domains: userguide/advanced/domains.md
     - Batch Dimension: userguide/advanced/batch.md
     - AutoModels: userguide/advanced/auto.md
     - Lexicon: userguide/advanced/lexicon.md
+    - Deployment and Serving: userguide/advanced/serving.md
     - Knowledge Base:
       - userguide/notes/index.md
       - Surface Pressure: userguide/notes/surface_pressure.md
   - Developer Guide:
     - userguide/developer/index.md
     - Overview: userguide/developer/overview.md
+    - Software Maturity: userguide/developer/software_maturity.md
     - Dependencies: userguide/developer/dependency.md
     - Style: userguide/developer/style.md
     - Documentation: userguide/developer/documentation.md

@@ -15,21 +15,27 @@
 # limitations under the License.
 
 import zipfile
-from collections import OrderedDict
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import numpy as np
 import torch
+import xarray as xr
 
 from earth2studio.models.auto import AutoModelMixin, Package
-from earth2studio.models.batch import batch_coords, batch_func
+from earth2studio.models.batch import batch_func
 from earth2studio.models.dx.base import DiagnosticModel
 from earth2studio.models.nn.climatenet_conv import CGNetModule
 from earth2studio.utils import (
-    handshake_coords,
-    handshake_dim,
+    coord_array,
+    coord_array_like,
+    handshake_dataarray,
 )
-from earth2studio.utils.type import CoordSystem
+from earth2studio.utils.cupy import from_torch
+from earth2studio.utils.type import CoordinateSystem
+
+if TYPE_CHECKING:
+    from earth2studio.data.base import DataSource
 
 VARIABLES = [
     "tcwv",
@@ -75,6 +81,8 @@ class ClimateNet(torch.nn.Module, AutoModelMixin):
     provider:nvidia backend:pytorch
     """
 
+    stochastic = False
+
     def __init__(
         self,
         core_model: torch.nn.Module,
@@ -86,49 +94,52 @@ class ClimateNet(torch.nn.Module, AutoModelMixin):
         self.register_buffer("center", center)
         self.register_buffer("scale", scale)
 
-    def input_coords(self) -> CoordSystem:
-        """Input coordinate system of diagnostic model
+    def default_sources(self) -> "DataSource":
+        """Recommend the ARCO ERA5 data source.
 
         Returns
         -------
-        CoordSystem
-            Coordinate system dictionary
+        DataSource
+            ``ARCO_ERA5`` data source for the input slot.
         """
-        return OrderedDict(
-            {
-                "batch": np.empty(0),
-                "variable": np.array(VARIABLES),
-                "lat": np.linspace(90, -90, 721, endpoint=True),
-                "lon": np.linspace(0, 360, 1440, endpoint=False),
-            }
+        from earth2studio.data import ARCO_ERA5
+
+        return ARCO_ERA5()
+
+    def input_coords(self) -> CoordinateSystem:
+        """Input coordinate system of the diagnostic model.
+
+        Returns
+        -------
+        CoordinateSystem
+            Allocation-free DataArray input signature for atmospheric fields
+            on the ERA5 grid.
+        """
+        return coord_array(
+            ("batch", "variable", "lat", "lon"),
+            {"variable": np.array(VARIABLES)},
+            dynamic=("batch",),
+            grid="latlon-0.25deg",
         )
 
-    @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
-        """Output coordinate system of diagnostic model
+    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
+        """Output coordinate system of the diagnostic model.
 
         Parameters
         ----------
-        input_coords : CoordSystem
-            Input coordinate system to transform into output_coords
-            by default None, will use self.input_coords.
+        input_coords : CoordinateSystem
+            Input coordinate signature or DataArray to validate and transform.
 
         Returns
         -------
-        CoordSystem
-            Coordinate system dictionary
+        CoordinateSystem
+            Allocation-free DataArray output signature for classification,
+            preserving metadata and grid.
         """
-        target_input_coords = self.input_coords()
-        handshake_dim(input_coords, "lon", 3)
-        handshake_dim(input_coords, "lat", 2)
-        handshake_dim(input_coords, "variable", 1)
-        handshake_coords(input_coords, target_input_coords, "lon")
-        handshake_coords(input_coords, target_input_coords, "lat")
-        handshake_coords(input_coords, target_input_coords, "variable")
-
-        output_coords = input_coords.copy()
-        output_coords["variable"] = np.array(OUT_VARIABLES)
-        return output_coords
+        handshake_dataarray(input_coords, self.input_coords())
+        output = coord_array_like(input_coords, {"variable": np.array(OUT_VARIABLES)})
+        output.encoding = input_coords.encoding.copy()
+        return output
 
     @classmethod
     def load_default_package(cls) -> Package:
@@ -167,14 +178,27 @@ class ClimateNet(torch.nn.Module, AutoModelMixin):
     @batch_func()
     def __call__(
         self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
-        """Forward pass of diagnostic"""
+        x: xr.DataArray,
+    ) -> xr.DataArray:
+        """Classify atmospheric rivers, tropical cyclones and background conditions.
 
-        output_coords = self.output_coords(coords)
+        Parameters
+        ----------
+        x : xr.DataArray
+            Atmospheric fields matching ``input_coords()`` on the ERA5 grid.
 
-        x = (x - self.center) / self.scale
-        out = torch.softmax(self.core_model(x), 1)
+        Returns
+        -------
+        xr.DataArray
+            Classification fields matching ``output_coords(x)`` with labelled
+            spatial and leading dimensions.
+        """
 
-        return out, output_coords
+        output_coords = self.output_coords(x)
+        tensor, _ = x.e2s.to_torch()
+        tensor = (tensor - self.center) / self.scale
+        out = torch.softmax(self.core_model(tensor), 1)
+
+        output = from_torch(out, output_coords)
+        output.encoding = x.encoding.copy()
+        return output

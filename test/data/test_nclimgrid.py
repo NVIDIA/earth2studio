@@ -23,12 +23,10 @@ import numpy as np
 import pytest
 import xarray as xr
 
-from earth2studio.data import NClimGridDaily
+from earth2studio.data import NClimGridDaily, fetch_data
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(30)
+@pytest.mark.live(timeout=30)
 @pytest.mark.parametrize(
     "time",
     [
@@ -60,9 +58,7 @@ def test_nclimgrid_fetch(time, variable):
     assert np.array_equal(data.coords["variable"].values, np.array(variable))
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(30)
+@pytest.mark.live(timeout=30)
 @pytest.mark.parametrize(
     "time",
     [np.array([np.datetime64("2010-07-01T00:00")])],
@@ -206,6 +202,27 @@ def test_nclimgrid_call_mock(tmp_path: pathlib.Path):
         ds.store = MagicMock()
 
         data = ds(datetime(2010, 7, 1), ["t2m_max", "tp"])
+
+        # Sub-day times return their day's value under the requested labels,
+        # including two times on the same day, so fetch_data can select them.
+        times = [
+            datetime(2010, 7, 1, 12),
+            datetime(2010, 7, 2),
+            datetime(2010, 7, 2, 6),
+        ]
+        subday = ds(times, ["t2m_max"])
+        fetched = fetch_data(
+            ds,
+            np.array(["2010-07-01T00"], dtype="datetime64[ns]"),
+            ["t2m_max"],
+            lead_time=np.array([12], dtype="timedelta64[h]"),
+        )
+
+    assert list(subday.time.values) == list(np.array(times, dtype="datetime64[ns]"))
+    np.testing.assert_array_equal(subday.values[0], data.values[0, :1])
+    np.testing.assert_array_equal(subday.values[1], subday.values[2])
+    assert not np.array_equal(subday.values[0], subday.values[1])
+    np.testing.assert_array_equal(fetched.values[0, 0], data.values[0, :1])
 
     assert data.shape == (1, 2, len(lat), len(lon))
     assert list(data.coords["variable"].values) == ["t2m_max", "tp"]

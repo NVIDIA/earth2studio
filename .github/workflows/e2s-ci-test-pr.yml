@@ -20,10 +20,14 @@ on:
   push:
     branches:
       - "pull-request/**"
+  merge_group:
+    types: [checks_requested]
 
 permissions:
+  actions: read
   contents: read
   packages: read
+  pull-requests: read
 
 defaults:
   run:
@@ -56,13 +60,13 @@ jobs:
     if: github.repository == 'NVIDIA/earth2studio'
     runs-on: ubuntu-latest
     outputs:
+      base_branch: ${{ steps.base.outputs.branch }}
       data: ${{ steps.filter.outputs.data }}
       perturb: ${{ steps.filter.outputs.perturb }}
       stats: ${{ steps.filter.outputs.stats }}
       px_models: ${{ steps.filter.outputs.px_models }}
       dx_models: ${{ steps.filter.outputs.dx_models }}
       da_models: ${{ steps.filter.outputs.da_models }}
-      serve: ${{ steps.filter.outputs.serve }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
@@ -70,11 +74,39 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      - name: Resolve CI target branch
+        id: base
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        with:
+          script: |
+            if (context.eventName === 'merge_group') {
+              const baseRef = context.payload.merge_group?.base_ref;
+              if (typeof baseRef !== 'string' || !/^refs\/heads\/.+/.test(baseRef)) {
+                throw new Error(`Invalid merge-group base ref: ${baseRef}`);
+              }
+              const branch = baseRef.slice('refs/heads/'.length);
+              core.setOutput('branch', branch);
+              core.info(`Using ${branch} as the CI baseline`);
+              return;
+            }
+
+            // Copied PRs are push events, so github.base_ref is unavailable.
+            const match = /^refs\/heads\/pull-request\/(\d+)$/.exec(context.ref);
+            if (!match) throw new Error(`Invalid copied PR ref: ${context.ref}`);
+            const { data: pr } = await github.rest.pulls.get({
+              ...context.repo,
+              pull_number: Number(match[1]),
+            });
+            const branch = pr.base.ref;
+            core.setOutput('branch', branch);
+            core.info(`Using ${branch} as the CI baseline`);
+
       - name: Detect changed test suites
         id: filter
         uses: $/.github/actions/detect-ci-changes
         with:
           mode: pr
+          base-branch: ${{ steps.base.outputs.branch }}
 
   format:
     name: Format
@@ -201,6 +233,7 @@ jobs:
     name: Test
     if: github.repository == 'NVIDIA/earth2studio'
     needs:
+      - changes
       - format
       - lint
     runs-on: linux-amd64-gpu-h100-latest-1
@@ -220,6 +253,7 @@ jobs:
         uses: $/.github/actions/run-ci-test
         with:
           tox-env: test
+          testmon-base-branch: ${{ needs.changes.outputs.base_branch }}
           save-testmon-cache: "false"
 
   test-px-models:
@@ -246,6 +280,7 @@ jobs:
         uses: $/.github/actions/run-ci-test
         with:
           tox-env: test-px-models
+          testmon-base-branch: ${{ needs.changes.outputs.base_branch }}
           save-testmon-cache: "false"
 
   test-dx-models:
@@ -272,10 +307,12 @@ jobs:
         uses: $/.github/actions/run-ci-test
         with:
           tox-env: test-dx-models
+          testmon-base-branch: ${{ needs.changes.outputs.base_branch }}
           save-testmon-cache: "false"
 
   test-data:
     name: Test data sources
+    timeout-minutes: 45
     if: github.repository == 'NVIDIA/earth2studio' && needs.changes.outputs.data == 'true'
     needs:
       - format
@@ -298,6 +335,7 @@ jobs:
         uses: $/.github/actions/run-ci-test
         with:
           tox-env: test-data
+          testmon-base-branch: ${{ needs.changes.outputs.base_branch }}
           save-testmon-cache: "false"
 
   test-perturb:
@@ -324,6 +362,7 @@ jobs:
         uses: $/.github/actions/run-ci-test
         with:
           tox-env: test-perturb
+          testmon-base-branch: ${{ needs.changes.outputs.base_branch }}
           save-testmon-cache: "false"
 
   test-stats:
@@ -350,6 +389,7 @@ jobs:
         uses: $/.github/actions/run-ci-test
         with:
           tox-env: test-stats
+          testmon-base-branch: ${{ needs.changes.outputs.base_branch }}
           save-testmon-cache: "false"
 
   test-da-models:
@@ -376,6 +416,7 @@ jobs:
         uses: $/.github/actions/run-ci-test
         with:
           tox-env: test-da-models
+          testmon-base-branch: ${{ needs.changes.outputs.base_branch }}
           save-testmon-cache: "false"
 
   test-px-models-conflicts:
@@ -402,32 +443,7 @@ jobs:
         uses: $/.github/actions/run-ci-test
         with:
           tox-env: test-px-models-conflicts
-          save-testmon-cache: "false"
-
-  test-serve:
-    name: Test serve
-    if: github.repository == 'NVIDIA/earth2studio' && needs.changes.outputs.serve == 'true'
-    needs:
-      - format
-      - lint
-      - changes
-    runs-on: linux-amd64-gpu-h100-latest-1
-    container:
-      image: *e2s_ci_image
-      options: --shm-size=20g
-      credentials:
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
-        with:
-          persist-credentials: false
-
-      - name: Run test job
-        uses: $/.github/actions/run-ci-test
-        with:
-          tox-env: test-serve
+          testmon-base-branch: ${{ needs.changes.outputs.base_branch }}
           save-testmon-cache: "false"
 
   coverage:
@@ -442,7 +458,6 @@ jobs:
       - test-stats
       - test-da-models
       - test-px-models-conflicts
-      - test-serve
     runs-on: linux-amd64-cpu8
     container:
       image: *e2s_ci_lite_image
@@ -489,3 +504,59 @@ jobs:
             .coverage
           include-hidden-files: true
           if-no-files-found: ignore
+
+  required-ci-checks:
+    name: Required CI checks
+    if: github.repository == 'NVIDIA/earth2studio' && always()
+    needs:
+      - changes
+      - format
+      - lint
+      - docs
+      - test
+      - test-px-models
+      - test-dx-models
+      - test-data
+      - test-perturb
+      - test-stats
+      - test-da-models
+      - test-px-models-conflicts
+      - coverage
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check required CI results
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        env:
+          CI_NEEDS: ${{ toJSON(needs) }}
+        with:
+          script: |
+            const needs = JSON.parse(process.env.CI_NEEDS);
+            const mandatory = ['changes', 'format', 'lint', 'docs', 'test', 'coverage'];
+            const optional = {
+              'test-data': 'data',
+              'test-perturb': 'perturb',
+              'test-stats': 'stats',
+              'test-px-models': 'px_models',
+              'test-dx-models': 'dx_models',
+              'test-da-models': 'da_models',
+              'test-px-models-conflicts': 'px_models',
+            };
+            const failures = [];
+            for (const job of mandatory) {
+              const result = needs[job]?.result;
+              if (result !== 'success') failures.push(`${job}: ${result ?? 'missing'}`);
+            }
+            for (const [job, output] of Object.entries(optional)) {
+              const selected = needs.changes?.outputs?.[output];
+              const result = needs[job]?.result;
+              if (selected !== 'true' && selected !== 'false') {
+                failures.push(`${job}: invalid selection ${selected ?? 'missing'}`);
+              } else if (result !== 'success' && !(selected === 'false' && result === 'skipped')) {
+                failures.push(`${job}: ${result ?? 'missing'} (selected=${selected})`);
+              }
+            }
+            if (failures.length) {
+              core.setFailed(`CI requirements not met:\n${failures.join('\n')}`);
+            } else {
+              core.info('All required CI jobs passed.');
+            }

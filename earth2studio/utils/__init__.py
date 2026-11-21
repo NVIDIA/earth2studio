@@ -16,8 +16,16 @@
 
 from .coords import (
     convert_multidim_to_singledim,
+    coord_array,
+    coord_array_like,
     handshake_coords,
+    handshake_dataarray,
+    handshake_dataarrays,
+    handshake_device,
     handshake_dim,
+    handshake_metadata,
+    handshake_nonempty,
     handshake_size,
+    handshake_time,
 )
 from .cupy import from_torch

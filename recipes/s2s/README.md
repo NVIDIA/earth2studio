@@ -13,7 +13,7 @@ can be extended to support other models as well.
 Key features include:
 
 - Multi-GPU inference
-- Parallel, non-blocking I/O using zarr format
+- Parallel, non-blocking I/O into shared zarr stores with `AsyncZarrBackend`
 - Usage of one or more diagnostic models in the forecast pipeline
 - Storage space reduction using regional output or coarsening
 - Multi-GPU scoring of forecast outputs
@@ -86,13 +86,13 @@ To run an example ensemble forecast with DLESyM, run
 
 ```bash
 # With uv
-uv run python main.py --config-name=pnw_dlesym ncheckpoints=2
+uv run python main.py --config-name=pnw_dlesym nperturbed=16
 # With pip
-python main.py --config-name=pnw_dlesym ncheckpoints=2
+python main.py --config-name=pnw_dlesym nperturbed=16
 ```
 
-Here, we use a command-line config override to limit the number of model checkpoints in the
-forecast to just two, for speed. More instructions on configuring the ensemble can be found
+Here, we use a command-line config override to limit the ensemble to 16 members, for
+speed. More instructions on configuring the ensemble can be found
 below in the [Configuration](#configuration) section.
 
 ## Documentation
@@ -192,21 +192,24 @@ will be saved (`${output_path}/${project}_${run_id}`). Then, the core settings f
 ensemble size and forecast duration are specified as:
 
 ```yaml
-nsteps: 12         # number of steps to run the forecast
+nsteps: 176        # number of steps to run the forecast
 nperturbed: 4      # Number of perturbations applied to the initial condition for each model checkpoint
                     # Total ensemble size is nperturbed * ncheckpoints
-ncheckpoints: 16 # number of model checkpoints to use
-                # For DLESyM, ncheckpoints represents the total number of atmos/ocean model checkpoint pairs
+ncheckpoints: 16   # number of model checkpoints to use
 batch_size: 4      # inference batch size
 ```
 
-As mentioned in the in-line comments, this recipe creates ensembles by combining initial
-condition perturbations with multiple model checkpoints to produce variability in the
-ensemble. Each model checkpoint (set of trained weights) is paired with `nperturbed`
-initial condition perturbations to produce a total of `ncheckpoints*nperturbed` ensemble
-members. With DLESyM, there are 4 atmosphere and 4 ocean models available, leading to a
-total of 16 possible checkpoints; HENS-SFNO has up to 29 model checkpoints available for
-use in an ensemble.
+As mentioned in the in-line comments, this recipe creates ensembles from
+`nperturbed` members per model checkpoint (set of trained weights), for a total of
+`ncheckpoints*nperturbed` ensemble members. How members of one checkpoint differ
+depends on the model:
+
+- HENS-SFNO is deterministic, so its members combine initial condition perturbations
+  with multiple checkpoints; up to 29 checkpoints are available.
+- DLESyM (v1.1, the checkpoint used in the ECMWF AI Weather Quest) is stochastic: it
+  samples noise in each forward pass, so a single checkpoint produces the whole
+  ensemble without initial condition perturbations (`perturbation: none`,
+  `ncheckpoints: 1`). The DLESyM configs run 64 members.
 
 To provide maximum flexibility and extensibility, we use a hydra defaults list to select
 model and perturbation configs from the `cfg/forecast_model` and `cfg/perturbation`
@@ -216,15 +219,21 @@ for a reference):
 
 ```yaml
 defaults:
-    - forecast_model: dlesym
-    - perturbation: gaussian
+    - forecast_model: sfno
+    - perturbation: hens
 ```
 
 <!-- markdownlint-disable MD028 -->
 > [!TIP]
-> Not all perturbation methods in Earth2studio are compatible with
-> the DLESyM model, currently. In particular, multi-timestep perturbation
-> methods like (normal/hemispheric-centered) bred vectors will not work.
+> DLESyM runs on a HEALPix grid. Its config wraps `data_source` in
+> `DLESyMInputSource`, which prepares the model inputs from lat/lon data, and the
+> outputs are regridded (nearest neighbour) onto the 0.25 degree lat/lon grid of
+> each output region. Bred-vector perturbations do not support DLESyM's
+> multi-timestep inputs.
+
+> [!NOTE]
+> The hemispheric-centred bred vector (`perturbation: hens`) perturbs members
+> in +/- pairs, so `nperturbed` and `batch_size` must both be even.
 <!-- markdownlint-enable MD028 -->
 
 Aside from these main config items, there are also options to choose a `data_source` and
@@ -244,6 +253,31 @@ One can also choose to save outputs only over a specific region of the globe usi
 optional `file_output.cropboxes` config setup. For each region, or "cropbox", you can
 specify the name of the region and the min/max latitude/longitude values of it. Refer to
 `pnw_dlesym.yaml` for a full cropbox example config.
+
+Each region is written to `${file_output.path}/<region>/forecast.zarr`, with one
+array per variable of dimensions `(ensemble, time, lead_time, lat, lon)`. Lead
+times start at the initial condition (`0`) and follow each model step.
+
+#### Changes in Earth2Studio 1.0
+
+The recipe now runs on the Earth2Studio 1.0 DataArray interfaces and `Pipeline`.
+Compared to earlier versions:
+
+- `file_output.thread_io` is replaced by the non-blocking
+  `AsyncZarrBackend` output format (see [Output backend](#output-backend)).
+- Runs can resume after an interruption (`file_output.resume`, see
+  [Parallelism](#parallelism)).
+- DLESyM uses the v1.1 checkpoint (stochastic, one checkpoint, no initial
+  condition perturbation) on its native HEALPix grid, instead of
+  `DLESyMLatLon` with 4 atmosphere x 4 ocean checkpoint pairs. Its outputs are
+  regridded by nearest neighbour rather than bilinearly, and the stores no
+  longer include the input history at negative lead times.
+- With `batch_ids_reproduce`, the stores hold only the reproduced members.
+- With bred-vector perturbations, `nperturbed` and `batch_size` must be even.
+
+Batch seeds are unchanged and seed each perturbation's own random stream
+(`set_rng`) instead of the global Torch RNG, giving the same draws, so HENS-SFNO
+ensembles reproduce those of earlier versions.
 
 #### Scoring forecast outputs
 
@@ -315,11 +349,14 @@ an ensemble appropriate for the AI Weather Quest surface temperature variable.
 
 ## Parallelism
 
-This recipe uses the `physicsnemo.distributed.DistributedManager` to handle multi-GPU
-execution. Example commands in this document make use of the `torchrun` launcher provided
-by PyTorch as it is widely available and compatible. To turn a single-GPU run (for example, one
-launched by `uv run python main.py --config-name pnw_dlesym.yaml`) into a multi-GPU run,
- add `torchrun` and the number of GPUs `$ngpu` you'd like to parallelize over:
+This recipe runs on the Earth2Studio `Pipeline` (`earth2studio.run.Pipeline`).
+The recipe's `S2SRunner` describes how to run one *work item*: one batch of
+`batch_size` perturbed members, from one model checkpoint and one initial
+condition. The `Pipeline` splits the work items over ranks, creates the output
+stores and writes each region's outputs. Example commands in this document use
+the `torchrun` launcher. To turn a single-GPU run (for example, one launched by
+`uv run python main.py --config-name pnw_dlesym.yaml`) into a multi-GPU run,
+add `torchrun` and the number of GPUs `$ngpu` you'd like to parallelize over:
 
 ```bash
 uv run torchrun --nproc_per_node=$ngpu --standalone main.py --config-name global_dlesym
@@ -327,37 +364,65 @@ uv run torchrun --nproc_per_node=$ngpu --standalone main.py --config-name global
 
 The `--standalone` argument indicate to `torchrun` that all GPUs are on the same
 machine/node; if running over multiple nodes refer to the [`torchrun` guide](https://docs.pytorch.org/docs/stable/elastic/run.html)
-for how to properly configure the process group.
+for how to properly configure the process group. The process group is set up
+with `physicsnemo.distributed.DistributedManager`, which also supports SLURM
+(`srun`) and MPI (`mpirun`) launches.
 
-`torchrun` is not required, and the `DistributedManager` will also work for
-process groups initialized with SLURM (`srun`) or MPI (`mpirun`).
+Ensemble members are numbered checkpoint by checkpoint: members
+`[i * nperturbed, (i + 1) * nperturbed)` come from the `i`-th checkpoint. Work
+items are ordered by checkpoint, and each rank gets a contiguous slice of them,
+so a rank only loads the checkpoints its slice needs. The number of work items
+no longer needs to be divisible by the number of ranks.
 
-There are a number of considerations with multi-GPU execution worth highlighting here for
-more advanced users and developers. Primarily, certain download and caching operations in
-Earth2studio utilities are not thread-safe, and can cause uncontrolled behavior if not run
-in a coordinated fashion:
+Every batch is seeded from the random seed, the checkpoint name, the initial
+condition and the batch's global ID, so a batch gives the same result on any
+rank. The seed goes to the perturbation's `set_rng` (and to stochastic models'),
+never the global Torch RNG, so custom perturbations must implement `set_rng`. To
+reproduce selected batches, set `batch_ids_reproduce` to their global IDs (with
+the same `batch_size`); the output store then holds only those members.
 
-- `load_default_package` of an Earth2studio model
-- `fetch_data` of some Earth2studio data sources
-- `__call__` of some perturbation methods, which implicitly call `fetch_data`
-- Initialization of output files in an I/O backend
+To resume an interrupted run, set `file_output.resume: True` with an explicit
+`random_seed` and a Zarr output (`AsyncZarrBackend` as in the provided configs,
+or `ZarrBackend` with `backend_kwargs.overwrite: False`), and rerun the same
+configuration. Finished batches are
+recorded under `${file_output.path}/progress` and skipped, existing stores are
+kept, and interrupted batches rerun from the start. A changed configuration is
+rejected; use a new output path for a new run.
 
-To handle these, a utility routine `run_with_rank_ordered_execution` is provided and used
-in this recipe, which can wrap a function call and ensure that one rank (by default rank 0)
-will run the function first, before the rest. This allows, for example, filesystem objects in a
-cache or output directory to be created properly before other ranks access them.
-Developers extending this recipe should use `run_with_rank_ordered_execution` for any
-operations that might lead to race conditions; however it is important that when using it,
-all ranks enter and leave the function the same number of times (that is, execution must be
-load-balanced so all ranks enter and exit the barriers in the routine as expected).
+### Output backend
 
-For the parallel I/O capabilities in this recipe, it is important to consider the chunk
-size used with the output zarr file. Execution is parallelized across GPUs over the ensemble
-and time (initial condition) dimensions, so for safe concurrent writes we keep the chunk
-size at 1 in those dimensions; I/O performance then depends on the chunking used for the
-remaining dimensions. A good rule of thumb for zarr chunking is to aim for chunk size of
-around 10MB, but other sizes may work well too in this case depending on the output grid
-(resolution or cropbox size) data is being saved on.
+The configs write with `earth2studio.io.AsyncZarrBackend`, the recommended
+backend for non-blocking writes from a `Pipeline`:
+
+```yaml
+format:
+    _target_: earth2studio.io.AsyncZarrBackend
+    _partial_: True
+    blocking: False   # write on background threads, overlapping inference
+    pool_size: 8      # writer threads
+```
+
+With `blocking: False`, each step's write is handed to a pool of writer threads
+and the next step is computed right away. The `Pipeline` waits for an item's
+writes to finish before recording it as done. The backend needs the full labels
+of the dimensions it writes one slice at a time (`ensemble`, `time`,
+`lead_time`) when it is created; the recipe derives them from the work items, so
+the config does not list them. These dimensions are chunked with size 1, and
+every write covers a whole output region. For larger campaigns, `shard_coords`
+(for example `shard_coords: {lead_time: 32}`) groups chunks into fewer files;
+shard only along `lead_time`, since each rank writes whole forecasts. A plain
+`earth2studio.io.ZarrBackend` also works, with synchronous writes.
+
+Some download and caching operations are not safe to run concurrently on several
+ranks, for example `load_default_package` of a model or creating the output
+stores. The recipe runs these once during setup with
+`run_with_rank_ordered_execution`, which runs a function on rank 0 first and then
+on the other ranks. Every rank must call it the same number of times, so never
+call it from inside a work item: ranks run different numbers of items.
+
+Ranks write different `ensemble` and `time` positions of the shared output
+stores, so the zarr chunk size must be 1 along those dimensions (the
+`Pipeline` checks this; `AsyncZarrBackend` always chunks them so).
 
 ## References
 
