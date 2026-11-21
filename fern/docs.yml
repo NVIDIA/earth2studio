@@ -1,0 +1,36 @@
+# Where the site is published.
+instances:
+  # Fern-hosted URL for this docs site. The path after the host (/earth2studio)
+  # is this site's sub-path on the shared domain.
+  # TODO: confirm the Fern-hosted subdomain assigned to this project.
+  - url: nvidia-earth2studio.docs.buildwithfern.com/earth2studio
+    # Public domain + sub-path the site is served from (https://docs.nvidia.com/earth2studio).
+    custom-domain: docs.nvidia.com/earth2studio
+    # Multi-source publishing (Enterprise feature): several repos each publish their own
+    # sub-path to the same domain (docs.nvidia.com), so this repo only owns /earth2studio.
+    multi-source: true
+
+# Site title, used in the browser tab and as the default page title.
+title: Earth2Studio
+
+# Inherit shared branding (logo, colors, fonts, layout, CSS/JS) from the "nvidia" global theme.
+global-theme: nvidia
+
+# Links shown in the top navigation bar.
+navbar-links:
+  - type: github
+    value: https://github.com/NVIDIA/earth2studio
+
+# Logo configuration (the logo image itself comes from the global theme).
+logo:
+  right-text: Earth2Studio
+
+# Redirect rules (legacy MkDocs/Sphinx URLs), kept in a separate file.
+redirects: ./redirects.yml
+
+# Site versions. Navigation lives in pages/index.yml next to the content.
+versions:
+  - display-name: "0.19.0 (Latest)"  # Label in the version dropdown.
+    path: ./pages/index.yml          # Navigation file holding the tabs and sidebar (relative to this file).
+    slug: "0.19.0"                   # Literal slug; without it Fern would slugify dots to dashes (0-19-0).
+    availability: stable

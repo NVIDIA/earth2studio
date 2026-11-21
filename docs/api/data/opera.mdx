@@ -1,0 +1,278 @@
+---
+layout: overview
+title: earth2studio.data.opera
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`OPERA`](#earth2studio-data-opera-OPERA) | EUMETNET OPERA European weather radar composite data source. |
+
+### Functions
+
+| Name | Description |
+|------|-------------|
+
+### API
+
+<Anchor id="earth2studio-data-opera-OPERA">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.opera.OPERA(
+    cache: bool = True,
+    verbose: bool = True,
+    async_timeout: int = 600,
+    async_workers: int = 16,
+    retries: int = 3
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+EUMETNET OPERA European weather radar composite data source.
+
+Provides access to the pan-European OPERA composite radar products
+(reflectivity, rain rate, hourly accumulation) from the EUMETNET Open
+Radar Data (ORD) archive hosted on CloudFerro S3.  Data is stored in ODIM
+HDF5 format on a Lambert Equal-Area (LAEA) projection covering roughly
+70°N-32°N, 30°W-62°E. The archive spans from October 2011 to present in 15-minute
+steps.
+
+The pixel resolution and ODIM HDF5 structure differ between production eras:
+
+* **ODYSSEY era (before 2024-07-01):** 2 km per pixel, 1900 x 2200 grid,
+  ODIM HDF5 version 2.0.  The quantity tag lives at the *dataset* level.
+* **CIRRUS / NIMBUS era (from 2024-07-01 onward):** ODIM version 2.4.
+  Resolution varies by product: DBZH is 1 km (3800 x 4400); RATE and ACRR
+  remain at 2 km (1900 x 2200).
+
+All grids share the same spatial extent (3800 km x 4400 km) and LAEA
+projection origin.  If a single call requests variables with different
+pixel resolutions, a `ValueError` is raised — request each resolution
+group separately.
+
+ODIM pixels with no radar coverage (``nodata``) are set to NaN.  Pixels
+where the radar was active but detected nothing (``undetect``) are filled
+with a quantity-specific value: ``0.0`` for precipitation quantities (RATE,
+ACRR) and ``-99.0 dBZ`` for reflectivity (DBZH) to match the MRMS refc
+convention.  All other values are scaled by the gain and offset parameters
+in the ODIM HDF5 file.
+
+**Badges:** `region:eu` `dataclass:observation` `product:precip` `product:radar`
+
+**Parameters:**
+
+<ParamField path="cache" type="bool" default="True">
+Cache downloaded HDF5 files locally, by default True.
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="True">
+Print download progress, by default True.
+</ParamField>
+
+<ParamField path="async_timeout" type="int" default="600">
+Total timeout in seconds for the entire fetch, by default 600.
+</ParamField>
+
+<ParamField path="async_workers" type="int" default="16">
+Maximum concurrent async fetch tasks, by default 16.
+</ParamField>
+
+<ParamField path="retries" type="int" default="3">
+Number of retry attempts per failed download with exponential
+backoff, by default 3.
+</ParamField>
+
+<Note>
+
+Additional information on the data repository can be referenced here:
+
+- https://eumetnet.github.io/openradardata-documentation/
+- https://s3.waw3-1.cloudferro.com/openradar-archive/
+
+</Note>
+
+<Warning>
+
+This is a remote data source and can potentially download a large amount
+of data to your local machine for large requests.  Each ODIM HDF5 file is
+roughly 400 KB - 2 MB.
+
+</Warning>
+
+<ParamField path="cache" type="str">
+Local directory used to cache downloaded ODIM HDF5 files.
+</ParamField>
+
+<Anchor id="earth2studio-data-opera-OPERA-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.opera.OPERA.__call__(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Retrieve OPERA composite data
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Timestamps to return data for (UTC).
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — String, list of strings or array of strings that refer to variables to
+return. Must be in the OPERA lexicon.
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+OPERA weather data array
+
+</Indent>
+<Anchor id="earth2studio-data-opera-OPERA-available">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.opera.OPERA.available(
+    time: datetime.datetime | numpy.datetime64
+) -> bool
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Check whether a given time is fetchable from the OPERA archive.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | np.datetime64">
+Date time to access
+</ParamField>
+
+**Returns:** `bool`
+
+If date time is avaiable
+
+</Indent>
+<Anchor id="earth2studio-data-opera-OPERA-fetch">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.opera.OPERA.fetch(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Async function to get data
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Timestamps to return data for (UTC).
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — String, list of strings or array of strings that refer to variables to
+return. Must be in the OPERA lexicon.
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+OPERA weather data array
+
+</Indent>
+<Anchor id="earth2studio-data-opera-OPERA-fetch_array">
+
+<CodeBlock links={{"earth2studio.data.opera._OPERAAsyncTask":"#earth2studio-data-opera-_OPERAAsyncTask"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.opera.OPERA.fetch_array(
+    task: earth2studio.data.opera._OPERAAsyncTask
+) -> numpy.ndarray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Download one ODIM HDF5 file and decode the requested quantity.
+
+**Parameters:**
+
+<ParamField path="task" type="_OPERAAsyncTask">
+Describes the URL and ODIM quantity to extract.
+</ParamField>
+
+**Returns:** `np.ndarray`
+
+Decoded 2-D float32 array.
+
+**Raises:**
+
+- `ValueError`: If the filesystem is not initialised or the quantity is absent.
+
+</Indent>
+<Anchor id="earth2studio-data-opera-OPERA-fetch_wrapper">
+
+<CodeBlock links={{"earth2studio.data.opera._OPERAAsyncTask":"#earth2studio-data-opera-_OPERAAsyncTask"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.opera.OPERA.fetch_wrapper(
+    task: earth2studio.data.opera._OPERAAsyncTask
+) -> numpy.ndarray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Fetch a single task with retry and apply the variable modifier.
+
+**Parameters:**
+
+<ParamField path="task" type="_OPERAAsyncTask">
+Task describing what to fetch.
+</ParamField>
+
+**Returns:** `np.ndarray`
+
+Decoded and modifier-applied 2-D float32 array.
+
+</Indent>
+</Indent>

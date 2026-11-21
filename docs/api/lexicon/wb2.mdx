@@ -1,0 +1,108 @@
+---
+layout: overview
+title: earth2studio.lexicon.wb2
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`WB2ClimatetologyLexicon`](#earth2studio-lexicon-wb2-WB2ClimatetologyLexicon) | WeatherBench Climatology Lexicon |
+| [`WB2Lexicon`](#earth2studio-lexicon-wb2-WB2Lexicon) | WeatherBench Lexicon |
+
+### API
+
+<Anchor id="earth2studio-lexicon-wb2-WB2ClimatetologyLexicon">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.lexicon.wb2.WB2ClimatetologyLexicon()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+WeatherBench Climatology Lexicon
+WeatherBench specified &lt;Variable ID&gt;::&lt;Pressure Level&gt;
+
+<Note>
+
+Variable named based on ERA5 names, see WB2 docs for resources.
+
+- https://weatherbench2.readthedocs.io/en/latest/data-guide.html
+- Dew point temperature at 2m seems to be all NaNs
+
+</Note>
+
+<Anchor id="earth2studio-lexicon-wb2-WB2ClimatetologyLexicon-get_item">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.lexicon.wb2.WB2ClimatetologyLexicon.get_item(
+    val: str
+) -> tuple[str, collections.abc.Callable]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Return name in WeatherBench vocabulary.
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-lexicon-wb2-WB2Lexicon">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.lexicon.wb2.WB2Lexicon()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+WeatherBench Lexicon
+WeatherBench specified &lt;Variable ID&gt;::&lt;Pressure Level&gt;
+
+<Note>
+
+Variable named based on ERA5 names, see WB2 docs for resources.
+
+- https://weatherbench2.readthedocs.io/en/latest/data-guide.html
+- Dew point temperature at 2m seems to be all NaNs
+
+</Note>
+
+<Anchor id="earth2studio-lexicon-wb2-WB2Lexicon-get_item">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.lexicon.wb2.WB2Lexicon.get_item(
+    val: str
+) -> tuple[str, collections.abc.Callable]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Return name in WeatherBench vocabulary.
+
+</Indent>
+</Indent>

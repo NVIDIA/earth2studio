@@ -1,0 +1,179 @@
+---
+layout: overview
+title: earth2studio.statistics.energy_score
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`energy_score`](#earth2studio-statistics-energy_score-energy_score) | Compute the Energy Score for multivariate ensemble forecast verification. |
+
+### Functions
+
+| Name | Description |
+|------|-------------|
+
+### API
+
+<Anchor id="earth2studio-statistics-energy_score-energy_score">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.statistics.energy_score.energy_score(
+    ensemble_dimension: str,
+    multivariate_dimensions: list[str],
+    reduction_dimensions: list[str] | None = None,
+    weights: torch.Tensor = None,
+    fair: bool = False
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Compute the Energy Score for multivariate ensemble forecast verification.
+
+The Energy Score is the multivariate generalization of CRPS. Given an
+ensemble forecast &#123;x_1, ..., x_M&#125; and an observation y, the Energy Score
+is defined as:
+
+    ES = (1/M) * sum_m ||x_m - y|| - 1/(2*M^2) * sum_m sum_m' ||x_m - x_m'||
+
+where ||.|| denotes the Euclidean norm computed over the multivariate
+dimensions. This is a proper scoring rule that is minimized when the forecast
+distribution matches the true distribution.
+
+Unlike CRPS which evaluates each variable/grid point independently, the
+Energy Score captures whether the ensemble preserves spatial correlations
+across variables and grid points.
+
+!!! warning
+
+    Setting `multivariate_dimensions` to large spatial grids (e.g.,
+    `['lat', 'lon']` with 721x1440 = ~1M elements) produces a feature
+    vector of that size per ensemble member. For M=50 members this requires
+    ~200 MB per tensor in float32. Prefer selecting a subset of dimensions
+    unless full-field verification is explicitly needed.
+
+**References**
+
+Gneiting, T. and Raftery, A. E. (2007), "Strictly Proper Scoring Rules,
+Prediction, and Estimation", Journal of the American Statistical
+Association, 102(477), 359-378.
+
+**Parameters:**
+
+<ParamField path="ensemble_dimension" type="str">
+A name corresponding to the dimension to perform the ensemble
+reduction over. Example: 'ensemble'
+</ParamField>
+
+<ParamField path="multivariate_dimensions" type="list[str]">
+Dimensions over which to compute the Euclidean norm.
+Example: ['variable', 'lat', 'lon'] for full spatial ES, or
+['variable'] for per-grid-point multivariate ES.
+</ParamField>
+
+<ParamField path="reduction_dimensions" type="list[str]" default="None">
+Dimensions over which to average the energy score after computation.
+By default None (no additional reduction).
+</ParamField>
+
+<ParamField path="weights" type="torch.Tensor" default="None">
+Weights for the reduction dimensions. Must have the same number of
+dimensions as passed in reduction_dimensions. By default None.
+</ParamField>
+
+<ParamField path="fair" type="bool" default="False">
+If True, use the fair (unbiased) Energy Score estimator, which
+replaces the ``1/(2*M^2)`` denominator with ``1/(2*M*(M-1))``,
+excluding the zero self-distance diagonal from the denominator count.
+Requires at least 2 ensemble members. By default False.
+</ParamField>
+
+<ParamField path="mean">
+</ParamField>
+
+<ParamField path="reduction_dimensions" type="list[str]">
+All dimensions that will be reduced/removed from the output.
+</ParamField>
+<Anchor id="earth2studio-statistics-energy_score-energy_score-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.statistics.energy_score.energy_score.__call__(
+    x: torch.Tensor,
+    x_coords: earth2studio.utils.type.CoordSystem,
+    y: torch.Tensor,
+    y_coords: earth2studio.utils.type.CoordSystem
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Apply the Energy Score metric to ensemble forecast `x` and observation `y`.
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Ensemble forecast tensor. Must contain the ensemble dimension.
+</ParamField>
+
+<ParamField path="x_coords" type="CoordSystem">
+[`CoordSystem`](../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Coordinate system describing the `x` tensor. Must contain
+`ensemble_dimension` and all `multivariate_dimensions`.
+</ParamField>
+
+<ParamField path="y" type="torch.Tensor">
+Observation tensor. Must not contain the ensemble dimension.
+</ParamField>
+
+<ParamField path="y_coords" type="CoordSystem">
+[`CoordSystem`](../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Coordinate system describing the `y` tensor. Must contain
+all `multivariate_dimensions`.
+</ParamField>
+
+**Returns:** `tuple[torch.Tensor,` [`CoordSystem`](../utils/type.mdx#earth2studio-utils-type-CoordSystem) `]`
+
+Energy Score tensor with appropriate reduced coordinates.
+
+</Indent>
+<Anchor id="earth2studio-statistics-energy_score-energy_score-output_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.statistics.energy_score.energy_score.output_coords(
+    input_coords: earth2studio.utils.type.CoordSystem
+) -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Output coordinate system of the computed statistic, corresponding to
+the given input coordinates.
+
+**Parameters:**
+
+<ParamField path="input_coords" type="CoordSystem">
+[`CoordSystem`](../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system to transform into output_coords
+</ParamField>
+
+**Returns:** [`CoordSystem`](../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Coordinate system dictionary
+
+</Indent>
+</Indent>

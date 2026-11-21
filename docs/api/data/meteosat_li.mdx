@@ -1,0 +1,313 @@
+---
+layout: overview
+title: earth2studio.data.meteosat_li
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`MeteosatLI`](#earth2studio-data-meteosat_li-MeteosatLI) | EUMETSAT MTG-I LI Level-2 pointed lightning data source. |
+
+### Functions
+
+| Name | Description |
+|------|-------------|
+
+### API
+
+<Anchor id="earth2studio-data-meteosat_li-MeteosatLI">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeTolerance":"../utils/type.mdx#earth2studio-utils-type-TimeTolerance"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.meteosat_li.MeteosatLI(
+    lat_lon_bbox: tuple[float, float, float, float] | None = None,
+    time_tolerance: earth2studio.utils.type.TimeTolerance = np.timedelta64(5, 'm'),
+    cache: bool = True,
+    verbose: bool = True,
+    async_timeout: int = 600,
+    async_workers: int = 8,
+    retries: int = 3
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+EUMETSAT MTG-I LI Level-2 pointed lightning data source.
+
+Returns per-detection lightning observations from the Meteosat Third
+Generation (MTG) Lightning Imager (LI), served as point observations in a
+pandas DataFrame. The Level-2 processing clusters optical detections into a
+three-level hierarchy, each published as a separate EUMETSAT Data Store
+collection:
+
+- ``LFL`` Lightning Flashes, the coarsest level
+  (``lightning_flash_*`` variables)
+- ``LGR`` Lightning Groups, detections clustered per integration frame
+  (``lightning_group_*`` variables)
+- ``LEF`` Lightning Events Filtered, individual pixel detections that were
+  retained by the flash clustering (``lightning_event_*`` variables)
+
+The collection a request reads from is determined by the requested
+variables, so only the products actually needed are downloaded. Each row
+carries the detection time, latitude/longitude and the requested
+measurement, with radiance reported in ``mW m-2 sr-1``. The
+``lightning_*_count`` variables are a constant 1.0 per record, suitable
+for density aggregation.
+
+Groups and flashes also expose their footprint size as detector-pixel
+counts. ``lightning_group_footprint_pixels`` reads the LGR
+``number_of_events`` field (each event is one contributing pixel), while
+``lightning_flash_footprint_pixels`` reads the LFL ``flash_footprint``
+field. Events are individual pixels and have no event-level footprint
+variable.
+
+**Example**
+
+<CodeBlock showLineNumbers={false}>
+
+```python
+from datetime import datetime
+import numpy as np
+from earth2studio.data import MeteosatLI
+
+ds = MeteosatLI(
+    lat_lon_bbox=(35.0, -12.0, 60.0, 30.0),  # Europe
+    time_tolerance=np.timedelta64(5, "m"),
+)
+df = ds(
+    datetime(2025, 6, 15, 12, 0),
+    ["lightning_flash_radiance", "lightning_flash_count"],
+)
+
+```
+
+</CodeBlock>
+
+**Badges:** `region:eu` `region:af` `dataclass:observation` `product:sat` `provider:eumetsat`
+
+**Parameters:**
+
+<ParamField path="lat_lon_bbox" type="tuple[float, float, float, float] | None" default="None">
+Bounding box ``(lat_min, lon_min, lat_max, lon_max)`` in degrees,
+applied at parse time. Accepts either the ``[-180, 180)`` or the
+``[0, 360)`` longitude convention (auto-detected when
+``lon_max &gt;= 180``). ``None`` (default) returns the full disk. For
+example, Europe in the ``[-180, 180)`` convention is
+``(35.0, -12.0, 60.0, 30.0)``.
+</ParamField>
+
+<ParamField path="time_tolerance" type="TimeTolerance" default="np.timedelta64(5, 'm')">
+[`TimeTolerance`](../utils/type.mdx#earth2studio-utils-type-TimeTolerance) — Time tolerance window for selecting detections around each requested
+timestamp. Accepts a single value (symmetric window) or a tuple
+``(lower, upper)`` for asymmetric windows, by default
+``np.timedelta64(5, "m")``.
+</ParamField>
+
+<ParamField path="cache" type="bool" default="True">
+Cache downloaded NetCDF files on local disk, by default True
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="True">
+Show download progress bar, by default True
+</ParamField>
+
+<ParamField path="async_timeout" type="int" default="600">
+Total timeout in seconds for the entire fetch operation,
+by default 600
+</ParamField>
+
+<ParamField path="async_workers" type="int" default="8">
+Maximum number of concurrent Data Store fetch tasks, by default 8
+</ParamField>
+
+<ParamField path="retries" type="int" default="3">
+Number of retry attempts per failed fetch task with exponential
+backoff, by default 3
+</ParamField>
+
+<Note>
+
+Requires EUMETSAT Data Store credentials. Set the following environment
+variables:
+
+- ``EUMETSAT_CONSUMER_KEY``: Your EUMETSAT API consumer key
+- ``EUMETSAT_CONSUMER_SECRET``: Your EUMETSAT API consumer secret
+
+Register at https://eoportal.eumetsat.int/ to obtain credentials.
+Output longitudes are normalised to ``[0, 360)`` (Earth2Studio
+convention). Detection times are decoded from each product's native
+``seconds since 2000-01-01`` encoding, so sub-second precision is
+preserved. Products are archived as 10 minute granules; a granule is
+downloaded whenever it overlaps a requested tolerance window.
+Additional information on the data repository:
+
+- https://user.eumetsat.int/resources/user-guides/mtg-li-level-2-data-guide
+- https://data.eumetsat.int/product/EO:EUM:DAT:0691
+- https://user.eumetsat.int/s3/eup-strapi-media/MTG_LI_Level_2_Format_Specification_12c067c926.pdf
+
+</Note>
+
+<Warning>
+
+This is a remote data source and can potentially download a large amount of
+data to your local machine for large requests. The LEF product contains
+hundreds of thousands of detections per 10 minute granule; prefer
+``lightning_flash_*`` variables and a bounded ``time_tolerance`` for
+large time windows.
+
+</Warning>
+
+<ParamField path="cache" type="str">
+Local cache directory for this data source.
+</ParamField>
+<Anchor id="earth2studio-data-meteosat_li-MeteosatLI-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.meteosat_li.MeteosatLI.__call__(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray,
+    fields: str | list[str] | pyarrow.Schema | None = None
+) -> pandas.DataFrame
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Fetch LI lightning detections for a set of timestamps.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Timestamps to return detections for (UTC).
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — Variable ids defined in
+`earth2studio.lexicon.MeteosatLILexicon`.
+</ParamField>
+
+<ParamField path="fields" type="str | list[str] | pa.Schema | None" default="None">
+Output column subset. ``None`` (default) returns all schema
+fields.
+</ParamField>
+
+**Returns:** `pd.DataFrame`
+
+Detection-level lightning observations with columns matching the
+resolved schema.
+
+</Indent>
+<Anchor id="earth2studio-data-meteosat_li-MeteosatLI-available">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.meteosat_li.MeteosatLI.available(
+    time: datetime.datetime | numpy.datetime64
+) -> bool
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Check whether data is available for a given time.
+
+Offline check against the LI Level-2 archive window.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | np.datetime64">
+Date-time to check.
+</ParamField>
+
+**Returns:** `bool`
+
+Whether the requested date time is available.
+
+</Indent>
+<Anchor id="earth2studio-data-meteosat_li-MeteosatLI-fetch">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.meteosat_li.MeteosatLI.fetch(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray,
+    fields: str | list[str] | pyarrow.Schema | None = None
+) -> pandas.DataFrame
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Async function to fetch LI lightning detections.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Timestamps to return detections for (UTC).
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — Variable ids defined in `MeteosatLILexicon`.
+</ParamField>
+
+<ParamField path="fields" type="str | list[str] | pa.Schema | None" default="None">
+Output column subset. ``None`` (default) returns all schema
+fields.
+</ParamField>
+
+**Returns:** `pd.DataFrame`
+
+Detection-level lightning observations.
+
+</Indent>
+<Anchor id="earth2studio-data-meteosat_li-MeteosatLI-resolve_fields">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.meteosat_li.MeteosatLI.resolve_fields(
+    fields: str | list[str] | pyarrow.Schema | None
+) -> pyarrow.Schema
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Resolve a ``fields`` selector into a validated PyArrow schema.
+
+**Parameters:**
+
+<ParamField path="fields" type="str | list[str] | pa.Schema | None">
+Column selector. ``None`` returns the full class schema.
+</ParamField>
+
+**Returns:** `pa.Schema`
+
+Schema of the selected columns.
+
+</Indent>
+</Indent>

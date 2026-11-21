@@ -1,0 +1,62 @@
+---
+layout: overview
+title: earth2studio.lexicon.cams
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`CAMSGlobalLexicon`](#earth2studio-lexicon-cams-CAMSGlobalLexicon) | Copernicus Atmosphere Monitoring Service Global Forecast Lexicon |
+
+### API
+
+<Anchor id="earth2studio-lexicon-cams-CAMSGlobalLexicon">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.lexicon.cams.CAMSGlobalLexicon()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Copernicus Atmosphere Monitoring Service Global Forecast Lexicon
+
+CAMS specified ``&lt;dataset&gt;::&lt;api_variable&gt;::&lt;netcdf_key&gt;::&lt;level&gt;``
+
+The API variable name (used in the cdsapi request) differs from the NetCDF
+key (used to index the downloaded file). Both are stored in the VOCAB.
+
+<Note>
+
+Additional resources:
+https://ads.atmosphere.copernicus.eu/datasets/cams-global-atmospheric-composition-forecasts
+
+</Note>
+
+<Anchor id="earth2studio-lexicon-cams-CAMSGlobalLexicon-get_item">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.lexicon.cams.CAMSGlobalLexicon.get_item(
+    val: str
+) -> tuple[str, collections.abc.Callable]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Return name in CAMS vocabulary.
+
+</Indent>
+</Indent>

@@ -1,0 +1,105 @@
+---
+layout: overview
+title: earth2studio.data.utils_ir
+---
+## Module Contents
+
+### Functions
+
+| Name | Description |
+|------|-------------|
+| [`cris_radiance_mw`](#earth2studio-data-utils_ir-cris_radiance_mw) | Convert CrIS SRAD (W m⁻² sr⁻¹ (cm⁻¹)⁻¹) to mW m⁻² sr⁻¹ (cm⁻¹)⁻¹. |
+| [`iasi_radiance_mw`](#earth2studio-data-utils_ir-iasi_radiance_mw) | Convert IASI SCRA integer codes to mW m⁻² sr⁻¹ (cm⁻¹)⁻¹. |
+| [`wavenumber_cm_inverse`](#earth2studio-data-utils_ir-wavenumber_cm_inverse) | Centre wavenumber in cm⁻¹ for each channel number. |
+
+### API
+
+<Anchor id="earth2studio-data-utils_ir-cris_radiance_mw">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.utils_ir.cris_radiance_mw(
+    srad: typing.Any
+) -> typing.Any
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Convert CrIS SRAD (W m⁻² sr⁻¹ (cm⁻¹)⁻¹) to mW m⁻² sr⁻¹ (cm⁻¹)⁻¹.
+
+</Indent>
+
+<Anchor id="earth2studio-data-utils_ir-iasi_radiance_mw">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.utils_ir.iasi_radiance_mw(
+    scra: typing.Any,
+    chsf: typing.Any
+) -> typing.Any
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Convert IASI SCRA integer codes to mW m⁻² sr⁻¹ (cm⁻¹)⁻¹.
+
+The NNJA IASI BUFR stores per-footprint SCRA integer values and CHSF
+scale exponents declared per channel group (``mtiasi`` carries ten
+STCH/ENCH/CHSF groups per footprint; the caller resolves each channel's
+group). The physical radiance in W m⁻² sr⁻¹ (m⁻¹)⁻¹ (per unit
+wavenumber) is ``SCRA × 10^(-CHSF)``. Converting to
+mW m⁻² sr⁻¹ (cm⁻¹)⁻¹ adds a factor of 10⁵ (×1000 for mW, ×100 for
+per-cm⁻¹ vs per-m⁻¹).
+
+**Parameters:**
+
+<ParamField path="scra" type="array - like">
+Raw SCRA integer values from the BUFR (decoded, not yet scaled).
+</ParamField>
+
+<ParamField path="chsf" type="array - like">
+CHSF exponent already resolved to each channel, same shape as ``scra``.
+</ParamField>
+
+</Indent>
+
+<Anchor id="earth2studio-data-utils_ir-wavenumber_cm_inverse">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.utils_ir.wavenumber_cm_inverse(
+    sensor: str,
+    channels: collections.abc.Sequence[int] | typing.Any
+) -> typing.Any
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Centre wavenumber in cm⁻¹ for each channel number.
+
+AIRS has no formulaic spectral grid — its per-channel wavenumbers are
+read from the ``LOGRCW`` field encoded in the aggregate BUFR instead.
+
+**Parameters:**
+
+<ParamField path="sensor" type="str">
+One of ``"iasi"``, ``"cris"``.
+</ParamField>
+
+<ParamField path="channels" type="sequence of int">
+Instrument channel numbers (1-based).
+</ParamField>
+
+</Indent>

@@ -1,0 +1,296 @@
+---
+layout: overview
+title: earth2studio.data.jpss
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`JPSS`](#earth2studio-data-jpss-JPSS) | JPSS VIIRS data source for NOAA-20, NOAA-21, and Suomi-NPP supporting both SDR (L1) and EDR (L2) products. |
+
+### API
+
+<Anchor id="earth2studio-data-jpss-JPSS">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.jpss.JPSS(
+    satellite: str = 'noaa-20',
+    product_type: str = 'I',
+    max_workers: int = 24,
+    cache: bool = True,
+    verbose: bool = True,
+    async_timeout: int = 600
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+JPSS VIIRS data source for NOAA-20, NOAA-21, and Suomi-NPP supporting both SDR (L1) and EDR (L2) products.
+
+**Badges:** `region:global` `dataclass:observation` `product:sat` `provider:noaa`
+
+**Parameters:**
+
+<ParamField path="satellite" type="str" default="'noaa-20'">
+One of &#123;"noaa-20", "noaa-21", "snpp"&#125;. Default "noaa-20".
+</ParamField>
+
+<ParamField path="product_type" type="str" default="'I'">
+Product type: "I" for imagery bands (375m), "M" for moderate bands (750m),
+or "L2" for Level 2 EDR products (750m). Default "I".
+</ParamField>
+
+<ParamField path="max_workers" type="int" default="24">
+Maximum concurrent fetch tasks. Default 24.
+</ParamField>
+
+<ParamField path="cache" type="bool" default="True">
+Cache downloaded files under a deterministic hash. Default True.
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="True">
+Show progress bars. Default True.
+</ParamField>
+
+<ParamField path="async_timeout" type="int" default="600">
+Timeout for async operations in seconds. Default 600.
+</ParamField>
+
+<Note>
+
+The returned data automatically includes '_lat' and '_lon' variables containing
+latitude and longitude coordinates for each pixel. These are appended to the last
+two dimensions of the data arrays variables as '_lat' and '_lon' variables.
+
+For EDR (L2) products, not all products are available but generally include:
+- Land Surface Temperature, Surface Albedo, Snow Cover
+- Surface Reflectance, Active Fire Detection
+- Cloud properties (mask, phase, height, optical thickness)
+- Aerosol detection and Volcanic ash products
+
+</Note>
+
+<ParamField path="cache" type="str">
+Get the cache location
+</ParamField>
+
+<Anchor id="earth2studio-data-jpss-JPSS-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.jpss.JPSS.__call__(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Function to get data
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Timestamps to return data for (UTC).
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — String, list of strings or array of strings that refer to variables to
+return. Must be in the JPSS lexicon.
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+Data array containing the requested JPSS data
+
+</Indent>
+<Anchor id="earth2studio-data-jpss-JPSS-available">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.jpss.JPSS.available(
+    time: datetime.datetime | numpy.datetime64,
+    variable: str,
+    satellite: str = 'noaa-20',
+    product_type: str = 'I'
+) -> bool
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Checks if given date time is avaliable in JPSS
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | np.datetime64">
+Date time to access
+</ParamField>
+
+<ParamField path="variable" type="str">
+Variable to check
+</ParamField>
+
+<ParamField path="satellite" type="str" default="'noaa-20'">
+Satellite to check
+</ParamField>
+
+<ParamField path="product_type" type="str" default="'I'">
+Product type to check
+</ParamField>
+
+**Returns:** `bool`
+
+If date time is avaiable
+
+</Indent>
+<Anchor id="earth2studio-data-jpss-JPSS-fetch">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.jpss.JPSS.fetch(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Async function to get data
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Timestamps to return data for (UTC).
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — String, list of strings or array of strings that refer to variables to
+return. Must be in the JPSS lexicon.
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+Data array containing the requested JPSS data
+
+</Indent>
+<Anchor id="earth2studio-data-jpss-JPSS-fetch_data">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.jpss.JPSS.fetch_data(
+    time: datetime.datetime,
+    variable: str
+) -> tuple[numpy.ndarray, datetime.datetime, str]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Fetch VIIRS data array
+
+**Parameters:**
+
+<ParamField path="time" type="datetime">
+Time to get data for
+</ParamField>
+
+<ParamField path="variable" type="str">
+Variable name to fetch
+</ParamField>
+
+**Returns:** `tuple[np.ndarray, datetime, str]`
+
+VIIRS data array, timestamp, and filename
+
+</Indent>
+<Anchor id="earth2studio-data-jpss-JPSS-fetch_data_wrapper">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.jpss.JPSS.fetch_data_wrapper(
+    e: tuple[int, datetime.datetime, int, str],
+    xr_array: xarray.DataArray
+) -> None
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Small wrapper to pack arrays into the DataArray
+
+</Indent>
+<Anchor id="earth2studio-data-jpss-JPSS-fetch_geolocation">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.jpss.JPSS.fetch_geolocation(
+    time: datetime.datetime
+) -> tuple[numpy.ndarray, numpy.ndarray, datetime.datetime, str]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Fetch geolocation data from VIIRS geolocation files.
+
+</Indent>
+<Anchor id="earth2studio-data-jpss-JPSS-fetch_geolocation_wrapper">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.jpss.JPSS.fetch_geolocation_wrapper(
+    e: tuple[int, datetime.datetime],
+    xr_array: xarray.DataArray
+) -> None
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Small wrapper to pack arrays into the DataArray
+
+</Indent>
+</Indent>

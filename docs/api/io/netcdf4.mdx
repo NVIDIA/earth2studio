@@ -1,0 +1,289 @@
+---
+layout: overview
+title: earth2studio.io.netcdf4
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`NetCDF4Backend`](#earth2studio-io-netcdf4-NetCDF4Backend) | A backend that supports the NetCDF4 format. |
+
+### API
+
+<Anchor id="earth2studio-io-netcdf4-NetCDF4Backend">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.io.netcdf4.NetCDF4Backend(
+    file_name: str,
+    backend_kwargs: dict[str, typing.Any] = {'mode': 'r+', 'diskless': ...
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+A backend that supports the NetCDF4 format.
+
+**Parameters:**
+
+<ParamField path="file_name" type="str">
+_description_
+</ParamField>
+
+<ParamField path="backend_kwargs" type="dict[str, Any]" default="&#123;'mode': 'r+', 'diskless': False&#125;">
+Key word arguments for netCDF.Dataset root object, by default
+&#123;"mode": "r+", "diskless": False&#125;
+</ParamField>
+
+<Note>
+
+For keyword argument options see: https://unidata.github.io/netcdf4-python/#netCDF4.Dataset
+
+</Note>
+
+<Anchor id="earth2studio-io-netcdf4-NetCDF4Backend-__contains__">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.io.netcdf4.NetCDF4Backend.__contains__(
+    item: str
+) -> bool
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Checks if item in netCDF4 variables.
+
+**Parameters:**
+
+<ParamField path="item" type="str">
+
+</ParamField>
+
+</Indent>
+<Anchor id="earth2studio-io-netcdf4-NetCDF4Backend-__getitem__">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.io.netcdf4.NetCDF4Backend.__getitem__(
+    item: str
+) -> netCDF4.Variable
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Gets variable in netCDF4 group.
+
+**Parameters:**
+
+<ParamField path="item" type="str">
+
+</ParamField>
+
+</Indent>
+<Anchor id="earth2studio-io-netcdf4-NetCDF4Backend-__iter__">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.io.netcdf4.NetCDF4Backend.__iter__() -> collections.abc.Iterator
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Return an iterator over netCDF4 variables.
+
+</Indent>
+<Anchor id="earth2studio-io-netcdf4-NetCDF4Backend-__len__">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.io.netcdf4.NetCDF4Backend.__len__() -> int
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Gets number of netCDF4 variables.
+
+</Indent>
+<Anchor id="earth2studio-io-netcdf4-NetCDF4Backend-add_array">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.io.netcdf4.NetCDF4Backend.add_array(
+    coords: earth2studio.utils.type.CoordSystem,
+    array_name: str | list[str],
+    data: torch.Tensor | list[torch.Tensor] = None
+) -> None
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Add an array to the existing netcdf Dataset.
+
+**Parameters:**
+
+<ParamField path="coords" type="CoordSystem">
+[`CoordSystem`](../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Ordered dict of coordinate information.
+</ParamField>
+
+<ParamField path="array_name" type="str">
+Name to add to netcdf Dataset for the new array. Can optionally
+be a list of array_names.
+</ParamField>
+
+<ParamField path="data" type="torch.Tensor | list[torch.Tensor]" default="None">
+Optional data to initialize the array with. If None, then
+the netcdf array is initialized with zeros.
+Can also pass a list of tensors, which must match in length to the
+list of array_names passed. If a list of tensors is passed, it is assumed
+that each tensor share `coords`.
+</ParamField>
+
+</Indent>
+<Anchor id="earth2studio-io-netcdf4-NetCDF4Backend-add_dimension">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.io.netcdf4.NetCDF4Backend.add_dimension(
+    name: str,
+    shape: tuple | list,
+    data: numpy.ndarray
+) -> None
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Add a dimension to the existing netCDF4 group.
+
+Note that netCDF4 dimensions must be 1-dimensional.
+
+**Parameters:**
+
+<ParamField path="name" type="str">
+name of dimension
+</ParamField>
+
+<ParamField path="shape" type="tuple">
+Shape of dimension
+</ParamField>
+
+<ParamField path="data" type="np.ndarray">
+Data to save to dimension variable
+</ParamField>
+
+</Indent>
+<Anchor id="earth2studio-io-netcdf4-NetCDF4Backend-close">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.io.netcdf4.NetCDF4Backend.close() -> None
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Close NetCDF4 group.
+
+</Indent>
+<Anchor id="earth2studio-io-netcdf4-NetCDF4Backend-read">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.io.netcdf4.NetCDF4Backend.read(
+    coords: earth2studio.utils.type.CoordSystem,
+    array_name: str,
+    device: torch.device = 'cpu'
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Read data from the current netcdf store using the passed array_name.
+
+**Parameters:**
+
+<ParamField path="coords" type="OrderedDict">
+Coordinates of the data to be read.
+</ParamField>
+
+<ParamField path="array_name" type="str | list[str]">
+Name(s) of the array(s) to read from.
+</ParamField>
+
+<ParamField path="device" type="torch.device" default="'cpu'">
+device to place the read data from, by default 'cpu'
+</ParamField>
+
+</Indent>
+<Anchor id="earth2studio-io-netcdf4-NetCDF4Backend-write">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.io.netcdf4.NetCDF4Backend.write(
+    x: torch.Tensor | list[torch.Tensor],
+    coords: earth2studio.utils.type.CoordSystem,
+    array_name: str | list[str]
+) -> None
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Write data to the current netCDF group using the passed array_name.
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor | list[torch.Tensor]">
+Tensor(s) to be written to netCDF group.
+</ParamField>
+
+<ParamField path="coords" type="OrderedDict">
+Coordinates of the passed data.
+</ParamField>
+
+<ParamField path="array_name" type="str | list[str]">
+Name(s) of the array(s) that will be written to.
+</ParamField>
+
+</Indent>
+</Indent>

@@ -1,0 +1,478 @@
+---
+layout: overview
+title: earth2studio.models.da.sda_corrdiff_cosmo_era5
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`CorrDiffCosmoEra5SDA`](#earth2studio-models-da-sda_corrdiff_cosmo_era5-CorrDiffCosmoEra5SDA) | CorrDiff-COSMO with score-based data assimilation (SDA) via diffusion |
+
+### API
+
+<Anchor id="earth2studio-models-da-sda_corrdiff_cosmo_era5-CorrDiffCosmoEra5SDA">
+
+<CodeBlock links={{"earth2studio.models.dx.corrdiff_cosmo_era5.CorrDiffCosmoEra5":"../dx/corrdiff_cosmo_era5.mdx#earth2studio-models-dx-corrdiff_cosmo_era5-CorrDiffCosmoEra5","earth2studio.utils.type.TimeTolerance":"../../utils/type.mdx#earth2studio-utils-type-TimeTolerance"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.models.da.sda_corrdiff_cosmo_era5.CorrDiffCosmoEra5SDA(
+    model: earth2studio.models.dx.corrdiff_cosmo_era5.CorrDiffCosmoEra5,
+    assimilate_variables: tuple[str, ...],
+    time_tolerance: earth2studio.utils.type.TimeTolerance = np.timedelta64(10, 'm'),
+    number_of_samples: int | None = None,
+    sampler_steps: int | None = None,
+    sda_std_obs: float | collections.abc.Mapping[str, float] = 0.75,
+    sda_gamma: float = 7.5e-05,
+    amp: bool = False
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** `Module`, [AutoModelMixin](../auto/mixin.mdx#earth2studio-models-auto-mixin-AutoModelMixin)
+
+CorrDiff-COSMO with score-based data assimilation (SDA) via diffusion
+posterior sampling (DPS). Wraps a diffusion-mode `CorrDiffCosmoEra5`
+downscaler and, at inference, nudges each denoising step toward sparse point
+observations -- producing a high-resolution COSMO-REA analysis over Europe that
+is conditioned on the ERA5 driving state and guided toward the observations.
+
+Takes as input:
+
+- An ERA5 driving state (the same input the downscaler conditions on).
+- Sparse point observations (a DataFrame of lat/lon/variable/observation).
+
+CorrDiff-COSMO directly models ``p(y | ERA5)``, so observations are mapped into
+its normalized output space without residual mean subtraction or addition. It is
+a single-shot diagnostic downscaler with no propagated state:
+`__call__` and `create_generator` produce an independent analysis
+for each requested time, conditioned on the corresponding ERA5 state.
+
+Each observation is mapped to its nearest output-grid cell and normalized as
+``(obs - center) / scale``. This direct mapping supports only identity-transform,
+unit-scale channels, such as ``u10m`` / ``v10m`` and ``u3d_l47`` / ``v3d_l47``.
+Other channels require a custom observation operator and are rejected.
+
+Note that the ``u3d_l*`` channels are terrain-following model levels: the
+above-ground height of ``u3d_l47`` is ``a + b * elevation_norm`` (in normalized
+elevation; nominally ~119.5 m at zero elevation anomaly). The exact height varies
+with terrain, so pick the level whose height suits the observations.
+
+**Badges:** `region:global` `class:data-assimilation` `class:downscaling` `product:wind` `product:temp` `product:precip` `product:atmos` `product:insitu` `year:2026` `gpu:80gb` `provider:nvidia` `backend:pytorch`
+
+**Parameters:**
+
+<ParamField path="model" type="CorrDiffCosmoEra5">
+[`CorrDiffCosmoEra5`](../dx/corrdiff_cosmo_era5.mdx#earth2studio-models-dx-corrdiff_cosmo_era5-CorrDiffCosmoEra5) — A diffusion-mode downscaler (``mode="diffusion"``), already cropped to the
+target region with `CorrDiffCosmoEra5.set_domain` if desired.
+</ParamField>
+
+<ParamField path="assimilate_variables" type="tuple[str, ...]">
+Output variables to assimilate (required); must be identity-transform,
+unit-scale channels, e.g. ``("u10m", "v10m")`` (surface wind, available in
+either resolution) or ``("u3d_l47", "v3d_l47")`` (REA2 terrain-following
+model-level wind; above-ground height varies with elevation, see the note
+above). Choose the channel whose physical height matches your observations --
+there is no default, since the choice depends on the observations being
+assimilated.
+</ParamField>
+
+<ParamField path="time_tolerance" type="TimeTolerance" default="np.timedelta64(10, 'm')">
+[`TimeTolerance`](../../utils/type.mdx#earth2studio-utils-type-TimeTolerance) — Observations within this window of the analysis time are used. A single
+value is symmetric; the default is ±10 minutes.
+</ParamField>
+
+<ParamField path="number_of_samples" type="int | None" default="None">
+Posterior ensemble size (independent DPS draws, seeds ``seed + i``);
+defaults to the wrapped model's ``number_of_samples``.
+</ParamField>
+
+<ParamField path="sampler_steps" type="int | None" default="None">
+Diffusion sampler steps; defaults to the wrapped model's
+``number_of_steps``.
+</ParamField>
+
+<ParamField path="sda_std_obs" type="float | Mapping[str, float]" default="0.75">
+Observation-noise standard deviation for DPS guidance, by default 0.75.
+A scalar is broadcast to every assimilated variable (in that variable's
+physical units); a mapping sets it per variable and must contain exactly the
+assimilated variables (unknown keys are rejected) -- e.g.
+``&#123;"u10m": 0.5, "v10m": 0.5&#125;`` in m/s. When temperature is also
+assimilated, its entry could be ``"t2m": 1.0`` in K. Every value must be
+finite and &gt; 0. It is the effective uncertainty per occupied grid cell
+(multiple observations in one cell are averaged, not reduced by sqrt(n)).
+</ParamField>
+
+<ParamField path="sda_gamma" type="float" default="7.5e-05">
+SDA covariance scaling in the DPS likelihood, by default 7.5e-5. Positive
+values account for denoiser-estimate uncertainty across diffusion noise
+levels. Larger values weaken observation guidance, especially early in
+denoising, so the analysis stays closer to the unguided downscaler and may
+fit observations less closely. Set to 0 for classical DPS without this
+correction and the strongest guidance for a fixed ``sda_std_obs``. Must be
+&gt;= 0.
+</ParamField>
+
+<ParamField path="amp" type="bool" default="False">
+Run the guided diffusion sampler under ``torch.autocast`` bf16, by default
+False (full precision, matching the wrapped downscaler). Setting True can
+reduce runtime and peak GPU memory; it takes effect on CUDA only (CPU always
+runs full precision).
+</ParamField>
+
+<ParamField path="_grid_tree" type="= cKDTree(gxyz)">
+</ParamField>
+
+<ParamField path="_lat_np" type="= model.lat_output_grid.detach().cpu().numpy()">
+</ParamField>
+
+<ParamField path="_lon_np" type="= model.lon_output_grid.detach().cpu().numpy()">
+</ParamField>
+
+<ParamField path="_obs_max_dist" type="= 1.5 * float(np.hypot(row_spacing, column_spacing))">
+</ParamField>
+
+<ParamField path="_out_idx">
+</ParamField>
+
+<ParamField path="_tolerance" type="= normalize_time_tolerance(time_tolerance)">
+</ParamField>
+
+<ParamField path="assimilate_variables" type="= list(assimilate_variables)">
+</ParamField>
+
+<ParamField path="device" type="device">
+Device the assimilation model lives on.
+
+Derived from the wrapped downscaler's registered grid buffer -- the single
+authoritative device -- so it tracks the model even if the model is moved
+directly (no duplicated wrapper state to diverge).
+</ParamField>
+
+<ParamField path="number_of_samples">
+</ParamField>
+
+<ParamField path="sampler_steps">
+</ParamField>
+
+<ParamField path="sda_dps_norm" type="= 2">
+</ParamField>
+
+<ParamField path="seed" type="= 0">
+</ParamField>
+<Anchor id="earth2studio-models-da-sda_corrdiff_cosmo_era5-CorrDiffCosmoEra5SDA-__call__">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.da.sda_corrdiff_cosmo_era5.CorrDiffCosmoEra5SDA.__call__(
+    x: xarray.DataArray,
+    obs: pandas.DataFrame | None = None
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Assimilate ``obs`` into the downscaled analysis for each time in ``x``.
+
+**Parameters:**
+
+<ParamField path="x" type="xr.DataArray">
+ERA5 driving state on the native input grid (dims include ``time``,
+``variable``, ``lat``, ``lon``; a size-1 ``lead_time`` is squeezed).
+</ParamField>
+
+<ParamField path="obs" type="pd.DataFrame | None" default="None">
+Sparse observations (columns ``time``/``lat``/``lon``/``variable``/
+``observation``), or ``None`` for a free (unconstrained) downscaling.
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+Posterior COSMO-REA analysis, dims ``(time, sample, variable, y, x)``
+with 2D ``lat``/``lon`` coordinates.
+
+**Raises:**
+
+- `ValueError`: If ``x`` carries a ``lead_time`` dimension of size != 1, or if ``obs``
+is missing a required column.
+- `RuntimeError`: If the model is on CUDA but CuPy is not installed (the analysis cannot
+be returned on-device; install the ``da-cosmo`` extra or run on CPU).
+
+</Indent>
+<Anchor id="earth2studio-models-da-sda_corrdiff_cosmo_era5-CorrDiffCosmoEra5SDA-create_generator">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.da.sda_corrdiff_cosmo_era5.CorrDiffCosmoEra5SDA.create_generator(
+    x: xarray.DataArray
+) -> collections.abc.Generator[xarray.DataArray | None, pandas.DataFrame | None, None]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Generator of independent COSMO-REA analyses (a diagnostic re-analysis, not
+a propagated forecast). Primed with a no-compute yield; each ``send(obs)``
+produces the obs-constrained analysis for the next time in ``x``.
+
+**Example**
+
+&gt;&gt;&gt; gen = model.create_generator(x)
+&gt;&gt;&gt; next(gen)                  # prime
+&gt;&gt;&gt; state = gen.send(obs_df)   # analysis for x's first time
+
+**Parameters:**
+
+<ParamField path="x" type="xr.DataArray">
+ERA5 driving state (dims include ``time``, ``variable``, ``lat``,
+``lon``; a size-1 ``lead_time`` is squeezed). One analysis is produced
+per ``time``.
+</ParamField>
+
+**Raises:**
+
+- `RuntimeError`: On priming, if the model is on CUDA but CuPy is not installed (the
+analysis cannot be returned on-device; install the ``da-cosmo`` extra or
+run on CPU).
+
+</Indent>
+<Anchor id="earth2studio-models-da-sda_corrdiff_cosmo_era5-CorrDiffCosmoEra5SDA-init_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.da.sda_corrdiff_cosmo_era5.CorrDiffCosmoEra5SDA.init_coords() -> tuple[earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Initialization coordinate system: the ERA5 driving state (the same grid
+the downscaler conditions on).
+
+**Returns:** `tuple[` [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) `]`
+
+Single-element tuple with the ERA5 initialization coordinate system.
+
+</Indent>
+<Anchor id="earth2studio-models-da-sda_corrdiff_cosmo_era5-CorrDiffCosmoEra5SDA-input_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.FrameSchema":"../../utils/type.mdx#earth2studio-utils-type-FrameSchema"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.da.sda_corrdiff_cosmo_era5.CorrDiffCosmoEra5SDA.input_coords() -> tuple[earth2studio.utils.type.FrameSchema]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Observation DataFrame schema.
+
+**Returns:** `tuple[` [`FrameSchema`](../../utils/type.mdx#earth2studio-utils-type-FrameSchema) `]`
+
+Single-element tuple with the required observation-DataFrame fields
+(``time``, ``lat``, ``lon``, ``observation``, ``variable``).
+
+</Indent>
+<Anchor id="earth2studio-models-da-sda_corrdiff_cosmo_era5-CorrDiffCosmoEra5SDA-load_default_package">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.da.sda_corrdiff_cosmo_era5.CorrDiffCosmoEra5SDA.load_default_package() -> earth2studio.models.auto.Package
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Load the CorrDiff-COSMO model package (shared with the downscaler).
+
+**Returns:** [`Package`](../auto/package.mdx#earth2studio-models-auto-package-Package)
+
+The default CorrDiff-COSMO model package.
+
+</Indent>
+<Anchor id="earth2studio-models-da-sda_corrdiff_cosmo_era5-CorrDiffCosmoEra5SDA-load_model">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package","earth2studio.utils.type.TimeTolerance":"../../utils/type.mdx#earth2studio-utils-type-TimeTolerance","earth2studio.models.da.base.AssimilationModel":"./base.mdx#earth2studio-models-da-base-AssimilationModel"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.da.sda_corrdiff_cosmo_era5.CorrDiffCosmoEra5SDA.load_model(
+    package: earth2studio.models.auto.Package,
+    assimilate_variables: tuple[str, ...],
+    resolution: str = 'rea2',
+    domain: dict | None = None,
+    time_tolerance: earth2studio.utils.type.TimeTolerance = np.timedelta64(10, 'm'),
+    number_of_samples: int | None = None,
+    sampler_steps: int | None = None,
+    sda_std_obs: float | collections.abc.Mapping[str, float] = 0.75,
+    sda_gamma: float = 7.5e-05,
+    amp: bool = False
+) -> earth2studio.models.da.base.AssimilationModel
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Load the assimilation model from a CorrDiff-COSMO package.
+
+Loads a diffusion-mode `CorrDiffCosmoEra5` internally and wraps it.
+
+``domain`` (optional) crops the downscaler to a sub-region BEFORE wrapping,
+so the observation grid stays in sync; it is forwarded verbatim to
+`CorrDiffCosmoEra5.set_domain` (e.g.
+``domain=dict(lat_min=52.5, lat_max=55.5, lon_min=5.5, lon_max=9.5)``).
+Cropping the wrapped ``.model`` afterwards would leave a stale obs grid.
+
+**Parameters:**
+
+<ParamField path="package" type="Package">
+[`Package`](../auto/package.mdx#earth2studio-models-auto-package-Package) — CorrDiff-COSMO model package (see `load_default_package`).
+</ParamField>
+
+<ParamField path="assimilate_variables" type="tuple[str, ...]">
+Output channels to assimilate (required); must be identity-transform,
+unit-scale channels (e.g. ``("u10m", "v10m")`` surface wind, available in
+either resolution, or ``("u3d_l47", "v3d_l47")`` REA2 terrain-following
+model-level wind whose above-ground height varies with elevation). There
+is no default, since the choice depends on the observations being
+assimilated.
+</ParamField>
+
+<ParamField path="resolution" type="str" default="'rea2'">
+COSMO-REA resolution, ``"rea2"`` or ``"rea6"``, by default ``"rea2"``.
+</ParamField>
+
+<ParamField path="domain" type="dict | None" default="None">
+Sub-region crop forwarded to `CorrDiffCosmoEra5.set_domain`
+(keys ``lat_min``/``lat_max``/``lon_min``/``lon_max``), by default
+``None`` (full native footprint).
+</ParamField>
+
+<ParamField path="time_tolerance" type="TimeTolerance" default="np.timedelta64(10, 'm')">
+[`TimeTolerance`](../../utils/type.mdx#earth2studio-utils-type-TimeTolerance) — Window for matching observation times to the analysis time, by default
+10 minutes.
+</ParamField>
+
+<ParamField path="number_of_samples" type="int | None" default="None">
+Posterior ensemble size; defaults to the wrapped model's value.
+</ParamField>
+
+<ParamField path="sampler_steps" type="int | None" default="None">
+Number of diffusion sampler steps; defaults to the wrapped model's
+``number_of_steps``.
+</ParamField>
+
+<ParamField path="sda_std_obs" type="float | Mapping[str, float]" default="0.75">
+Assumed observation-noise std (lower trusts obs more), by default 0.75.
+A scalar broadcasts to every variable; a mapping sets it per variable and
+must contain exactly the assimilated variables (e.g.
+``&#123;"u10m": 0.5, "v10m": 0.5&#125;``).
+</ParamField>
+
+<ParamField path="sda_gamma" type="float" default="7.5e-05">
+SDA covariance scaling in the DPS likelihood, by default 7.5e-5. Positive
+values account for denoiser-estimate uncertainty across diffusion noise
+levels. Larger values weaken observation guidance, especially early in
+denoising, so the analysis stays closer to the unguided downscaler and may
+fit observations less closely. Set to 0 for classical DPS without this
+correction and the strongest guidance for a fixed ``sda_std_obs``. Must
+be &gt;= 0.
+</ParamField>
+
+<ParamField path="amp" type="bool" default="False">
+Run the guided sampler under ``torch.autocast`` bf16 (CUDA only), by
+default False. Setting True can reduce runtime and GPU memory.
+</ParamField>
+
+**Returns:** [`AssimilationModel`](./base.mdx#earth2studio-models-da-base-AssimilationModel)
+
+The wrapped `CorrDiffCosmoEra5SDA` assimilation model.
+
+</Indent>
+<Anchor id="earth2studio-models-da-sda_corrdiff_cosmo_era5-CorrDiffCosmoEra5SDA-output_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.da.sda_corrdiff_cosmo_era5.CorrDiffCosmoEra5SDA.output_coords(
+    input_coords: tuple[earth2studio.utils.type.CoordSystem]
+) -> tuple[earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Output coordinate system, matching what `__call__` returns: dims
+``(time, sample, variable, y, x)`` with 2D ``lat``/``lon`` on the COSMO-REA
+analysis grid, given the ERA5 init coords.
+
+**Parameters:**
+
+<ParamField path="input_coords" type="tuple[CoordSystem]">
+`tuple[` [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) `]` — The ERA5 driving-state coordinate system (from `init_coords`),
+validated against the wrapped model's native input grid.
+</ParamField>
+
+**Returns:** `tuple[` [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) `]`
+
+Single-element tuple whose coordinate system has dims
+``(time, sample, variable, y, x)`` with 2D ``lat``/``lon`` on the
+analysis grid.
+
+</Indent>
+<Anchor id="earth2studio-models-da-sda_corrdiff_cosmo_era5-CorrDiffCosmoEra5SDA-to">
+
+<CodeBlock links={{"earth2studio.models.da.sda_corrdiff_cosmo_era5.CorrDiffCosmoEra5SDA":"#earth2studio-models-da-sda_corrdiff_cosmo_era5-CorrDiffCosmoEra5SDA"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.da.sda_corrdiff_cosmo_era5.CorrDiffCosmoEra5SDA.to(
+    device: str | torch.device
+) -> earth2studio.models.da.sda_corrdiff_cosmo_era5.CorrDiffCosmoEra5SDA
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Move the model (and wrapped downscaler) to ``device``.
+
+**Parameters:**
+
+<ParamField path="device" type="str | torch.device">
+Target device to move the model to.
+</ParamField>
+
+**Returns:** [`CorrDiffCosmoEra5SDA`](#earth2studio-models-da-sda_corrdiff_cosmo_era5-CorrDiffCosmoEra5SDA)
+
+This model, moved in place (returned for chaining).
+
+</Indent>
+</Indent>

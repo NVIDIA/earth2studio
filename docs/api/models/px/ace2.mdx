@@ -1,0 +1,274 @@
+---
+layout: overview
+title: earth2studio.models.px.ace2
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`ACE2ERA5`](#earth2studio-models-px-ace2-ACE2ERA5) | ACE2-ERA5 prognostic model wrapper. |
+
+### Functions
+
+| Name | Description |
+|------|-------------|
+
+### API
+
+<Anchor id="earth2studio-models-px-ace2-ACE2ERA5">
+
+<CodeBlock links={{"earth2studio.data.base.DataSource":"../../data/base.mdx#earth2studio-data-base-DataSource"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.models.px.ace2.ACE2ERA5(
+    stepper: fme.ace.stepper.single_module.Stepper,
+    forcing_data_source: earth2studio.data.base.DataSource = ACE2ERA5Data(mode='forcing'),
+    dt: numpy.timedelta64 = np.timedelta64(6, 'h')
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** `Module`, [AutoModelMixin](../auto/mixin.mdx#earth2studio-models-auto-mixin-AutoModelMixin), [PrognosticMixin](./utils.mdx#earth2studio-models-px-utils-PrognosticMixin)
+
+ACE2-ERA5 prognostic model wrapper.
+
+ACE2 (Ai2 Climate Emulator v2) is a 450M-parameter autoregressive emulator
+with 6-hour time steps, 1-degree horizontal resolution, and eight vertical
+layers that exactly conserves global dry air mass and moisture and can be
+stepped stably for arbitrarily many steps. ACE2-ERA5 was trained on the ERA5
+dataset and requires forcing data during rollout (see `forcing_data_source`
+parameter). This wrapper makes use of the ``fme`` package to run model forward
+passes.
+
+**References**
+
+- ACE2-ERA5 paper: https://arxiv.org/abs/2411.11268v1
+- ACE2 code: https://github.com/ai2cm/ace
+- Huggingface: https://huggingface.co/allenai/ACE2-ERA5
+
+**Badges:** `region:global` `class:climate` `product:wind` `product:precip` `product:temp` `product:atmos` `product:ocean` `product:land` `year:2024` `gpu:40gb` `provider:ai2` `backend:pytorch`
+
+**Parameters:**
+
+<ParamField path="stepper" type="Stepper">
+ACE2-ERA5 fme.ace.stepper.single_module.Stepper instance loaded from a checkpoint.
+</ParamField>
+
+<ParamField path="forcing_data_source" type="DataSource" default="ACE2ERA5Data(mode='forcing')">
+[`DataSource`](../../data/base.mdx#earth2studio-data-base-DataSource) — Data source providing forcing data during rollout. Must provide all forcing
+variables described in the ACE2-ERA5 paper, by default ACE2ERA5(mode="forcing").
+</ParamField>
+
+<ParamField path="dt" type="numpy.timedelta64" default="np.timedelta64(6, 'h')">
+Model timestep used to advance lead time coordinates, by default 6 hours.
+</ParamField>
+
+<Note>
+
+For throughput-sensitive GPU inference, enabling TensorFloat-32 matmul kernels
+before importing PyTorch can improve performance on supported NVIDIA GPUs:
+
+    export TORCH_ALLOW_TF32_CUBLAS_OVERRIDE=1
+
+For in-process control, this can also be enabled with:
+
+    torch.set_float32_matmul_precision("high")
+
+Both settings trade some float32 matmul precision for faster matrix operations;
+the environment variable is a process-wide cuBLAS override.
+
+</Note>
+
+<Warning>
+
+This model may only be used with input data on the GPU device that the model was
+loaded on. Specifically, the data must be on the same device as whatever
+``torch.cuda.current_device()`` was set to when the model package was loaded.
+
+</Warning>
+
+<Anchor id="earth2studio-models-px-ace2-ACE2ERA5-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.ace2.ACE2ERA5.__call__(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Runs one prognostic step using fme predict_paired API.
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Input tensor
+</ParamField>
+
+<ParamField path="coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system
+</ParamField>
+
+**Returns:** `tuple[torch.Tensor,` [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) `]`
+
+Output tensor and coordinate system 6 hours in the future
+
+</Indent>
+<Anchor id="earth2studio-models-px-ace2-ACE2ERA5-create_iterator">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.ace2.ACE2ERA5.create_iterator(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem
+) -> collections.abc.Iterator[tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Creates an iterator to perform time-integration of ACE2ERA5.
+
+Yields the first forecast step, then continues autoregressively by feeding
+previous outputs as the next prognostic state while fetching/using external
+forcings under the hood via _forward.
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Input tensor
+</ParamField>
+
+<ParamField path="coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system
+</ParamField>
+
+**Returns:** `Iterator[tuple[torch.Tensor,` [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) `]]`
+
+Iterator of output tensors and coordinate systems
+
+</Indent>
+<Anchor id="earth2studio-models-px-ace2-ACE2ERA5-input_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.ace2.ACE2ERA5.input_coords() -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Input coordinate system of the prognostic model
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Coordinate system dictionary
+
+</Indent>
+<Anchor id="earth2studio-models-px-ace2-ACE2ERA5-load_default_package">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.ace2.ACE2ERA5.load_default_package() -> earth2studio.models.auto.Package
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Load default ACE2-ERA5 package from HuggingFace.
+
+</Indent>
+<Anchor id="earth2studio-models-px-ace2-ACE2ERA5-load_model">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package","earth2studio.data.base.DataSource":"../../data/base.mdx#earth2studio-data-base-DataSource","earth2studio.models.px.base.PrognosticModel":"./base.mdx#earth2studio-models-px-base-PrognosticModel"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.ace2.ACE2ERA5.load_model(
+    package: earth2studio.models.auto.Package,
+    forcing_data_source: earth2studio.data.base.DataSource = ACE2ERA5Data(mode='forcing'...,
+    dt: numpy.timedelta64 = np.timedelta64(6, 'h')
+) -> earth2studio.models.px.base.PrognosticModel
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Load ACE2-ERA5 prognostic model from a package.
+
+**Parameters:**
+
+<ParamField path="package" type="Package">
+[`Package`](../auto/package.mdx#earth2studio-models-auto-package-Package) — Package to load the model checkpoint from.
+</ParamField>
+
+<ParamField path="forcing_data_source" type="DataSource" default="ACE2ERA5Data(mode='forcing', verbose=False)">
+[`DataSource`](../../data/base.mdx#earth2studio-data-base-DataSource) — External forcing data source. Must provide all forcing variables
+described in the ACE2-ERA5 paper, by default ACE2ERA5(mode="forcing").
+</ParamField>
+
+<ParamField path="dt" type="numpy.timedelta64" default="np.timedelta64(6, 'h')">
+Timestep for advancing lead time coordinates, by default 6 hours.
+</ParamField>
+
+**Returns:** [`PrognosticModel`](./base.mdx#earth2studio-models-px-base-PrognosticModel)
+
+ACE2-ERA5 prognostic model
+
+</Indent>
+<Anchor id="earth2studio-models-px-ace2-ACE2ERA5-output_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.ace2.ACE2ERA5.output_coords(
+    input_coords: earth2studio.utils.type.CoordSystem
+) -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Output coordinate system of the prognostic model
+
+**Parameters:**
+
+<ParamField path="input_coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system to transform into output_coords
+by default None, will use self.input_coords.
+</ParamField>
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Coordinate system dictionary
+
+</Indent>
+</Indent>

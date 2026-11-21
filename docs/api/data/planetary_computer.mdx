@@ -1,0 +1,657 @@
+---
+layout: overview
+title: earth2studio.data.planetary_computer
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`AssetPlan`](#earth2studio-data-planetary_computer-AssetPlan) | Plan describing an asset download and the variables it satisfies. |
+| [`PlanetaryComputerECMWFOpenDataIFS`](#earth2studio-data-planetary_computer-PlanetaryComputerECMWFOpenDataIFS) | IFS analysis data from the ECMWF Open Data repository. |
+| [`PlanetaryComputerGOES`](#earth2studio-data-planetary_computer-PlanetaryComputerGOES) | GOES-R ABI L2 Cloud and Moisture Imagery on Planetary Computer. |
+| [`PlanetaryComputerMODISFire`](#earth2studio-data-planetary_computer-PlanetaryComputerMODISFire) | MODIS Thermal Anomalies/Fire Daily (FireMask, MaxFRP, QA). |
+| [`PlanetaryComputerOISST`](#earth2studio-data-planetary_computer-PlanetaryComputerOISST) | Daily 0.25° NOAA Optimum Interpolation SST from Microsoft Planetary Computer. |
+| [`PlanetaryComputerSentinel3AOD`](#earth2studio-data-planetary_computer-PlanetaryComputerSentinel3AOD) | Sentinel-3 SYNERGY Level-2 aerosol optical depth and surface reflectance. |
+| [`VariableSpec`](#earth2studio-data-planetary_computer-VariableSpec) | Resolved variable request against a lexicon. |
+
+### API
+
+<Anchor id="earth2studio-data-planetary_computer-AssetPlan">
+
+<CodeBlock links={{"earth2studio.data.planetary_computer.VariableSpec":"#earth2studio-data-planetary_computer-VariableSpec"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.planetary_computer.AssetPlan(
+    unsigned_href: str,
+    account_name: str,
+    container_name: str,
+    key: str,
+    media_type: str | None,
+    local_path: pathlib.Path,
+    variables: list[earth2studio.data.planetary_computer.VariableSpec],
+    index_key: str | None = None
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>Dataclass</Badge>
+
+Plan describing an asset download and the variables it satisfies.
+
+</Indent>
+
+<Anchor id="earth2studio-data-planetary_computer-PlanetaryComputerECMWFOpenDataIFS">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.planetary_computer.PlanetaryComputerECMWFOpenDataIFS(
+    cache: bool = True,
+    verbose: bool = True,
+    max_workers: int = 24,
+    request_timeout: int = _PlanetaryComputerData.DEFA...,
+    max_retries: int = _PlanetaryComputerData.DEFA...,
+    async_timeout: int = _PlanetaryComputerData.DEFA...
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** [_PlanetaryComputerData](#earth2studio-data-planetary_computer-_PlanetaryComputerData)
+
+IFS analysis data from the ECMWF Open Data repository.
+
+**Badges:** `region:global` `dataclass:analysis` `product:wind` `product:precip` `product:temp` `product:atmos`
+
+**Parameters:**
+
+<ParamField path="cache" type="bool" default="True">
+Cache data source on local memory, by default True
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="True">
+Whether to print progress information, by default True
+</ParamField>
+
+<ParamField path="max_workers" type="int" default="24">
+Upper bound on concurrent download and processing tasks, by default 24
+</ParamField>
+
+<ParamField path="request_timeout" type="int" default="_PlanetaryComputerData.DEFAULT_TIMEOUT">
+Connect timeout (seconds) applied to individual HTTP requests, by default 60
+</ParamField>
+
+<ParamField path="max_retries" type="int" default="_PlanetaryComputerData.DEFAULT_RETRIES">
+Maximum retry attempts for transient network failures, by default 4
+</ParamField>
+
+<ParamField path="async_timeout" type="int" default="_PlanetaryComputerData.DEFAULT_ASYNC_TIMEOUT">
+Time in sec after which download will be cancelled if not finished successfully,
+by default 600
+</ParamField>
+
+<Note>
+
+Additional information on the data repository can be referenced here:
+
+- https://planetarycomputer.microsoft.com/dataset/ecmwf-forecast
+
+</Note>
+
+<Anchor id="earth2studio-data-planetary_computer-PlanetaryComputerECMWFOpenDataIFS-extract_variable_numpy">
+
+<CodeBlock links={{"earth2studio.data.planetary_computer.AssetPlan":"#earth2studio-data-planetary_computer-AssetPlan","earth2studio.data.planetary_computer.VariableSpec":"#earth2studio-data-planetary_computer-VariableSpec"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.planetary_computer.PlanetaryComputerECMWFOpenDataIFS.extract_variable_numpy(
+    plan: earth2studio.data.planetary_computer.AssetPlan,
+    spec: earth2studio.data.planetary_computer.VariableSpec,
+    target_time: datetime.datetime
+) -> numpy.ndarray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Extract an ECMWF Open Data field as a float32 numpy array.
+
+**Parameters:**
+
+<ParamField path="plan" type="AssetPlan">
+[`AssetPlan`](#earth2studio-data-planetary_computer-AssetPlan) — Plan describing the cached asset to open.
+</ParamField>
+
+<ParamField path="spec" type="VariableSpec">
+[`VariableSpec`](#earth2studio-data-planetary_computer-VariableSpec) — Variable specification detailing which field and modifier to apply.
+</ParamField>
+
+**Returns:** `numpy.ndarray`
+
+Array shaped ``(721, 1440)``.
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-data-planetary_computer-PlanetaryComputerGOES">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.planetary_computer.PlanetaryComputerGOES(
+    satellite: str = 'goes16',
+    scan_mode: str = 'F',
+    cache: bool = True,
+    verbose: bool = True,
+    max_workers: int = 24,
+    request_timeout: int = _PlanetaryComputerData.DEFA...,
+    max_retries: int = _PlanetaryComputerData.DEFA...,
+    async_timeout: int = _PlanetaryComputerData.DEFA...
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** [_PlanetaryComputerData](#earth2studio-data-planetary_computer-_PlanetaryComputerData)
+
+GOES-R ABI L2 Cloud and Moisture Imagery on Planetary Computer.
+
+**Badges:** `region:na` `dataclass:observation` `product:sat`
+
+**Parameters:**
+
+<ParamField path="satellite" type="str" default="'goes16'">
+Which GOES satellite to use ('goes16', 'goes17', 'goes18', or 'goes19'), by default 'goes16'
+</ParamField>
+
+<ParamField path="scan_mode" type="str" default="'F'">
+For ABI: Scan mode ('F' for Full Disk, 'C' for Continental US)
+Mesoscale data is currently not supported due to the changing scan position.
+</ParamField>
+
+<ParamField path="cache" type="bool" default="True">
+Cache data source on local memory, by default True
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="True">
+Whether to print progress information, by default True
+</ParamField>
+
+<ParamField path="max_workers" type="int" default="24">
+Upper bound on concurrent download and processing tasks, by default 24
+</ParamField>
+
+<ParamField path="request_timeout" type="int" default="_PlanetaryComputerData.DEFAULT_TIMEOUT">
+Connect timeout (seconds) applied to individual HTTP requests, by default 60
+</ParamField>
+
+<ParamField path="max_retries" type="int" default="_PlanetaryComputerData.DEFAULT_RETRIES">
+Maximum retry attempts for transient network failures, by default 4
+</ParamField>
+
+<ParamField path="async_timeout" type="int" default="_PlanetaryComputerData.DEFAULT_ASYNC_TIMEOUT">
+Time in sec after which download will be cancelled if not finished successfully,
+by default 600
+</ParamField>
+
+<Note>
+
+Please see ``earth2studio.data.goes.GOES`` for further details.
+This data source exposes the MCMIP products but not the full-resolution CMIP products.
+Additional information on the data repository can be referenced here:
+
+- https://planetarycomputer.microsoft.com/dataset/goes-cmi
+
+</Note>
+
+<Anchor id="earth2studio-data-planetary_computer-PlanetaryComputerGOES-extract_variable_numpy">
+
+<CodeBlock links={{"earth2studio.data.planetary_computer.AssetPlan":"#earth2studio-data-planetary_computer-AssetPlan","earth2studio.data.planetary_computer.VariableSpec":"#earth2studio-data-planetary_computer-VariableSpec"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.planetary_computer.PlanetaryComputerGOES.extract_variable_numpy(
+    plan: earth2studio.data.planetary_computer.AssetPlan,
+    spec: earth2studio.data.planetary_computer.VariableSpec,
+    target_time: datetime.datetime
+) -> numpy.ndarray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Extract a GOES-R MCMIP field as a float32 numpy array.
+
+**Parameters:**
+
+<ParamField path="plan" type="AssetPlan">
+[`AssetPlan`](#earth2studio-data-planetary_computer-AssetPlan) — Plan describing the cached asset to open.
+</ParamField>
+
+<ParamField path="spec" type="VariableSpec">
+[`VariableSpec`](#earth2studio-data-planetary_computer-VariableSpec) — Variable specification detailing which field and modifier to apply.
+</ParamField>
+
+**Returns:** `numpy.ndarray`
+
+Array shaped ``(1500, 2500)`` for 'CONUS' or ``(5424, 5424)`` for 'FULL DISK' scan mode.
+
+</Indent>
+<Anchor id="earth2studio-data-planetary_computer-PlanetaryComputerGOES-fetch">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.planetary_computer.PlanetaryComputerGOES.fetch(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Async function to get data
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Timestamps to return data for (UTC).
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — String, list of strings or array of strings that refer to variables to
+return. Must be in the data source's lexicon.
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+Plantary computer data array
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-data-planetary_computer-PlanetaryComputerMODISFire">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.planetary_computer.PlanetaryComputerMODISFire(
+    tile: str = 'h35v10',
+    cache: bool = True,
+    verbose: bool = True,
+    max_workers: int = 24,
+    request_timeout: int = _PlanetaryComputerData.DEFA...,
+    max_retries: int = _PlanetaryComputerData.DEFA...,
+    async_timeout: int = _PlanetaryComputerData.DEFA...
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** [_PlanetaryComputerData](#earth2studio-data-planetary_computer-_PlanetaryComputerData)
+
+MODIS Thermal Anomalies/Fire Daily (FireMask, MaxFRP, QA).
+
+**Badges:** `region:global` `dataclass:observation` `product:land` `product:sat`
+
+**Parameters:**
+
+<ParamField path="tile" type="str" default="'h35v10'">
+The MODIS tile identifier (``hXXvYY``) to prioritize during STAC searches.
+</ParamField>
+
+<ParamField path="cache" type="bool" default="True">
+Cache data source on local memory, by default True
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="True">
+Whether to print progress information, by default True
+</ParamField>
+
+<ParamField path="max_workers" type="int" default="24">
+Upper bound on concurrent download and processing tasks, by default 24
+</ParamField>
+
+<ParamField path="request_timeout" type="int" default="_PlanetaryComputerData.DEFAULT_TIMEOUT">
+Connect timeout (seconds) applied to individual HTTP requests, by default 60
+</ParamField>
+
+<ParamField path="max_retries" type="int" default="_PlanetaryComputerData.DEFAULT_RETRIES">
+Maximum retry attempts for transient network failures, by default 4
+</ParamField>
+
+<ParamField path="async_timeout" type="int" default="_PlanetaryComputerData.DEFAULT_ASYNC_TIMEOUT">
+Time in sec after which download will be cancelled if not finished successfully,
+by default 600
+</ParamField>
+
+<Note>
+
+Additional information on the data repository can be referenced here:
+
+- https://planetarycomputer.microsoft.com/dataset/modis-14A1-061
+- https://modis-land.gsfc.nasa.gov/MODLAND_grid.html
+
+</Note>
+
+<Warning>
+
+Tile searches are best-effort. If no tile identifiers are provided (the default),
+the first available tile returned by the Planetary Computer search is used.
+
+</Warning>
+
+<Anchor id="earth2studio-data-planetary_computer-PlanetaryComputerMODISFire-extract_variable_numpy">
+
+<CodeBlock links={{"earth2studio.data.planetary_computer.AssetPlan":"#earth2studio-data-planetary_computer-AssetPlan","earth2studio.data.planetary_computer.VariableSpec":"#earth2studio-data-planetary_computer-VariableSpec"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.planetary_computer.PlanetaryComputerMODISFire.extract_variable_numpy(
+    plan: earth2studio.data.planetary_computer.AssetPlan,
+    spec: earth2studio.data.planetary_computer.VariableSpec,
+    target_time: datetime.datetime
+) -> numpy.ndarray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Extract a MODIS Fire variable for the requested day-of-year band.
+
+**Parameters:**
+
+<ParamField path="plan" type="AssetPlan">
+[`AssetPlan`](#earth2studio-data-planetary_computer-AssetPlan) — Plan describing the cached MODIS tile asset to open.
+</ParamField>
+
+<ParamField path="spec" type="VariableSpec">
+[`VariableSpec`](#earth2studio-data-planetary_computer-VariableSpec) — Variable specification describing which band to read and modifier to apply.
+</ParamField>
+
+<ParamField path="target_time" type="datetime">
+Timestamp used to determine the correct ``band`` index within the asset.
+</ParamField>
+
+**Returns:** `numpy.ndarray`
+
+Float32 array of shape ``(1200, 1200)`` for the requested field.
+
+**Raises:**
+
+- `ValueError`: If the requested date cannot be located in the MODIS asset metadata.
+
+</Indent>
+<Anchor id="earth2studio-data-planetary_computer-PlanetaryComputerMODISFire-grid">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.planetary_computer.PlanetaryComputerMODISFire.grid(
+    tile: str = 'h35v10'
+) -> tuple[numpy.ndarray, numpy.ndarray]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Return latitude/longitude grids (degrees) for the specified MODIS tile.
+
+**Parameters:**
+
+<ParamField path="tile" type="str" default="'h35v10'">
+MODIS sinusoidal tile identifier (``hXXvYY``) describing the desired grid,
+by default h35v10
+</ParamField>
+
+**Returns:** `tuple[numpy.ndarray, numpy.ndarray]`
+
+Latitude and longitude arrays shaped ``(1200, 1200)`` in degrees.
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-data-planetary_computer-PlanetaryComputerOISST">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.planetary_computer.PlanetaryComputerOISST(
+    cache: bool = True,
+    verbose: bool = True,
+    max_workers: int = 24,
+    request_timeout: int = _PlanetaryComputerData.DEFA...,
+    max_retries: int = _PlanetaryComputerData.DEFA...,
+    async_timeout: int = _PlanetaryComputerData.DEFA...
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** [_PlanetaryComputerData](#earth2studio-data-planetary_computer-_PlanetaryComputerData)
+
+Daily 0.25° NOAA Optimum Interpolation SST from Microsoft Planetary Computer.
+
+**Badges:** `region:global` `dataclass:observation` `product:ocean`
+
+**Parameters:**
+
+<ParamField path="cache" type="bool" default="True">
+Cache data source on local memory, by default True
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="True">
+Whether to print progress information, by default True
+</ParamField>
+
+<ParamField path="max_workers" type="int" default="24">
+Upper bound on concurrent download and processing tasks, by default 24
+</ParamField>
+
+<ParamField path="request_timeout" type="int" default="_PlanetaryComputerData.DEFAULT_TIMEOUT">
+Connect timeout (seconds) applied to individual HTTP requests, by default 60
+</ParamField>
+
+<ParamField path="max_retries" type="int" default="_PlanetaryComputerData.DEFAULT_RETRIES">
+Maximum retry attempts for transient network failures, by default 4
+</ParamField>
+
+<ParamField path="async_timeout" type="int" default="_PlanetaryComputerData.DEFAULT_ASYNC_TIMEOUT">
+Time in sec after which download will be cancelled if not finished successfully,
+by default 600
+</ParamField>
+
+<Note>
+
+Additional information on the data repository can be referenced here:
+
+- https://planetarycomputer.microsoft.com/dataset/noaa-cdr-sea-surface-temperature-optimum-interpolation
+
+</Note>
+
+<Anchor id="earth2studio-data-planetary_computer-PlanetaryComputerOISST-extract_variable_numpy">
+
+<CodeBlock links={{"earth2studio.data.planetary_computer.AssetPlan":"#earth2studio-data-planetary_computer-AssetPlan","earth2studio.data.planetary_computer.VariableSpec":"#earth2studio-data-planetary_computer-VariableSpec"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.planetary_computer.PlanetaryComputerOISST.extract_variable_numpy(
+    plan: earth2studio.data.planetary_computer.AssetPlan,
+    spec: earth2studio.data.planetary_computer.VariableSpec,
+    _target_time: datetime.datetime
+) -> numpy.ndarray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Extract an OISST variable as a numpy array.
+
+**Parameters:**
+
+<ParamField path="plan" type="AssetPlan">
+[`AssetPlan`](#earth2studio-data-planetary_computer-AssetPlan) — Plan containing the cached MPC asset to be opened.
+</ParamField>
+
+<ParamField path="spec" type="VariableSpec">
+[`VariableSpec`](#earth2studio-data-planetary_computer-VariableSpec) — Lexicon specification describing which field to read and modifier to apply.
+</ParamField>
+
+**Returns:** `numpy.ndarray`
+
+Float32 array containing the requested OISST field.
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-data-planetary_computer-PlanetaryComputerSentinel3AOD">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.planetary_computer.PlanetaryComputerSentinel3AOD(
+    cache: bool = True,
+    verbose: bool = True,
+    max_workers: int = 24,
+    request_timeout: int = _PlanetaryComputerData.DEFA...,
+    max_retries: int = _PlanetaryComputerData.DEFA...,
+    async_timeout: int = _PlanetaryComputerData.DEFA...
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** [_PlanetaryComputerData](#earth2studio-data-planetary_computer-_PlanetaryComputerData)
+
+Sentinel-3 SYNERGY Level-2 aerosol optical depth and surface reflectance.
+
+**Badges:** `region:global` `dataclass:observation` `product:atmos` `product:sat`
+
+**Parameters:**
+
+<ParamField path="cache" type="bool" default="True">
+Cache data source on local memory, by default True
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="True">
+Whether to print progress information, by default True
+</ParamField>
+
+<ParamField path="max_workers" type="int" default="24">
+Upper bound on concurrent download and processing tasks, by default 24
+</ParamField>
+
+<ParamField path="request_timeout" type="int" default="_PlanetaryComputerData.DEFAULT_TIMEOUT">
+Connect timeout (seconds) applied to individual HTTP requests, by default 60
+</ParamField>
+
+<ParamField path="max_retries" type="int" default="_PlanetaryComputerData.DEFAULT_RETRIES">
+Maximum retry attempts for transient network failures, by default 4
+</ParamField>
+
+<ParamField path="async_timeout" type="int" default="_PlanetaryComputerData.DEFAULT_ASYNC_TIMEOUT">
+Time in sec after which download will be cancelled if not finished successfully,
+by default 600
+</ParamField>
+
+<Note>
+
+Additional information on the data repository can be referenced here:
+
+- https://planetarycomputer.microsoft.com/dataset/sentinel-3-synergy-aod-l2-netcdf
+
+</Note>
+
+<Anchor id="earth2studio-data-planetary_computer-PlanetaryComputerSentinel3AOD-extract_variable_numpy">
+
+<CodeBlock links={{"earth2studio.data.planetary_computer.AssetPlan":"#earth2studio-data-planetary_computer-AssetPlan","earth2studio.data.planetary_computer.VariableSpec":"#earth2studio-data-planetary_computer-VariableSpec"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.planetary_computer.PlanetaryComputerSentinel3AOD.extract_variable_numpy(
+    plan: earth2studio.data.planetary_computer.AssetPlan,
+    spec: earth2studio.data.planetary_computer.VariableSpec,
+    target_time: datetime.datetime
+) -> numpy.ndarray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Extract a Sentinel-3 field as a float32 numpy array.
+
+**Parameters:**
+
+<ParamField path="plan" type="AssetPlan">
+[`AssetPlan`](#earth2studio-data-planetary_computer-AssetPlan) — Plan describing the cached asset to open.
+</ParamField>
+
+<ParamField path="spec" type="VariableSpec">
+[`VariableSpec`](#earth2studio-data-planetary_computer-VariableSpec) — Variable specification detailing which field and modifier to apply.
+</ParamField>
+
+**Returns:** `numpy.ndarray`
+
+Array shaped to ``(len(self.ROW_COORDS), len(self.COLUMN_COORDS))``.
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-data-planetary_computer-VariableSpec">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.planetary_computer.VariableSpec(
+    index: int,
+    variable_id: str,
+    dataset_key: str,
+    modifier: collections.abc.Callable[[Any], typing.Any]
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>Dataclass</Badge>
+
+Resolved variable request against a lexicon.
+
+</Indent>

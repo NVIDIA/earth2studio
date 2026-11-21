@@ -1,0 +1,410 @@
+---
+layout: overview
+title: earth2studio.data.utils_bufr
+---
+Shared earth2bufr helpers for the NCEP BUFR sources.
+
+`earth2studio.data.gdas` and `earth2studio.data.nnja` decode NCEP BUFR
+with earth2bufr, which returns Arrow record batches. The helpers here turn decoded
+columns into numpy arrays with validity masks, build timestamps from BUFR time
+parts, and assemble Arrow columns without per-value Python work.
+
+## Module Contents
+
+### Functions
+
+| Name | Description |
+|------|-------------|
+| [`civil_time_ns`](#earth2studio-data-utils_bufr-civil_time_ns) | Nanoseconds since the epoch from BUFR time parts given as floats (NaN = missing). |
+| [`constant_dictionary`](#earth2studio-data-utils_bufr-constant_dictionary) | ``dictionary&lt;int8, string&gt;`` column holding one value. |
+| [`constant_timestamp`](#earth2studio-data-utils_bufr-constant_timestamp) | ``timestamp[ns]`` column holding one value. |
+| [`datetime_ns`](#earth2studio-data-utils_bufr-datetime_ns) | Nanoseconds since the epoch of a naive UTC datetime. |
+| [`default_decode_threads`](#earth2studio-data-utils_bufr-default_decode_threads) | Size earth2bufr's decode pool once, unless ``EARTH2BUFR_NUM_THREADS`` is set. |
+| [`dictionary_column`](#earth2studio-data-utils_bufr-dictionary_column) | ``dictionary&lt;int8, string&gt;`` column from codes into ``names``. |
+| [`float_values`](#earth2studio-data-utils_bufr-float_values) | Numeric column as float64 with NaN at null slots; a float64 column without nulls |
+| [`float_with_nulls`](#earth2studio-data-utils_bufr-float_with_nulls) | Float array with NaN slots as nulls. |
+| [`iter_batches`](#earth2studio-data-utils_bufr-iter_batches) | ``source.iter_batches(**options)``, skipping messages truncated before their |
+| [`list_value_filter`](#earth2studio-data-utils_bufr-list_value_filter) | earth2bufr filter keeping list entries whose ``key`` is in ``values``. |
+| [`map_ordered`](#earth2studio-data-utils_bufr-map_ordered) | ``fn`` over ``items`` on a thread pool, in input order, at most ``2 * workers`` in flight. |
+| [`masked`](#earth2studio-data-utils_bufr-masked) | Arrow array of ``values`` with nulls where ``valid`` is False. |
+| [`null_array`](#earth2studio-data-utils_bufr-null_array) | All-null fixed-width array whose validity and data share one zero buffer. |
+| [`numpy_with_mask`](#earth2studio-data-utils_bufr-numpy_with_mask) | Values and validity of a numeric column; values are arbitrary at null slots. |
+| [`open_bufr`](#earth2studio-data-utils_bufr-open_bufr) | Open a BUFR file with earth2bufr. |
+| [`physical_values`](#earth2studio-data-utils_bufr-physical_values) | Child field of a struct in physical units as ``dtype``, NaN where missing, at the |
+| [`timestamps_ns`](#earth2studio-data-utils_bufr-timestamps_ns) | ``timestamp[ns]`` column over int64 nanoseconds since the epoch. |
+| [`uint_with_nulls`](#earth2studio-data-utils_bufr-uint_with_nulls) | Unsigned integer array from floats with NaN slots as nulls. |
+
+### API
+
+<Anchor id="earth2studio-data-utils_bufr-civil_time_ns">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.utils_bufr.civil_time_ns(
+    year: numpy.ndarray,
+    month: numpy.ndarray,
+    day: numpy.ndarray,
+    hour: numpy.ndarray,
+    minute: numpy.ndarray,
+    second: numpy.ndarray
+) -> tuple[numpy.ndarray, numpy.ndarray]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Nanoseconds since the epoch from BUFR time parts given as floats (NaN = missing).
+
+A missing minute or second counts as zero. The result is valid where the year,
+month and day form a calendar date, the hour is present and in range, and the
+minute is in range.
+
+</Indent>
+
+<Anchor id="earth2studio-data-utils_bufr-constant_dictionary">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.utils_bufr.constant_dictionary(
+    value: str,
+    n: int
+) -> pyarrow.Array
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+``dictionary&lt;int8, string&gt;`` column holding one value.
+
+</Indent>
+
+<Anchor id="earth2studio-data-utils_bufr-constant_timestamp">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.utils_bufr.constant_timestamp(
+    value: datetime.datetime,
+    n: int
+) -> pyarrow.Array
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+``timestamp[ns]`` column holding one value.
+
+</Indent>
+
+<Anchor id="earth2studio-data-utils_bufr-datetime_ns">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.utils_bufr.datetime_ns(
+    value: datetime.datetime
+) -> int
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Nanoseconds since the epoch of a naive UTC datetime.
+
+</Indent>
+
+<Anchor id="earth2studio-data-utils_bufr-default_decode_threads">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.utils_bufr.default_decode_threads() -> None
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Size earth2bufr's decode pool once, unless ``EARTH2BUFR_NUM_THREADS`` is set.
+
+</Indent>
+
+<Anchor id="earth2studio-data-utils_bufr-dictionary_column">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.utils_bufr.dictionary_column(
+    codes: numpy.ndarray,
+    names: list[str]
+) -> pyarrow.Array
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+``dictionary&lt;int8, string&gt;`` column from codes into ``names``.
+
+</Indent>
+
+<Anchor id="earth2studio-data-utils_bufr-float_values">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.utils_bufr.float_values(
+    array: pyarrow.Array
+) -> numpy.ndarray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Numeric column as float64 with NaN at null slots; a float64 column without nulls
+is returned as a read-only view of the Arrow buffer.
+
+</Indent>
+
+<Anchor id="earth2studio-data-utils_bufr-float_with_nulls">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.utils_bufr.float_with_nulls(
+    values: numpy.ndarray,
+    arrow_type: pyarrow.DataType
+) -> pyarrow.Array
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Float array with NaN slots as nulls.
+
+</Indent>
+
+<Anchor id="earth2studio-data-utils_bufr-iter_batches">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.utils_bufr.iter_batches(
+    source: typing.Any,
+    path: str,
+    options: typing.Any = {}
+) -> collections.abc.Iterator[pyarrow.RecordBatch]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+``source.iter_batches(**options)``, skipping messages truncated before their
+template ends and logging a warning with how many were skipped.
+
+</Indent>
+
+<Anchor id="earth2studio-data-utils_bufr-list_value_filter">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.utils_bufr.list_value_filter(
+    field: str,
+    key: str,
+    values: collections.abc.Iterable[int]
+) -> typing.Any
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+earth2bufr filter keeping list entries whose ``key`` is in ``values``.
+
+</Indent>
+
+<Anchor id="earth2studio-data-utils_bufr-map_ordered">
+
+<CodeBlock links={{"earth2studio.data.utils_bufr._R":"#earth2studio-data-utils_bufr-_R","earth2studio.data.utils_bufr._T":"#earth2studio-data-utils_bufr-_T"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.utils_bufr.map_ordered(
+    fn: collections.abc.Callable[[_T], earth2studio.data.utils_bufr._R],
+    items: collections.abc.Iterable[earth2studio.data.utils_bufr._T],
+    workers: int
+) -> collections.abc.Iterator[earth2studio.data.utils_bufr._R]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+``fn`` over ``items`` on a thread pool, in input order, at most ``2 * workers`` in flight.
+
+</Indent>
+
+<Anchor id="earth2studio-data-utils_bufr-masked">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.utils_bufr.masked(
+    values: numpy.ndarray,
+    valid: numpy.ndarray | None,
+    arrow_type: pyarrow.DataType
+) -> pyarrow.Array
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Arrow array of ``values`` with nulls where ``valid`` is False.
+
+</Indent>
+
+<Anchor id="earth2studio-data-utils_bufr-null_array">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.utils_bufr.null_array(
+    arrow_type: pyarrow.DataType,
+    n: int
+) -> pyarrow.Array
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+All-null fixed-width array whose validity and data share one zero buffer.
+
+</Indent>
+
+<Anchor id="earth2studio-data-utils_bufr-numpy_with_mask">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.utils_bufr.numpy_with_mask(
+    array: pyarrow.Array
+) -> tuple[numpy.ndarray, numpy.ndarray]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Values and validity of a numeric column; values are arbitrary at null slots.
+
+</Indent>
+
+<Anchor id="earth2studio-data-utils_bufr-open_bufr">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.utils_bufr.open_bufr(
+    path: str
+) -> typing.Any
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Open a BUFR file with earth2bufr.
+
+</Indent>
+
+<Anchor id="earth2studio-data-utils_bufr-physical_values">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.utils_bufr.physical_values(
+    values: pyarrow.StructArray,
+    name: str,
+    index: numpy.ndarray | None = None,
+    dtype: type = np.float64
+) -> numpy.ndarray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Child field of a struct in physical units as ``dtype``, NaN where missing, at the
+``index`` entries if given.
+
+Raw-code fields (``raw_code_paths``) are converted as
+``(code + reference) / 10**scale`` from the field metadata, in float64 per element.
+
+</Indent>
+
+<Anchor id="earth2studio-data-utils_bufr-timestamps_ns">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.utils_bufr.timestamps_ns(
+    values: numpy.ndarray,
+    valid: numpy.ndarray | None = None
+) -> pyarrow.Array
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+``timestamp[ns]`` column over int64 nanoseconds since the epoch.
+
+</Indent>
+
+<Anchor id="earth2studio-data-utils_bufr-uint_with_nulls">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.utils_bufr.uint_with_nulls(
+    values: numpy.ndarray,
+    arrow_type: pyarrow.DataType
+) -> pyarrow.Array
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Unsigned integer array from floats with NaN slots as nulls.
+
+</Indent>

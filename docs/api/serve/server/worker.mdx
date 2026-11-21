@@ -1,0 +1,105 @@
+---
+layout: overview
+title: earth2studio.serve.server.worker
+---
+## Module Contents
+
+### Functions
+
+| Name | Description |
+|------|-------------|
+| [`get_output_path`](#earth2studio-serve-server-worker-get_output_path) | Generate output path for workflow results. |
+| [`run_custom_workflow`](#earth2studio-serve-server-worker-run_custom_workflow) | RQ worker function to run a custom workflow. |
+
+### API
+
+<Anchor id="earth2studio-serve-server-worker-get_output_path">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.server.worker.get_output_path(
+    io_config: dict[str, typing.Any] | None,
+    timestamp: str,
+    workflow_type: str,
+    request_id: str
+) -> pathlib.Path
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Generate output path for workflow results.
+
+**Parameters:**
+
+<ParamField path="io_config" type="dict or None">
+I/O configuration (used for backend_type); if None, backend_type defaults to "zarr".
+</ParamField>
+
+<ParamField path="timestamp" type="str">
+Timestamp string used in the output directory name.
+</ParamField>
+
+<ParamField path="workflow_type" type="str">
+Type of workflow (e.g. workflow name).
+</ParamField>
+
+<ParamField path="request_id" type="str">
+Request identifier.
+</ParamField>
+
+**Returns:** `Path`
+
+Path to the forecast output file (e.g. forecast.zarr).
+
+</Indent>
+
+<Anchor id="earth2studio-serve-server-worker-run_custom_workflow">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.server.worker.run_custom_workflow(
+    workflow_name: str,
+    execution_id: str,
+    parameters: dict[str, typing.Any]
+) -> typing.Any
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+RQ worker function to run a custom workflow.
+
+Executes the workflow, updates execution status in Redis, and queues the
+next pipeline stage (e.g. result_zip or object_storage) as configured.
+
+**Parameters:**
+
+<ParamField path="workflow_name" type="str">
+Name of the registered workflow to run.
+</ParamField>
+
+<ParamField path="execution_id" type="str">
+Unique execution identifier.
+</ParamField>
+
+<ParamField path="parameters" type="dict">
+Workflow input parameters (validated by the workflow's parameter type).
+</ParamField>
+
+**Returns:** `Any`
+
+Result returned by the workflow's run() method.
+
+**Raises:**
+
+- `ValueError`: If the workflow is not found or cannot be instantiated.
+- `RuntimeError`: If queuing the next pipeline stage fails.
+
+</Indent>

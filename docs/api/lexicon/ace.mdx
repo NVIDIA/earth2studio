@@ -1,0 +1,108 @@
+---
+layout: overview
+title: earth2studio.lexicon.ace
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`ACELexicon`](#earth2studio-lexicon-ace-ACELexicon) | ACE Lexicon |
+
+### Functions
+
+| Name | Description |
+|------|-------------|
+
+### API
+
+<Anchor id="earth2studio-lexicon-ace-ACELexicon">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.lexicon.ace.ACELexicon()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+ACE Lexicon
+
+Maps Earth2Studio variable names to the variable labels used by the FME ACE stepper.
+Users may also access the ``get_e2s_from_fme`` method to get the reverse mapping.
+
+**Examples:**
+
+<CodeBlock showLineNumbers={false}>
+
+```python
+>>> from earth2studio.lexicon.ace import ACELexicon
+>>> ACELexicon["u10m"]
+("UGRD10m", <function mod at 0x...>)
+>>> ACELexicon.get_e2s_from_fme("UGRD10m")
+"u10m"
+```
+
+</CodeBlock>
+
+<Anchor id="earth2studio-lexicon-ace-ACELexicon-get_e2s_from_fme">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.lexicon.ace.ACELexicon.get_e2s_from_fme(
+    val: str
+) -> str
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Return name in Earth2Studio terminology.
+
+**Parameters:**
+
+<ParamField path="val" type="str">
+Name in FME/ACE terminology.
+</ParamField>
+
+</Indent>
+<Anchor id="earth2studio-lexicon-ace-ACELexicon-get_item">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.lexicon.ace.ACELexicon.get_item(
+    val: str
+) -> tuple[str, collections.abc.Callable]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Return name in ACE/FME vocabulary.
+
+**Parameters:**
+
+<ParamField path="val" type="str">
+Name in Earth2Studio terminology.
+</ParamField>
+
+**Returns:** `tuple[str, Callable]`
+
+FME/ACE variable name and modifier function.
+
+</Indent>
+</Indent>

@@ -1,0 +1,141 @@
+---
+layout: overview
+title: earth2studio.data.const
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`Constant`](#earth2studio-data-const-Constant) | A constant data source. Primarily useful for testing. |
+| [`Constant_FX`](#earth2studio-data-const-Constant_FX) | A constant forecast data source. Primarily useful for testing. |
+
+### API
+
+<Anchor id="earth2studio-data-const-Constant">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.const.Constant(
+    domain_coords: collections.OrderedDict[str, numpy.ndarray],
+    value: int = 1
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+A constant data source. Primarily useful for testing.
+
+**Parameters:**
+
+<ParamField path="domain_coords" type="OrderedDict[str, np.ndarray]">
+Domain coordinates that the random data will assume (such as lat, lon).
+</ParamField>
+
+<ParamField path="value" type="int" default="1">
+Value to set data to, by default 1
+</ParamField>
+
+<Anchor id="earth2studio-data-const-Constant-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.const.Constant.__call__(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Retrieve constant data.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Timestamps to return data for.
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — Strings or list of strings that refer to variables to return.
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+Constant data array
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-data-const-Constant_FX">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.const.Constant_FX(
+    domain_coords: collections.OrderedDict[str, numpy.ndarray],
+    value: int = 1
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+A constant forecast data source. Primarily useful for testing.
+
+**Parameters:**
+
+<ParamField path="domain_coords" type="OrderedDict[str, np.ndarray]">
+Domain coordinates that the random data will assume (such as lat, lon).
+</ParamField>
+
+<ParamField path="value" type="int" default="1">
+Value to set data to, by default 1
+</ParamField>
+
+<Anchor id="earth2studio-data-const-Constant_FX-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.LeadTimeArray":"../utils/type.mdx#earth2studio-utils-type-LeadTimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.const.Constant_FX.__call__(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    lead_time: datetime.timedelta | list[datetime.timedelta] | earth2studio.utils.type.LeadTimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Retrieve constant data.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Timestamps to return data for.
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — Strings or list of strings that refer to variables to return.
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+Constant data array
+
+</Indent>
+</Indent>

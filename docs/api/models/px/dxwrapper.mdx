@@ -1,0 +1,525 @@
+---
+layout: overview
+title: earth2studio.models.px.dxwrapper
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`DiagnosticWrapper`](#earth2studio-models-px-dxwrapper-DiagnosticWrapper) | Wraps a prognostic model and one or more diagnostic models into a single |
+| [`PrepareDxInputCoords`](#earth2studio-models-px-dxwrapper-PrepareDxInputCoords) | Protocol for preparing diagnostic model input coordinates. |
+| [`PrepareDxInputTensor`](#earth2studio-models-px-dxwrapper-PrepareDxInputTensor) | Protocol for preparing diagnostic model input tensor. |
+| [`PrepareInputCoordsDefault`](#earth2studio-models-px-dxwrapper-PrepareInputCoordsDefault) | Prepares output coords from prognostic model for diagnostic models |
+| [`PrepareInputTensorDefault`](#earth2studio-models-px-dxwrapper-PrepareInputTensorDefault) | Prepares output from prognostic model for diagnostic |
+| [`PrepareOutputCoords`](#earth2studio-models-px-dxwrapper-PrepareOutputCoords) | Protocol for preparing output coordinates. |
+| [`PrepareOutputCoordsDefault`](#earth2studio-models-px-dxwrapper-PrepareOutputCoordsDefault) | Preparing output coordinates of the diagnostic wrapper |
+| [`PrepareOutputTensor`](#earth2studio-models-px-dxwrapper-PrepareOutputTensor) | Protocol for preparing output tensor. |
+| [`PrepareOutputTensorDefault`](#earth2studio-models-px-dxwrapper-PrepareOutputTensorDefault) | Preparing output tensor / coords of the diagnostic wrapper. This default |
+
+### Functions
+
+| Name | Description |
+|------|-------------|
+
+### API
+
+<Anchor id="earth2studio-models-px-dxwrapper-DiagnosticWrapper">
+
+<CodeBlock links={{"earth2studio.models.px.PrognosticModel":"./base.mdx#earth2studio-models-px-base-PrognosticModel","earth2studio.models.dx.DiagnosticModel":"../dx/base.mdx#earth2studio-models-dx-base-DiagnosticModel","earth2studio.models.px.dxwrapper.PrepareDxInputCoords":"#earth2studio-models-px-dxwrapper-PrepareDxInputCoords","earth2studio.models.px.dxwrapper.PrepareDxInputTensor":"#earth2studio-models-px-dxwrapper-PrepareDxInputTensor","earth2studio.models.px.dxwrapper.PrepareOutputCoords":"#earth2studio-models-px-dxwrapper-PrepareOutputCoords","earth2studio.models.px.dxwrapper.PrepareOutputTensor":"#earth2studio-models-px-dxwrapper-PrepareOutputTensor"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.models.px.dxwrapper.DiagnosticWrapper(
+    px_model: earth2studio.models.px.PrognosticModel,
+    dx_model: earth2studio.models.dx.DiagnosticModel | list[earth2studio.models.dx.DiagnosticModel],
+    prepare_dx_input_coords: earth2studio.models.px.dxwrapper.PrepareDxInputCoords | list[earth2studio.models.px.dxwrapper.PrepareDxInputCoords] | None = None,
+    prepare_dx_input_tensor: earth2studio.models.px.dxwrapper.PrepareDxInputTensor | list[earth2studio.models.px.dxwrapper.PrepareDxInputTensor] | None = None,
+    prepare_output_coords: earth2studio.models.px.dxwrapper.PrepareOutputCoords | None = None,
+    prepare_output_tensor: earth2studio.models.px.dxwrapper.PrepareOutputTensor | None = None
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** `Module`, [PrognosticMixin](./utils.mdx#earth2studio-models-px-utils-PrognosticMixin)
+
+Wraps a prognostic model and one or more diagnostic models into a single
+prognostic model. The micro-pipeline this wrapper encapsulates has the following
+four steps:
+
+1. Execute one step of the prognostic model
+2. Prepare output of prognostic model for each diagnostic model
+3. Execute forward pass each diagnostic model using the prepare prognostic data
+4. Prepare outputs of prognostic/diagnostic for final return
+
+The wrapper provides customizable methods for preparing diagnostic model inputs and
+outputs. If not provided, default methods are have the following requirements:
+
+- All diagnostics must have the same output coordinate systems with the exception
+of the variable dimension
+- Both the prognostic and diagnostic models must have lat/lon grid systems.
+
+**Badges:** `region:global` `provider:nvidia` `backend:pytorch`
+
+**Parameters:**
+
+<ParamField path="px_model" type="PrognosticModel">
+[`PrognosticModel`](./base.mdx#earth2studio-models-px-base-PrognosticModel) — The prognostic model to use as the base model.
+</ParamField>
+
+<ParamField path="dx_model" type="DiagnosticModel | list[DiagnosticModel]">
+[`DiagnosticModel`](../dx/base.mdx#earth2studio-models-dx-base-DiagnosticModel) `| list[` [`DiagnosticModel`](../dx/base.mdx#earth2studio-models-dx-base-DiagnosticModel) `]` — Single diagnostic model or list of diagnostic models whose outputs are
+concatenated to the prognostic model output.
+</ParamField>
+
+<ParamField path="prepare_dx_input_coords" type="PrepareDxInputCoords | list[PrepareDxInputCoords] | None" default="None">
+[`PrepareDxInputCoords`](#earth2studio-models-px-dxwrapper-PrepareDxInputCoords) `| list[` [`PrepareDxInputCoords`](#earth2studio-models-px-dxwrapper-PrepareDxInputCoords) `] | None` — Callable or Protocol-implementing object to prepare coordinate system for
+diagnostic model input. Can be a single instance (applied to all diagnostics)
+or a list (one per diagnostic). If None, uses PrepareInputCoordsDefault for
+each diagnostic, by default None
+</ParamField>
+
+<ParamField path="prepare_dx_input_tensor" type="PrepareDxInputTensor | list[PrepareDxInputTensor] | None" default="None">
+[`PrepareDxInputTensor`](#earth2studio-models-px-dxwrapper-PrepareDxInputTensor) `| list[` [`PrepareDxInputTensor`](#earth2studio-models-px-dxwrapper-PrepareDxInputTensor) `] | None` — Callable or Protocol-implementing object to prepare tensor for diagnostic model
+input. Can be a single instance (applied to all diagnostics) or a list (one per
+diagnostic). If None, uses PrepareInputTensorDefault with interpolation for
+each diagnostic, by default None
+</ParamField>
+
+<ParamField path="prepare_output_coords" type="PrepareOutputCoords | None" default="None">
+[`PrepareOutputCoords`](#earth2studio-models-px-dxwrapper-PrepareOutputCoords) `| None` — Callable or Protocol-implementing object to prepare output coordinate system.
+If None, uses PrepareOutputCoordsDefault which concatenates all variables,
+by default None
+</ParamField>
+
+<ParamField path="prepare_output_tensor" type="PrepareOutputTensor | None" default="None">
+[`PrepareOutputTensor`](#earth2studio-models-px-dxwrapper-PrepareOutputTensor) `| None` — Callable or Protocol-implementing object to prepare output tensor. If None,
+uses PrepareOutputTensorDefault which concatenates all outputs, by default None
+</ParamField>
+
+<Note>
+
+Custom callables or classes implementing the Protocol interfaces can be provided to
+override default behavior such as skipping interpolation or changing concatenation
+logic. This will be required for many diagnostic models. The prepare functions must
+implement the appropriate Protocol (__call__ method with matching signature):
+
+- PrepareDxInputCoords: Prepares coordinate systems
+- PrepareDxInputTensor: Prepares tensors with optional interpolation
+- PrepareOutputCoords: Prepares final output coordinate systems
+- PrepareOutputTensor: Prepares final output tensors
+
+</Note>
+
+<Anchor id="earth2studio-models-px-dxwrapper-DiagnosticWrapper-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.dxwrapper.DiagnosticWrapper.__call__(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Runs prognostic model 1 step
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Input tensor
+</ParamField>
+
+<ParamField path="coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system
+</ParamField>
+
+**Returns:** `torch.Tensor`
+
+</Indent>
+<Anchor id="earth2studio-models-px-dxwrapper-DiagnosticWrapper-create_iterator">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.dxwrapper.DiagnosticWrapper.create_iterator(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem
+) -> collections.abc.Iterator[tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Creates a iterator which can be used to perform time-integration of the
+prognostic model. Will return the initial condition first (0th step).
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Input tensor
+</ParamField>
+
+<ParamField path="coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system
+</ParamField>
+
+</Indent>
+<Anchor id="earth2studio-models-px-dxwrapper-DiagnosticWrapper-input_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.dxwrapper.DiagnosticWrapper.input_coords() -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Input coordinate system of the prognostic model
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Coordinate system dictionary
+
+</Indent>
+<Anchor id="earth2studio-models-px-dxwrapper-DiagnosticWrapper-output_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.dxwrapper.DiagnosticWrapper.output_coords(
+    input_coords: earth2studio.utils.type.CoordSystem
+) -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Output coordinate system of the prognostic model
+
+**Parameters:**
+
+<ParamField path="input_coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system to transform into output_coords
+</ParamField>
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Coordinate system dictionary
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-models-px-dxwrapper-PrepareDxInputCoords">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.models.px.dxwrapper.PrepareDxInputCoords()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>Protocol</Badge>
+
+Protocol for preparing diagnostic model input coordinates.
+
+</Indent>
+
+<Anchor id="earth2studio-models-px-dxwrapper-PrepareDxInputTensor">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.models.px.dxwrapper.PrepareDxInputTensor()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>Protocol</Badge>
+
+Protocol for preparing diagnostic model input tensor.
+
+</Indent>
+
+<Anchor id="earth2studio-models-px-dxwrapper-PrepareInputCoordsDefault">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.models.px.dxwrapper.PrepareInputCoordsDefault()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Prepares output coords from prognostic model for diagnostic models
+
+<Anchor id="earth2studio-models-px-dxwrapper-PrepareInputCoordsDefault-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.dxwrapper.PrepareInputCoordsDefault.__call__(
+    px_coords: earth2studio.utils.type.CoordSystem,
+    dx_coords: earth2studio.utils.type.CoordSystem
+) -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Prepare coordinates for diagnostic model input.
+
+**Parameters:**
+
+<ParamField path="px_coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Output coordinates from the prognostic model
+</ParamField>
+
+<ParamField path="dx_coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Diagnostic model input coordinate system
+</ParamField>
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Prepared coordinate system for diagnostic model
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-models-px-dxwrapper-PrepareInputTensorDefault">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.models.px.dxwrapper.PrepareInputTensorDefault()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Prepares output from prognostic model for diagnostic
+
+<Anchor id="earth2studio-models-px-dxwrapper-PrepareInputTensorDefault-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.dxwrapper.PrepareInputTensorDefault.__call__(
+    x: torch.Tensor,
+    px_coords: earth2studio.utils.type.CoordSystem,
+    dx_coords: earth2studio.utils.type.CoordSystem
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Prepare tensor for diagnostic model input with interpolation.
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Output of prognostic model from a single step
+</ParamField>
+
+<ParamField path="px_coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Output coordinates from the prognostic model
+</ParamField>
+
+<ParamField path="dx_coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Diagnostic model input coordinate system
+</ParamField>
+
+**Returns:** `tuple[torch.Tensor,` [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) `]`
+
+Prepared tensor and coordinate system for diagnostic model
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-models-px-dxwrapper-PrepareOutputCoords">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.models.px.dxwrapper.PrepareOutputCoords()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>Protocol</Badge>
+
+Protocol for preparing output coordinates.
+
+</Indent>
+
+<Anchor id="earth2studio-models-px-dxwrapper-PrepareOutputCoordsDefault">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.models.px.dxwrapper.PrepareOutputCoordsDefault()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Preparing output coordinates of the diagnostic wrapper
+
+<Anchor id="earth2studio-models-px-dxwrapper-PrepareOutputCoordsDefault-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.dxwrapper.PrepareOutputCoordsDefault.__call__(
+    px_coords: earth2studio.utils.type.CoordSystem,
+    dx_coords: list[earth2studio.utils.type.CoordSystem]
+) -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Returns the output coordinates of the diagnostic wrapper
+
+**Parameters:**
+
+<ParamField path="px_coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Prognostic coords
+</ParamField>
+
+<ParamField path="dx_coords" type="list[CoordSystem]">
+`list[` [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) `]` — Diagnostic coords
+</ParamField>
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Expected output coords from model for a given time-step
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-models-px-dxwrapper-PrepareOutputTensor">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.models.px.dxwrapper.PrepareOutputTensor()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>Protocol</Badge>
+
+Protocol for preparing output tensor.
+
+</Indent>
+
+<Anchor id="earth2studio-models-px-dxwrapper-PrepareOutputTensorDefault">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.models.px.dxwrapper.PrepareOutputTensorDefault()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** `Module`
+
+Preparing output tensor / coords of the diagnostic wrapper. This default
+implementation offers the following three strategies for preparing the output:
+
+1. Attempt to concat px outputs and all dx outputs
+2. Attempt to concat lat/lon sub-region px outputs and all dx outputs
+3. Concat just dx outputs
+
+<Anchor id="earth2studio-models-px-dxwrapper-PrepareOutputTensorDefault-forward">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.dxwrapper.PrepareOutputTensorDefault.forward(
+    px_x: torch.Tensor,
+    px_coords: earth2studio.utils.type.CoordSystem,
+    dx_x: list[torch.Tensor],
+    dx_coords: list[earth2studio.utils.type.CoordSystem]
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Prepare outputs for diagnostic wrapper
+
+**Parameters:**
+
+<ParamField path="px_x" type="torch.Tensor">
+Output of prognostic model from a single step
+</ParamField>
+
+<ParamField path="px_coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Output coordinates from the prognostic model
+</ParamField>
+
+<ParamField path="dx_x" type="list[torch.Tensor]">
+Output of diagnostic model
+</ParamField>
+
+<ParamField path="dx_coords" type="list[CoordSystem]">
+`list[` [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) `]` — Diagnostic model input coordinate system
+</ParamField>
+
+**Returns:** `tuple[torch.Tensor,` [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) `]`
+
+Outputs to be returned by the wrapper
+
+</Indent>
+</Indent>

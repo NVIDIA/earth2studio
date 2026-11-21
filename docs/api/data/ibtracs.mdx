@@ -1,0 +1,310 @@
+---
+layout: overview
+title: earth2studio.data.ibtracs
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`IBTrACS`](#earth2studio-data-ibtracs-IBTrACS) | International Best Track Archive for Climate Stewardship (IBTrACS) data source. |
+| [`IBTrACSAsyncTask`](#earth2studio-data-ibtracs-IBTrACSAsyncTask) | Async task for fetching a single IBTrACS region file. |
+
+### API
+
+<Anchor id="earth2studio-data-ibtracs-IBTrACS">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeTolerance":"../utils/type.mdx#earth2studio-utils-type-TimeTolerance"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.ibtracs.IBTrACS(
+    region: str | list[str] = 'ALL',
+    time_tolerance: earth2studio.utils.type.TimeTolerance = np.timedelta64(0),
+    cache: bool = True,
+    verbose: bool = True,
+    async_timeout: int = 600,
+    async_workers: int = 4,
+    retries: int = 3
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+International Best Track Archive for Climate Stewardship (IBTrACS) data source.
+
+IBTrACS provides global tropical cyclone best track data compiled from various
+regional agencies (NHC, JTWC, JMA, etc.) into a standardized format. This source
+returns track observations as a DataFrame with storm metadata.
+
+**Example**
+
+<CodeBlock showLineNumbers={false}>
+
+```python
+from datetime import datetime, timedelta
+from earth2studio.data import IBTrACS
+
+# Fetch North Atlantic and Eastern Pacific storms
+ds = IBTrACS(region=["NA", "EP"], time_tolerance=timedelta(days=1))
+df = ds(datetime(2024, 9, 1), ["tcwnd", "mslp"])
+
+# Get active storms
+ds_active = IBTrACS(region="ACTIVE")
+df_active = ds_active(datetime.utcnow(), ["tcwnd", "mslp"])
+
+```
+
+</CodeBlock>
+
+**Badges:** `region:global` `dataclass:observation` `product:wind` `product:atmos` `provider:noaa`
+
+**Parameters:**
+
+<ParamField path="region" type="str | list[str]" default="'ALL'">
+IBTrACS region code(s) to fetch. Valid codes:
+- Basin codes: ``"NA"`` (North Atlantic), ``"EP"`` (Eastern Pacific),
+  ``"WP"`` (Western Pacific), ``"SP"`` (South Pacific),
+  ``"NI"`` (North Indian), ``"SI"`` (South Indian), ``"SA"`` (South Atlantic)
+- Combined datasets: ``"ALL"`` (all basins), ``"since1980"`` (satellite era),
+  ``"last3years"`` (recent storms), ``"ACTIVE"`` (currently active)
+</ParamField>
+
+<ParamField path="time_tolerance" type="TimeTolerance" default="np.timedelta64(0)">
+[`TimeTolerance`](../utils/type.mdx#earth2studio-utils-type-TimeTolerance) — Time tolerance window for filtering observations. Accepts a single value
+(symmetric +/- window) or a tuple (lower, upper) for asymmetric windows,
+by default np.timedelta64(0)
+</ParamField>
+
+<ParamField path="cache" type="bool" default="True">
+Cache data source on local memory, by default True
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="True">
+Print download progress and missing data warnings, by default True
+</ParamField>
+
+<ParamField path="async_timeout" type="int" default="600">
+Time in sec after which download will be cancelled if not finished successfully,
+by default 600
+</ParamField>
+
+<ParamField path="async_workers" type="int" default="4">
+Maximum number of concurrent async fetch tasks, by default 4
+</ParamField>
+
+<ParamField path="retries" type="int" default="3">
+Number of retry attempts per failed fetch task with exponential backoff,
+by default 3
+</ParamField>
+
+<Note>
+
+IBTrACS files are updated frequently (especially ``"ACTIVE"``). This source
+checks the server's ``Last-Modified`` header and re-downloads when the remote
+file is newer than the cached version.
+Additional information on the data repository can be referenced here:
+
+- https://www.ncei.noaa.gov/products/international-best-track-archive
+- https://www.ncei.noaa.gov/sites/default/files/2025-04/IBTrACS_version4r01_Technical_Details.pdf
+
+</Note>
+
+<Warning>
+
+This is a remote data source and can potentially download a large amount of data
+to your local machine for large requests. The ``"ALL"`` region file is ~23 MB.
+
+</Warning>
+
+<ParamField path="cache" type="str">
+Get the appropriate cache location.
+</ParamField>
+
+<Anchor id="earth2studio-data-ibtracs-IBTrACS-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.ibtracs.IBTrACS.__call__(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray,
+    fields: str | list[str] | pyarrow.Schema | None = None
+) -> pandas.DataFrame
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Retrieve tropical cyclone track observations.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Timestamps to return data for (UTC).
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — Variable names from the IBTrACS lexicon.
+</ParamField>
+
+<ParamField path="fields" type="str | list[str] | pa.Schema | None" default="None">
+Fields to include in output, by default None (all fields).
+</ParamField>
+
+**Returns:** `pd.DataFrame`
+
+IBTrACS track observations with columns matching the schema.
+
+</Indent>
+<Anchor id="earth2studio-data-ibtracs-IBTrACS-available">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.ibtracs.IBTrACS.available(
+    time: datetime.datetime | numpy.datetime64
+) -> bool
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Check if given date time is available.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | np.datetime64">
+Date time to check.
+</ParamField>
+
+**Returns:** `bool`
+
+If date time is available.
+
+</Indent>
+<Anchor id="earth2studio-data-ibtracs-IBTrACS-fetch">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.ibtracs.IBTrACS.fetch(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray,
+    fields: str | list[str] | pyarrow.Schema | None = None
+) -> pandas.DataFrame
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Async function to get tropical cyclone track data.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Timestamps to return data for (UTC).
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — Variable names from the IBTrACS lexicon.
+</ParamField>
+
+<ParamField path="fields" type="str | list[str] | pa.Schema | None" default="None">
+Fields to include in output, by default None (all fields).
+</ParamField>
+
+**Returns:** `pd.DataFrame`
+
+IBTrACS track observations.
+
+</Indent>
+<Anchor id="earth2studio-data-ibtracs-IBTrACS-list_regions">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.ibtracs.IBTrACS.list_regions() -> list[str]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+List available IBTrACS regions.
+
+**Returns:** `list[str]`
+
+List of valid region codes.
+
+</Indent>
+<Anchor id="earth2studio-data-ibtracs-IBTrACS-resolve_fields">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.ibtracs.IBTrACS.resolve_fields(
+    fields: str | list[str] | pyarrow.Schema | None
+) -> pyarrow.Schema
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Convert fields parameter into a validated PyArrow schema.
+
+**Parameters:**
+
+<ParamField path="fields" type="str | list[str] | pa.Schema | None">
+Field specification.
+</ParamField>
+
+**Returns:** `pa.Schema`
+
+A PyArrow schema containing only the requested fields.
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-data-ibtracs-IBTrACSAsyncTask">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.ibtracs.IBTrACSAsyncTask(
+    region: str,
+    remote_url: str,
+    local_path: str
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>Dataclass</Badge>
+
+Async task for fetching a single IBTrACS region file.
+
+</Indent>

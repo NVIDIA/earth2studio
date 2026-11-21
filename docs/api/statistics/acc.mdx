@@ -1,0 +1,146 @@
+---
+layout: overview
+title: earth2studio.statistics.acc
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`acc`](#earth2studio-statistics-acc-acc) | Statistic for calculating the anomaly correlation coefficient of two tensors |
+
+### API
+
+<Anchor id="earth2studio-statistics-acc-acc">
+
+<CodeBlock links={{"earth2studio.data.DataSource":"../data/base.mdx#earth2studio-data-base-DataSource"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.statistics.acc.acc(
+    reduction_dimensions: list[str],
+    climatology: earth2studio.data.DataSource | None = None,
+    weights: torch.Tensor | None = None
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Statistic for calculating the anomaly correlation coefficient of two tensors
+over a set of given dimensions, with respect to some optional climatology.
+
+**Parameters:**
+
+<ParamField path="reduction_dimensions" type="List[str]">
+A list of names corresponding to dimensions to perform the
+statistical reduction over. Example: ['lat', 'lon']
+</ParamField>
+
+<ParamField path="climatology" type="DataSource" default="None">
+[`DataSource`](../data/base.mdx#earth2studio-data-base-DataSource) — Optional (by default None) climatology to remove from tensors to create
+anomalies before computing the correlation coefficient.
+</ParamField>
+
+<ParamField path="weights" type="torch.Tensor = None" default="None">
+A tensor containing weights to assign to the reduction dimensions.
+Note that these weights must have the same number of dimensions
+as passed in reduction_dimensions.
+Example: if reduction_dimensions = ['lat', 'lon'] then
+assert weights.ndim == 2.
+</ParamField>
+
+<ParamField path="reduction_dimensions" type="list[str]">
+</ParamField>
+<Anchor id="earth2studio-statistics-acc-acc-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.statistics.acc.acc.__call__(
+    x: torch.Tensor,
+    x_coords: earth2studio.utils.type.CoordSystem,
+    y: torch.Tensor,
+    y_coords: earth2studio.utils.type.CoordSystem
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Apply metric to data `x` and `y`, checking that their coordinates
+are broadcastable.
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Input tensor, typically the forecast or prediction tensor, but ACC is
+symmetric with respect to `x` and `y`.
+</ParamField>
+
+<ParamField path="x_coords" type="CoordSystem">
+[`CoordSystem`](../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Ordered dict representing coordinate system that describes the `x` tensor.
+`reduction_dimensions` must be in coords.
+"time" and "variable" must be in x_coords.
+</ParamField>
+
+<ParamField path="y" type="torch.Tensor">
+Input tensor #2 intended to be used as validation data, but ACC is symmetric
+with respect to `x` and `y`.
+</ParamField>
+
+<ParamField path="y_coords" type="CoordSystem">
+[`CoordSystem`](../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Ordered dict representing coordinate system that describes the `y` tensor.
+`reduction_dimensions` must be in coords.
+"time" and "variable" must be in y_coords.
+If "lead_time" is in x_coords, then "lead_time" must also be in y_coords. The
+intention, in this case, is that users will use `fetch_data` to make it easier
+to match validation times.
+</ParamField>
+
+**Returns:** `tuple[torch.Tensor,` [`CoordSystem`](../utils/type.mdx#earth2studio-utils-type-CoordSystem) `]`
+
+Returns anomaly correlation coefficient tensor with appropriate reduced coordinates.
+
+<Note>
+
+For more information see the following references:
+
+- https://confluence.ecmwf.int/spaces/FUG/pages/673550781/Section%2B6.2.2%2BAnomaly%2BCorrelation%2BCoefficient
+
+</Note>
+
+</Indent>
+<Anchor id="earth2studio-statistics-acc-acc-output_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.statistics.acc.acc.output_coords(
+    input_coords: earth2studio.utils.type.CoordSystem
+) -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Output coordinate system of the computed statistic, corresponding to the given input coordinates
+
+**Parameters:**
+
+<ParamField path="input_coords" type="CoordSystem">
+[`CoordSystem`](../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system to transform into output_coords
+</ParamField>
+
+**Returns:** [`CoordSystem`](../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Coordinate system dictionary
+
+</Indent>
+</Indent>

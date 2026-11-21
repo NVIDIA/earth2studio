@@ -1,0 +1,139 @@
+---
+layout: overview
+title: earth2studio.statistics.rank
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`rank_histogram`](#earth2studio-statistics-rank-rank_histogram) | Compute the Rank Histogram for a given set of ensemble forecasts. |
+
+### API
+
+<Anchor id="earth2studio-statistics-rank-rank_histogram">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.statistics.rank.rank_histogram(
+    ensemble_dimension: str,
+    reduction_dimensions: list[str],
+    number_of_bins: int | None = None,
+    randomize_ties: bool = True
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Compute the Rank Histogram for a given set of ensemble forecasts.
+
+This statistic reduces over a single dimension, where the presumed ensemble dimension
+does not appear in the truth/observation tensor.
+
+**Parameters:**
+
+<ParamField path="ensemble_dimension" type="str">
+A name corresponding to a dimension to perform the ranking over.
+Example: 'ensemble'
+</ParamField>
+
+<ParamField path="reduction_dimensions" type="list[str]">
+A list of dimensions over which to bin the ranks
+</ParamField>
+
+<ParamField path="number_of_bins" type="int | None" default="None">
+The number of bins to discretize the unit interval over. Best set to
+ensemble_size + 1, which is set automatically when None, by default None
+</ParamField>
+
+<ParamField path="randomize_ties" type="bool" default="True">
+When True randomize the rank in cases where multiple ensemble
+members are exactly equal to the observation. This produces an unbiased
+distribution of ranks in cases where ties occur frequently. If False, the rank
+will be computed as if the observation were larger than the tied ensemble
+members, by default True
+</ParamField>
+
+<ParamField path="reduction_dimensions" type="list[str]">
+</ParamField>
+<Anchor id="earth2studio-statistics-rank-rank_histogram-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.statistics.rank.rank_histogram.__call__(
+    x: torch.Tensor,
+    x_coords: earth2studio.utils.type.CoordSystem,
+    y: torch.Tensor,
+    y_coords: earth2studio.utils.type.CoordSystem
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Apply metric to data `x` and `y`, checking that their coordinates
+are broadcastable. While reducing over `reduction_dimensions`.
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Input tensor of ensemble data. The rank of observation input tensor `y`
+is determined with respect to the ensemble dimension of `x`.
+</ParamField>
+
+<ParamField path="x_coords" type="CoordSystem">
+[`CoordSystem`](../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Ordered dict representing coordinate system that describes the `x` tensor.
+`reduction_dimensions` must be in coords.
+</ParamField>
+
+<ParamField path="y" type="torch.Tensor">
+The observation input tensor.
+</ParamField>
+
+<ParamField path="y_coords" type="CoordSystem">
+[`CoordSystem`](../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Ordered dict representing coordinate system that describes the `y` tensor.
+`reduction_dimensions` must be in coords.
+</ParamField>
+
+**Returns:** `tuple[torch.Tensor,` [`CoordSystem`](../utils/type.mdx#earth2studio-utils-type-CoordSystem) `]`
+
+Returns rank histogram tensor with appropriate reduced coordinates.
+
+</Indent>
+<Anchor id="earth2studio-statistics-rank-rank_histogram-output_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.statistics.rank.rank_histogram.output_coords(
+    input_coords: earth2studio.utils.type.CoordSystem
+) -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Output coordinate system of the computed statistic, corresponding to the given input coordinates
+
+**Parameters:**
+
+<ParamField path="input_coords" type="CoordSystem">
+[`CoordSystem`](../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system to transform into output_coords
+</ParamField>
+
+**Returns:** [`CoordSystem`](../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Coordinate system dictionary
+
+</Indent>
+</Indent>

@@ -1,0 +1,354 @@
+---
+layout: overview
+title: earth2studio.models.dx.stormscope_dx_nsrdb
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`StormScopeDxNSRDB`](#earth2studio-models-dx-stormscope_dx_nsrdb-StormScopeDxNSRDB) | Estimate Global Horizontal Irradiance from GOES imagery. |
+
+### API
+
+<Anchor id="earth2studio-models-dx-stormscope_dx_nsrdb-StormScopeDxNSRDB">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.models.dx.StormScopeDxNSRDB(
+    diffusion_model: torch.nn.Module,
+    regression_model: torch.nn.Module,
+    sigma_min: float,
+    sigma_max: float,
+    conditioning_means: torch.Tensor,
+    conditioning_stds: torch.Tensor,
+    conditioning_variables: numpy.ndarray,
+    output_variables: numpy.ndarray,
+    latitudes: torch.Tensor,
+    longitudes: torch.Tensor,
+    invariants: torch.Tensor | None = None,
+    valid_mask: torch.Tensor | None = None,
+    y_coords: numpy.ndarray | None = None,
+    x_coords: numpy.ndarray | None = None,
+    input_interp_max_dist_km: float = 12.0,
+    number_of_samples: int = 1,
+    seed: int | None = None,
+    num_steps: int = 12,
+    amp: bool = True
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** `Module`, [AutoModelMixin](../auto/mixin.mdx#earth2studio-models-auto-mixin-AutoModelMixin)
+
+Estimate Global Horizontal Irradiance from GOES imagery.
+
+This diagnostic model is designed to be used with the
+`earth2studio.models.px.StormScopeGOES` prognostic model, consuming
+its GOES channel outputs to produce solar irradiance estimates.
+
+A regression network produces a first estimate that is refined with a
+warm-started diffusion sampler. Each requested sample is generated
+independently at the input observation time.
+
+**Example**
+
+Using the diagnostic with forecasted GOES imagery from
+`earth2studio.models.px.StormScopeGOES`. A
+`earth2studio.data.GOES` data source can also be used directly
+in place of the prognostic model output:
+
+&gt;&gt;&gt; # Load StormScopeGOES prognostic and NSRDB diagnostic models
+&gt;&gt;&gt; package = StormScopeBase.load_default_package()
+&gt;&gt;&gt; goes_model = StormScopeGOES.load_model(package, conditioning_data_source=None)
+&gt;&gt;&gt; goes_model = goes_model.to("cuda").eval()
+&gt;&gt;&gt; nsrdb_model = StormScopeDxNSRDB.load_model(StormScopeDxNSRDB.load_default_package())
+&gt;&gt;&gt; nsrdb_model = nsrdb_model.to("cuda")
+&gt;&gt;&gt;
+&gt;&gt;&gt; # Build interpolators from GOES grid to model grid
+&gt;&gt;&gt; goes_lat, goes_lon = GOES.grid(satellite="goes16", scan_mode="C")
+&gt;&gt;&gt; goes_model.build_input_interpolator(goes_lat, goes_lon)
+&gt;&gt;&gt; nsrdb_model.build_input_interpolator(goes_lat, goes_lon)
+&gt;&gt;&gt;
+&gt;&gt;&gt; # Run one GOES forecast step then estimate GHI
+&gt;&gt;&gt; y_goes, y_coords = goes_model(x, coords)
+&gt;&gt;&gt; ghi_coords = y_coords.copy()
+&gt;&gt;&gt; del ghi_coords["lead_time"]
+&gt;&gt;&gt; ghi, ghi_coords = nsrdb_model(y_goes.squeeze(2), ghi_coords)
+
+**Badges:** `region:na` `class:nowcasting` `product:solar` `year:2026` `gpu:48gb` `provider:nvidia` `backend:pytorch`
+
+**Parameters:**
+
+<ParamField path="diffusion_model" type="nn.Module">
+Diffusion denoiser.
+</ParamField>
+
+<ParamField path="regression_model" type="nn.Module">
+Deterministic first-guess model.
+</ParamField>
+
+<ParamField path="sigma_min" type="float">
+Minimum diffusion noise level.
+</ParamField>
+
+<ParamField path="sigma_max" type="float">
+Warm-start diffusion noise level.
+</ParamField>
+
+<ParamField path="conditioning_means" type="torch.Tensor">
+Per-channel GOES means.
+</ParamField>
+
+<ParamField path="conditioning_stds" type="torch.Tensor">
+Per-channel GOES standard deviations.
+</ParamField>
+
+<ParamField path="conditioning_variables" type="np.ndarray">
+GOES input variables.
+</ParamField>
+
+<ParamField path="output_variables" type="np.ndarray">
+Output variables, typically ``["ghi"]``.
+</ParamField>
+
+<ParamField path="latitudes" type="torch.Tensor">
+Native-grid latitudes with shape ``[H, W]``.
+</ParamField>
+
+<ParamField path="longitudes" type="torch.Tensor">
+Native-grid longitudes with shape ``[H, W]``.
+</ParamField>
+
+<ParamField path="invariants" type="torch.Tensor | None" default="None">
+Static conditioning channels, by default None.
+</ParamField>
+
+<ParamField path="valid_mask" type="torch.Tensor | None" default="None">
+Native-grid output mask, by default None.
+</ParamField>
+
+<ParamField path="y_coords" type="np.ndarray | None" default="None">
+Native-grid y coordinates, by default None.
+</ParamField>
+
+<ParamField path="x_coords" type="np.ndarray | None" default="None">
+Native-grid x coordinates, by default None.
+</ParamField>
+
+<ParamField path="input_interp_max_dist_km" type="float" default="12.0">
+Maximum input interpolation distance, by default 12.0.
+</ParamField>
+
+<ParamField path="number_of_samples" type="int" default="1">
+Number of GHI samples per input, by default 1.
+</ParamField>
+
+<ParamField path="seed" type="int | None" default="None">
+Base random seed, by default None.
+</ParamField>
+
+<ParamField path="num_steps" type="int" default="12">
+Number of diffusion steps, by default 12.
+</ParamField>
+
+<ParamField path="amp" type="bool" default="True">
+Enable automatic mixed precision, by default True.
+</ParamField>
+
+<Note>
+
+For more information see the following references:
+
+- https://huggingface.co/nvidia/StormScope-NSRDB
+
+</Note>
+
+<Anchor id="earth2studio-models-dx-stormscope_dx_nsrdb-StormScopeDxNSRDB-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.StormScopeDxNSRDB.__call__(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Generate GHI samples from GOES imagery.
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+GOES tensor with shape ``[batch, time, variable, y, x]``.
+</ParamField>
+
+<ParamField path="coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — GOES coordinates.
+</ParamField>
+
+**Returns:** `tuple[torch.Tensor,` [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) `]`
+
+GHI samples and output coordinates.
+
+</Indent>
+<Anchor id="earth2studio-models-dx-stormscope_dx_nsrdb-StormScopeDxNSRDB-build_input_interpolator">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.StormScopeDxNSRDB.build_input_interpolator(
+    input_lats: torch.Tensor | numpy.typing.ArrayLike,
+    input_lons: torch.Tensor | numpy.typing.ArrayLike,
+    max_dist_km: float | None = None
+) -> torch.nn.Module
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Build an interpolator from an input grid to the model grid.
+
+**Parameters:**
+
+<ParamField path="input_lats" type="torch.Tensor | ArrayLike">
+Input latitudes.
+</ParamField>
+
+<ParamField path="input_lons" type="torch.Tensor | ArrayLike">
+Input longitudes.
+</ParamField>
+
+<ParamField path="max_dist_km" type="float | None" default="None">
+Maximum nearest-neighbor distance, by default None.
+</ParamField>
+
+**Returns:** `nn.Module`
+
+Input interpolation module.
+
+</Indent>
+<Anchor id="earth2studio-models-dx-stormscope_dx_nsrdb-StormScopeDxNSRDB-input_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.StormScopeDxNSRDB.input_coords() -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Input coordinate system.
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+GOES input coordinates.
+
+</Indent>
+<Anchor id="earth2studio-models-dx-stormscope_dx_nsrdb-StormScopeDxNSRDB-load_default_package">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.StormScopeDxNSRDB.load_default_package() -> earth2studio.models.auto.Package
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Default StormScope NSRDB package.
+
+**Returns:** [`Package`](../auto/package.mdx#earth2studio-models-auto-package-Package)
+
+Model package.
+
+</Indent>
+<Anchor id="earth2studio-models-dx-stormscope_dx_nsrdb-StormScopeDxNSRDB-load_model">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package","earth2studio.models.dx.base.DiagnosticModel":"./base.mdx#earth2studio-models-dx-base-DiagnosticModel"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.StormScopeDxNSRDB.load_model(
+    package: earth2studio.models.auto.Package,
+    number_of_samples: int = 1,
+    seed: int | None = None
+) -> earth2studio.models.dx.base.DiagnosticModel
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Load the StormScope NSRDB diagnostic.
+
+**Parameters:**
+
+<ParamField path="package" type="Package">
+[`Package`](../auto/package.mdx#earth2studio-models-auto-package-Package) — Package containing model assets.
+</ParamField>
+
+<ParamField path="number_of_samples" type="int" default="1">
+Number of GHI samples, by default 1.
+</ParamField>
+
+<ParamField path="seed" type="int | None" default="None">
+Base random seed, by default None.
+</ParamField>
+
+**Returns:** [`DiagnosticModel`](./base.mdx#earth2studio-models-dx-base-DiagnosticModel)
+
+Loaded diagnostic model.
+
+</Indent>
+<Anchor id="earth2studio-models-dx-stormscope_dx_nsrdb-StormScopeDxNSRDB-output_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.StormScopeDxNSRDB.output_coords(
+    input_coords: earth2studio.utils.type.CoordSystem
+) -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Output coordinate system.
+
+**Parameters:**
+
+<ParamField path="input_coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Native-grid GOES input coordinates.
+</ParamField>
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Sampled GHI output coordinates.
+
+</Indent>
+</Indent>

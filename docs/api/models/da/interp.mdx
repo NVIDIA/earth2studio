@@ -1,0 +1,179 @@
+---
+layout: overview
+title: earth2studio.models.da.interp
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`InterpEquirectangular`](#earth2studio-models-da-interp-InterpEquirectangular) | Interpolation assimilation model that interpolates sparse observations to a |
+
+### API
+
+<Anchor id="earth2studio-models-da-interp-InterpEquirectangular">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeTolerance":"../../utils/type.mdx#earth2studio-utils-type-TimeTolerance"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.models.da.interp.InterpEquirectangular(
+    lat: numpy.ndarray | None = None,
+    lon: numpy.ndarray | None = None,
+    interp_method: str = 'smolyak',
+    time_tolerance: earth2studio.utils.type.TimeTolerance = np.timedelta64(10, 'm')
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** `Module`
+
+Interpolation assimilation model that interpolates sparse observations to a
+lat-lon grid.
+
+This is a sample implementation of an AssimilationModel that:
+- Accepts DataFrames with observations (time, lat, lon, observation, variable)
+- Interpolates observations to a regular lat-lon grid using specified method
+- Validates input observations against schema constraints
+- Supports interpolation methods: 'nearest' or 'smolyak' (Smolyak sparse grid algorithm)
+
+**Badges:** `region:global` `region:na` `class:data-assimilation` `product:atmos` `product:insitu` `provider:nvidia` `backend:pytorch`
+
+**Parameters:**
+
+<ParamField path="lat" type="np.ndarray | None" default="None">
+Latitude coordinates for output grid, by default None (uses default grid over
+CONUS)
+</ParamField>
+
+<ParamField path="lon" type="np.ndarray | None" default="None">
+Longitude coordinates for output grid, by default None (uses default
+grid over CONUS)
+</ParamField>
+
+<ParamField path="interp_method" type="str" default="'smolyak'">
+Interpolation method to use: 'nearest' or 'smolyak', by default "smolyak"
+</ParamField>
+
+<ParamField path="time_tolerance" type="TimeTolerance" default="np.timedelta64(10, 'm')">
+[`TimeTolerance`](../../utils/type.mdx#earth2studio-utils-type-TimeTolerance) — Time tolerance for filtering observations. Observations within the tolerance
+window around each requested time will be used for interpolation, by default
+np.timedelta64(10, "m")
+</ParamField>
+
+**Raises:**
+
+- `ValueError`: If interp_method is not one of the supported methods
+
+<Anchor id="earth2studio-models-da-interp-InterpEquirectangular-__call__">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.da.interp.InterpEquirectangular.__call__(
+    obs: pandas.DataFrame
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Stateless forward pass
+
+</Indent>
+<Anchor id="earth2studio-models-da-interp-InterpEquirectangular-create_generator">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.da.interp.InterpEquirectangular.create_generator() -> collections.abc.Generator[xarray.DataArray, pandas.DataFrame, None]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Creates a generator which accepts collection of input observations and
+outputs a collection of assimilated data.
+
+</Indent>
+<Anchor id="earth2studio-models-da-interp-InterpEquirectangular-init_coords">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.da.interp.InterpEquirectangular.init_coords() -> None
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Initialization coords (not required)
+
+</Indent>
+<Anchor id="earth2studio-models-da-interp-InterpEquirectangular-input_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.FrameSchema":"../../utils/type.mdx#earth2studio-utils-type-FrameSchema"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.da.interp.InterpEquirectangular.input_coords() -> tuple[earth2studio.utils.type.FrameSchema]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Input coordinate system specifying required DataFrame fields.
+
+**Returns:** `tuple[` [`FrameSchema`](../../utils/type.mdx#earth2studio-utils-type-FrameSchema) `]`
+
+Tuple containing coordinate system dictionary with field names as keys:
+- variable: array of acceptable variable values
+- time, lat, lon, observation: empty arrays (dynamic dimensions)
+
+</Indent>
+<Anchor id="earth2studio-models-da-interp-InterpEquirectangular-output_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.da.interp.InterpEquirectangular.output_coords(
+    input_coords: tuple[earth2studio.utils.type.CoordSystem],
+    request_time: numpy.ndarray,
+    kwargs: typing.Any = {}
+) -> tuple[earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Output coordinate system for assimilated data.
+
+**Parameters:**
+
+<ParamField path="input_coords" type="tuple[CoordSystem, ...]">
+`tuple[` [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) `, ...]` — Input coordinate system (CoordSystem for DataFrame input)
+</ParamField>
+
+**Returns:** `tuple[` [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) `]`
+
+Coordinate system dictionary with time, variable, lat, and lon dimensions
+
+**Raises:**
+
+- `ValueError`: If input_coords are not valid
+
+</Indent>
+</Indent>

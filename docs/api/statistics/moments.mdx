@@ -1,0 +1,342 @@
+---
+layout: overview
+title: earth2studio.statistics.moments
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`mean`](#earth2studio-statistics-moments-mean) | Statistic for calculating the sample mean over a set of given dimensions. |
+| [`std`](#earth2studio-statistics-moments-std) | Statistic for calculating the sample standard deviation over a set of given dimensions. |
+| [`variance`](#earth2studio-statistics-moments-variance) | Statistic for calculating the sample variance over a set of given dimensions. |
+
+### API
+
+<Anchor id="earth2studio-statistics-moments-mean">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.statistics.moments.mean(
+    reduction_dimensions: list[str],
+    weights: torch.Tensor = None,
+    batch_update: bool = False
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Statistic for calculating the sample mean over a set of given dimensions.
+
+**Parameters:**
+
+<ParamField path="reduction_dimensions" type="List[str]">
+A list of names corresponding to dimensions to perform the
+statistical reduction over. Example: ['lat', 'lon']
+</ParamField>
+
+<ParamField path="weights" type="torch.Tensor" default="None">
+A tensor containing weights to assign to the reduction dimensions.
+Note that these weights must have the same number of dimensions
+as passed in reduction_dimensions.
+Example: if reduction_dimensions = ['lat', 'lon'] then
+assert weights.ndim == 2.
+By default None.
+</ParamField>
+
+<ParamField path="batch_update" type="bool" default="False">
+Whether to applying batch updates to the mean with each invocation of __call__.
+This is particularly useful when data is recieved in a stream of batches. Each
+invocation of __call__ will return the running mean.
+By default False.
+</ParamField>
+
+<ParamField path="n" type="= 0">
+</ParamField>
+
+<ParamField path="reduction_dimensions" type="list[str]">
+</ParamField>
+<Anchor id="earth2studio-statistics-moments-mean-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.statistics.moments.mean.__call__(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Apply the mean operation over the tensor x.
+
+If batch_update was passed True upon metric initialization then this method
+returns the running sample mean over all seen batches.
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Input data to compute sample mean.
+</ParamField>
+
+<ParamField path="coords" type="CoordSystem">
+[`CoordSystem`](../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Coordinates referring to the input data, x.
+</ParamField>
+
+</Indent>
+<Anchor id="earth2studio-statistics-moments-mean-output_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.statistics.moments.mean.output_coords(
+    input_coords: earth2studio.utils.type.CoordSystem
+) -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Output coordinate system of the computed statistic, corresponding to the given input coordinates
+
+**Parameters:**
+
+<ParamField path="input_coords" type="CoordSystem">
+[`CoordSystem`](../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system to transform into output_coords
+</ParamField>
+
+**Returns:** [`CoordSystem`](../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Coordinate system dictionary
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-statistics-moments-std">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.statistics.moments.std(
+    reduction_dimensions: list[str],
+    weights: torch.Tensor = None,
+    batch_update: bool = False
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Statistic for calculating the sample standard deviation over a set of given dimensions.
+
+**Parameters:**
+
+<ParamField path="reduction_dimensions" type="List[str]">
+A list of names corresponding to dimensions to perform the
+statistical reduction over. Example: ['lat', 'lon']
+</ParamField>
+
+<ParamField path="weights" type="torch.Tensor" default="None">
+A tensor containing weights to assign to the reduction dimensions.
+Note that these weights must have the same number of dimensions
+as passed in reduction_dimensions.
+Example: if reduction_dimensions = ['lat', 'lon'] then
+assert weights.ndim == 2.
+By default None.
+</ParamField>
+
+<ParamField path="batch_update" type="bool" default="False">
+Whether to applying batch updates to the standard deviation with each invocation of __call__.
+This is particularly useful when data is recieved in a stream of batches. Each
+invocation of __call__ will return the running standard deviation.
+By default False.
+</ParamField>
+
+<ParamField path="reduction_dimensions" type="list[str]">
+</ParamField>
+
+<ParamField path="var">
+</ParamField>
+<Anchor id="earth2studio-statistics-moments-std-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.statistics.moments.std.__call__(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Apply the sample standard deviation operation over the tensor x.
+
+If batch_update was passed True upon metric initialization then this method
+returns the running sample standard deviation over all seen batches.
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Input data to compute sample standard deviation.
+</ParamField>
+
+<ParamField path="coords" type="CoordSystem">
+[`CoordSystem`](../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Coordinates referring to the input data, x.
+</ParamField>
+
+</Indent>
+<Anchor id="earth2studio-statistics-moments-std-output_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.statistics.moments.std.output_coords(
+    input_coords: earth2studio.utils.type.CoordSystem
+) -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Output coordinate system of the computed statistic, corresponding to the given input coordinates
+
+**Parameters:**
+
+<ParamField path="input_coords" type="CoordSystem">
+[`CoordSystem`](../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system to transform into output_coords
+</ParamField>
+
+**Returns:** [`CoordSystem`](../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Coordinate system dictionary
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-statistics-moments-variance">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.statistics.moments.variance(
+    reduction_dimensions: list[str],
+    weights: torch.Tensor = None,
+    batch_update: bool = False
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Statistic for calculating the sample variance over a set of given dimensions.
+
+**Parameters:**
+
+<ParamField path="reduction_dimensions" type="List[str]">
+A list of names corresponding to dimensions to perform the
+statistical reduction over. Example: ['lat', 'lon']
+</ParamField>
+
+<ParamField path="weights" type="torch.Tensor" default="None">
+A tensor containing weights to assign to the reduction dimensions.
+Note that these weights must have the same number of dimensions
+as passed in reduction_dimensions.
+Example: if reduction_dimensions = ['lat', 'lon'] then
+assert weights.ndim == 2.
+By default None.
+</ParamField>
+
+<ParamField path="batch_update" type="bool" default="False">
+Whether to applying batch updates to the variance with each invocation of __call__.
+This is particularly useful when data is recieved in a stream of batches. Each
+invocation of __call__ will return the running variance.
+By default False.
+</ParamField>
+
+<ParamField path="n" type="= 0">
+</ParamField>
+
+<ParamField path="reduction_dimensions" type="list[str]">
+</ParamField>
+<Anchor id="earth2studio-statistics-moments-variance-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.statistics.moments.variance.__call__(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Apply the sample variance operation over the tensor x.
+
+If batch_update was passed True upon metric initialization then this method
+returns the running sample variance over all seen batches.
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Input data to compute sample variance.
+</ParamField>
+
+<ParamField path="coords" type="CoordSystem">
+[`CoordSystem`](../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Coordinates referring to the input data, x.
+</ParamField>
+
+</Indent>
+<Anchor id="earth2studio-statistics-moments-variance-output_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.statistics.moments.variance.output_coords(
+    input_coords: earth2studio.utils.type.CoordSystem
+) -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Output coordinate system of the computed statistic, corresponding to the given input coordinates
+
+**Parameters:**
+
+<ParamField path="input_coords" type="CoordSystem">
+[`CoordSystem`](../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system to transform into output_coords
+</ParamField>
+
+**Returns:** [`CoordSystem`](../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Coordinate system dictionary
+
+</Indent>
+</Indent>

@@ -1,0 +1,252 @@
+---
+layout: overview
+title: earth2studio.utils.interp
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`LatLonInterpolation`](#earth2studio-utils-interp-LatLonInterpolation) | Bilinear interpolation between arbitrary grids. |
+| [`NearestNeighborInterpolator`](#earth2studio-utils-interp-NearestNeighborInterpolator) | Nearest-neighbor interpolation between arbitrary lat/lon grids. |
+
+### Functions
+
+| Name | Description |
+|------|-------------|
+| [`latlon_interpolation_regular`](#earth2studio-utils-interp-latlon_interpolation_regular) | Specialized form of bilinear interpolation intended for optimal use on GPU. |
+
+### API
+
+<Anchor id="earth2studio-utils-interp-LatLonInterpolation">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.utils.interp.LatLonInterpolation(
+    lat_in: torch.Tensor | numpy.typing.ArrayLike,
+    lon_in: torch.Tensor | numpy.typing.ArrayLike,
+    lat_out: torch.Tensor | numpy.typing.ArrayLike,
+    lon_out: torch.Tensor | numpy.typing.ArrayLike
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** `Module`
+
+Bilinear interpolation between arbitrary grids.
+
+The mapped values can be on arbitrary grid, but the output grid should be
+contained within the input grid.
+
+Initializing the interpolation object can be somewhat slow, but interpolation is
+fast and can run on the GPU once initialized. Therefore, prefer to reuse the
+interpolation object when possible.
+
+To run the interpolation on the GPU, use the .to() method of the interpolator
+to move it to the GPU before running the interpolation.
+
+**Parameters:**
+
+<ParamField path="lat_in" type="torch.Tensor | ArrayLike">
+Tensor [H_in, W_in] of input latitude coordinates
+</ParamField>
+
+<ParamField path="lon_in" type="torch.Tensor | ArrayLike">
+Tensor [H_in, W_in] of input longitude coordinates
+</ParamField>
+
+<ParamField path="lat_out" type="torch.Tensor | ArrayLike">
+Tensor [H_out, W_out] of output latitude coordinates
+</ParamField>
+
+<ParamField path="lon_out" type="torch.Tensor | ArrayLike">
+Tensor [H_out, W_out] of output longitude coordinates
+</ParamField>
+
+<Anchor id="earth2studio-utils-interp-LatLonInterpolation-forward">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.utils.interp.LatLonInterpolation.forward(
+    values: torch.Tensor
+) -> torch.Tensor
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Perform bilinear interpolation for values.
+
+**Parameters:**
+
+<ParamField path="values" type="torch.Tensor">
+Input values of shape [..., H_in, W_in] defined over (lat_in, lon_in)
+that will be interpolated onto (lat_out, lon_out) grid.
+</ParamField>
+
+**Returns:** `torch.Tensor`
+
+Tensor of shape [..., H_out, W_out] of interpolated values on lat1, lon1 grid.
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-utils-interp-NearestNeighborInterpolator">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.utils.interp.NearestNeighborInterpolator(
+    source_lats: torch.Tensor | numpy.typing.ArrayLike,
+    source_lons: torch.Tensor | numpy.typing.ArrayLike,
+    target_lats: torch.Tensor | numpy.typing.ArrayLike,
+    target_lons: torch.Tensor | numpy.typing.ArrayLike,
+    max_dist_km: float = 6.0
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** `Module`
+
+Nearest-neighbor interpolation between arbitrary lat/lon grids.
+
+This module precomputes the nearest source-grid index for every target-grid
+location (with an optional maximum great-circle distance threshold) and stores
+the mapping as device-movable buffers. Interpolation then becomes a fast tensor
+gather that can run on GPU via ``.to(device)``.
+
+**Parameters:**
+
+<ParamField path="source_lats" type="torch.Tensor | ArrayLike">
+Latitude of the source grid. Either 2D meshgrid [H_src, W_src] or 1D vector [H_src, ].
+</ParamField>
+
+<ParamField path="source_lons" type="torch.Tensor | ArrayLike">
+Longitude of the source grid. Either 2D meshgrid [H_src, W_src] or 1D vector [W_src, ].
+Longitudes may be in [-180, 180] or [0, 360] range.
+</ParamField>
+
+<ParamField path="target_lats" type="torch.Tensor | ArrayLike">
+Latitude of the target grid. Either 2D meshgrid [H_tgt, W_tgt] or 1D vector [H_tgt, ].
+</ParamField>
+
+<ParamField path="target_lons" type="torch.Tensor | ArrayLike">
+Longitude of the target grid. Either 2D meshgrid [H_tgt, W_tgt] or 1D vector [W_tgt, ].
+</ParamField>
+
+<ParamField path="max_dist_km" type="float" default="6.0">
+Maximum great-circle distance (km) to accept a nearest neighbor match.
+Target points farther than this threshold are marked invalid and will
+receive NaNs in the output. By default 6.0.
+</ParamField>
+
+<Note>
+
+- Mapping is computed on CPU using a KDTree and stored as buffers
+  ``source_flat_index`` (shape [H_tgt*W_tgt], dtype int64) and
+  ``valid_mask`` (shape [H_tgt*W_tgt], dtype bool).
+- Forward expects values with shape [..., H_src, W_src] and returns
+  [..., H_tgt, W_tgt].
+
+</Note>
+
+<Anchor id="earth2studio-utils-interp-NearestNeighborInterpolator-forward">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.utils.interp.NearestNeighborInterpolator.forward(
+    values: torch.Tensor
+) -> torch.Tensor
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Apply nearest-neighbor interpolation.
+
+**Parameters:**
+
+<ParamField path="values" type="torch.Tensor">
+Input values with shape [..., H_src, W_src] defined on the source grid.
+</ParamField>
+
+**Returns:** `torch.Tensor`
+
+Interpolated values with shape [..., H_tgt, W_tgt]. Any targets without
+a valid neighbor within the distance threshold are filled with NaN.
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-utils-interp-latlon_interpolation_regular">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.utils.interp.latlon_interpolation_regular(
+    values: torch.Tensor,
+    lat0: torch.Tensor,
+    lon0: torch.Tensor,
+    lat1: torch.Tensor,
+    lon1: torch.Tensor
+) -> torch.Tensor
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Specialized form of bilinear interpolation intended for optimal use on GPU.
+
+In particular, the mapped values must be defined on a regular rectangular grid,
+(lat0, lon0). Both lat0 and lon0 are vectors with equal spacing.
+
+lat1, lon1 are assumed to be 2-dimensional meshgrids with possibly unequal spacing.
+
+**Parameters:**
+
+<ParamField path="values" type="torch.Tensor[..., H_in, W_in]">
+Input values defined over (lat0, lon0) that will be interpolated onto
+(lat1, lon1) grid.
+</ParamField>
+
+<ParamField path="lat0" type="torch.Tensor[H_in,]">
+Vector of input latitude coordinates, assumed to be increasing with
+equal spacing.
+</ParamField>
+
+<ParamField path="lon0" type="torch.Tensor[W_in,]">
+Vector of input longitude coordinates, assumed to be increasing with
+equal spacing.
+</ParamField>
+
+<ParamField path="lat1" type="torch.Tensor[H_out, W_out]">
+Tensor of output latitude coordinates
+</ParamField>
+
+<ParamField path="lon1" type="torch.Tensor[H_out, W_out]">
+Tensor of output longitude coordinates
+</ParamField>
+
+**Returns:** `torch.Tensor[..., H_out, W_out]`
+
+Tensor of interpolated values onto lat1, lon1 grid.
+
+</Indent>

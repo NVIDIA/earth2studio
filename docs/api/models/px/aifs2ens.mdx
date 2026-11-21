@@ -1,0 +1,363 @@
+---
+layout: overview
+title: earth2studio.models.px.aifs2ens
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`AIFS2ENS`](#earth2studio-models-px-aifs2ens-AIFS2ENS) | Artificial Intelligence Forecasting System Ensemble version 2 (AIFS ENS v2), |
+
+### API
+
+<Anchor id="earth2studio-models-px-aifs2ens-AIFS2ENS">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.models.px.aifs2ens.AIFS2ENS(
+    model: torch.nn.Module,
+    latitudes: torch.Tensor,
+    longitudes: torch.Tensor,
+    interpolation_matrix: torch.Tensor,
+    inverse_interpolation_matrix: torch.Tensor,
+    invariants: torch.Tensor,
+    preload_invariants: bool = True,
+    seed: int | None = None
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** `Module`, [AutoModelMixin](../auto/mixin.mdx#earth2studio-models-auto-mixin-AutoModelMixin), [PrognosticMixin](./utils.mdx#earth2studio-models-px-utils-PrognosticMixin)
+
+Artificial Intelligence Forecasting System Ensemble version 2 (AIFS ENS v2),
+a data driven ensemble forecast model developed by the European Centre for
+Medium-Range Weather Forecasts (ECMWF). AIFS ENS v2 is based on a graph neural
+network (GNN) encoder and decoder, and a sliding window transformer processor.
+It extends AIFS ENS v1 with wave forecasting capabilities, improved stratospheric
+representation (10 hPa level), and snow cover. The ensemble model incorporates
+inherent stochasticity through noise conditioning, producing different forecasts
+for the same initial conditions.
+
+**Badges:** `region:global` `class:medium-range` `product:wind` `product:precip` `product:temp` `product:atmos` `product:land` `product:solar` `product:ocean` `year:2026` `gpu:40gb` `provider:ecmwf` `backend:pytorch`
+
+**Parameters:**
+
+<ParamField path="model" type="torch.nn.Module">
+Core PyTorch module with the pretrained AIFS ENS v2 weights loaded.
+</ParamField>
+
+<ParamField path="latitudes" type="torch.Tensor">
+Latitude values for the native octahedral grid, registered as a buffer for
+interpolation.
+</ParamField>
+
+<ParamField path="longitudes" type="torch.Tensor">
+Longitude values for the native octahedral grid, registered as a buffer for
+interpolation.
+</ParamField>
+
+<ParamField path="interpolation_matrix" type="torch.Tensor">
+CSR sparse matrix mapping ERA5 lat/lon inputs onto the octahedral grid.
+</ParamField>
+
+<ParamField path="inverse_interpolation_matrix" type="torch.Tensor">
+CSR sparse matrix mapping outputs from the octahedral grid back to ERA5
+lat/lon.
+</ParamField>
+
+<ParamField path="invariants" type="torch.Tensor">
+Tensor of shape [5, 721, 1440] containing the invariant fields "lsm", "sdor",
+"slor", "z", and "wmb" (model bathymetry). Empty if preload_invariants=False.
+</ParamField>
+
+<ParamField path="preload_invariants" type="bool" default="True">
+If True, invariant fields are fetched from IFS at load time and
+cached. If False, invariant fields must be provided as input variables,
+enabling use of invariants from alternative sources for exact reproducibility,
+by default True.
+</ParamField>
+
+<ParamField path="seed" type="int | None" default="None">
+If specified, sets the random seed before each model forward pass for
+reproducible stochastic noise. The seed used is `seed + step` where
+step is the forecast step number (0, 1, 2, ...). Use the same seed in both
+E2S and vanilla anemoi-inference to get identical outputs, by default None.
+</ParamField>
+
+<Note>
+
+Key features of AIFS ENS v2:
+
+- Ensemble model with inherent stochasticity (noise conditioning)
+- New wave component with 11 wave variables
+- New snow variable (snowc - snow coverage)
+- Extended pressure levels to 10 hPa
+
+It is recommended to use the [`IFS`](../../data/ecmwf.mdx#earth2studio-data-ecmwf-IFS) data source to
+prepare model inputs given the variable set required.
+For additional information see the following resources:
+
+- https://arxiv.org/abs/2506.10868
+- https://huggingface.co/ecmwf/aifs-ens-2.0
+- https://github.com/ecmwf/anemoi-core
+
+</Note>
+
+<Warning>
+
+We encourage users to familiarize themselves with the license restrictions of this
+model's checkpoints.
+
+</Warning>
+
+<Anchor id="earth2studio-models-px-aifs2ens-AIFS2ENS-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.aifs2ens.AIFS2ENS.__call__(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Runs prognostic model 1 step.
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Input tensor
+</ParamField>
+
+<ParamField path="coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system
+</ParamField>
+
+**Returns:** `tuple[torch.Tensor,` [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) `]`
+
+Output tensor and coordinate system 6 hours in the future
+
+</Indent>
+<Anchor id="earth2studio-models-px-aifs2ens-AIFS2ENS-create_iterator">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.aifs2ens.AIFS2ENS.create_iterator(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem
+) -> collections.abc.Iterator[tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Creates a iterator which can be used to perform time-integration of the
+prognostic model. Will return the initial condition first (0th step).
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Input tensor
+</ParamField>
+
+<ParamField path="coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system
+</ParamField>
+
+</Indent>
+<Anchor id="earth2studio-models-px-aifs2ens-AIFS2ENS-get_cos_sin_julian_day">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.aifs2ens.AIFS2ENS.get_cos_sin_julian_day(
+    time_array: numpy.datetime64,
+    longitudes: torch.Tensor
+) -> tuple[torch.Tensor, torch.Tensor]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Get cosine and sine of Julian day.
+
+Reference implementation: earthkit.data.sources.forcings.ForcingMaker
+https://github.com/ecmwf/earthkit-data/blob/main/src/earthkit/data/sources/forcings.py
+
+</Indent>
+<Anchor id="earth2studio-models-px-aifs2ens-AIFS2ENS-get_cos_sin_local_time">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.aifs2ens.AIFS2ENS.get_cos_sin_local_time(
+    time_array: numpy.datetime64,
+    longitudes: torch.Tensor
+) -> tuple[torch.Tensor, torch.Tensor]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Get cosine and sine of local time.
+
+Reference implementation: earthkit.data.sources.forcings.ForcingMaker
+https://github.com/ecmwf/earthkit-data/blob/main/src/earthkit/data/sources/forcings.py
+
+</Indent>
+<Anchor id="earth2studio-models-px-aifs2ens-AIFS2ENS-get_cosine_zenith_fields">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.aifs2ens.AIFS2ENS.get_cosine_zenith_fields(
+    date: numpy.datetime64,
+    latitudes: torch.Tensor,
+    longitudes: torch.Tensor
+) -> torch.Tensor
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Get cosine zenith fields for input time array.
+
+Reference implementation: earthkit.data.utils.meteo.cos_solar_zenith_angle
+https://github.com/ecmwf/earthkit-data/blob/main/src/earthkit/data/utils/meteo.py
+
+</Indent>
+<Anchor id="earth2studio-models-px-aifs2ens-AIFS2ENS-input_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.aifs2ens.AIFS2ENS.input_coords() -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Input coordinate system of the prognostic model
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Coordinate system dictionary
+
+</Indent>
+<Anchor id="earth2studio-models-px-aifs2ens-AIFS2ENS-load_default_package">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.aifs2ens.AIFS2ENS.load_default_package() -> earth2studio.models.auto.Package
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Load prognostic package
+
+</Indent>
+<Anchor id="earth2studio-models-px-aifs2ens-AIFS2ENS-load_model">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package","earth2studio.models.px.base.PrognosticModel":"./base.mdx#earth2studio-models-px-base-PrognosticModel"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.aifs2ens.AIFS2ENS.load_model(
+    package: earth2studio.models.auto.Package,
+    preload_invariants: bool = True,
+    seed: int | None = None
+) -> earth2studio.models.px.base.PrognosticModel
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Load prognostic from package
+
+**Parameters:**
+
+<ParamField path="package" type="Package">
+[`Package`](../auto/package.mdx#earth2studio-models-auto-package-Package) — Model package to load from
+</ParamField>
+
+<ParamField path="preload_invariants" type="bool" default="True">
+If True, invariant fields (lsm, sdor, slor, z, wmb) are fetched
+from IFS at load time and cached. If False, these fields must be provided
+as input variables, allowing use of invariants from alternative sources
+(e.g., ECMWF Open Data) for exact reproducibility with reference
+implementations, by default True.
+</ParamField>
+
+<ParamField path="seed" type="int | None" default="None">
+If specified, sets the random seed before each model forward pass for
+reproducible stochastic noise. The seed used is `seed + step` where
+step is the forecast step number, by default None.
+</ParamField>
+
+**Returns:** [`PrognosticModel`](./base.mdx#earth2studio-models-px-base-PrognosticModel)
+
+Loaded AIFS2ENS model
+
+</Indent>
+<Anchor id="earth2studio-models-px-aifs2ens-AIFS2ENS-output_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.aifs2ens.AIFS2ENS.output_coords(
+    input_coords: earth2studio.utils.type.CoordSystem
+) -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Output coordinate system of the prognostic model
+
+**Parameters:**
+
+<ParamField path="input_coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system to transform into output_coords
+by default None, will use self.input_coords.
+</ParamField>
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Coordinate system dictionary
+
+</Indent>
+</Indent>

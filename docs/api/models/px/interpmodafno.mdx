@@ -1,0 +1,258 @@
+---
+layout: overview
+title: earth2studio.models.px.interpmodafno
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`InterpModAFNO`](#earth2studio-models-px-interpmodafno-InterpModAFNO) | ModAFNO interpolation for global prognostic models. Interpolates a forecast model |
+
+### API
+
+<Anchor id="earth2studio-models-px-interpmodafno-InterpModAFNO">
+
+<CodeBlock links={{"earth2studio.models.px.base.PrognosticModel":"./base.mdx#earth2studio-models-px-base-PrognosticModel"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.models.px.interpmodafno.InterpModAFNO(
+    interp_model: torch.nn.Module,
+    center: torch.Tensor,
+    scale: torch.Tensor,
+    geop: torch.Tensor,
+    lsm: torch.Tensor,
+    px_model: earth2studio.models.px.base.PrognosticModel | None = None,
+    num_interp_steps: int = 6
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** `Module`, [AutoModelMixin](../auto/mixin.mdx#earth2studio-models-auto-mixin-AutoModelMixin), [PrognosticMixin](./utils.mdx#earth2studio-models-px-utils-PrognosticMixin)
+
+ModAFNO interpolation for global prognostic models. Interpolates a forecast model
+to a shorter time-step size (by default from 6 to 1 hour). Operates on 0.25 degree
+lat-lon equirectangular grid with 73 variables.
+
+**Badges:** `region:global` `class:medium-range` `product:wind` `product:temp` `product:atmos` `year:2024` `gpu:40gb` `provider:nvidia` `backend:pytorch`
+
+**Parameters:**
+
+<ParamField path="interp_model" type="torch.nn.Module">
+The interpolation model that performs the time interpolation
+</ParamField>
+
+<ParamField path="center" type="torch.Tensor">
+Model center normalization tensor
+</ParamField>
+
+<ParamField path="scale" type="torch.Tensor">
+Model scale normalization tensors
+</ParamField>
+
+<ParamField path="geop" type="torch.Tensor">
+Geopotential height data used as a static feature
+</ParamField>
+
+<ParamField path="lsm" type="torch.Tensor">
+Land-sea mask data used as a static feature
+</ParamField>
+
+<ParamField path="px_model" type="PrognosticModel" default="None">
+[`PrognosticModel`](./base.mdx#earth2studio-models-px-base-PrognosticModel) — The base forecast model that produces the coarse time resolution forecasts. If
+not provide, should be set by the user before executing the model, by default
+None.
+</ParamField>
+
+<ParamField path="num_interp_steps" type="int" default="6">
+Number of interpolation steps to perform between forecast steps, by default 6
+</ParamField>
+
+<Note>
+
+For more information on the model, please refer to:
+
+- https://catalog.ngc.nvidia.com/orgs/nvidia/teams/earth-2/models/afno_dx_fi-v1-era5
+- https://arxiv.org/abs/2410.18904
+
+</Note>
+
+<Warning>
+
+The model requires a base forecast model to be set before execution. This can be
+done by setting the `px_model` attribute or using the `load_model` method.
+
+</Warning>
+
+<Anchor id="earth2studio-models-px-interpmodafno-InterpModAFNO-__call__">
+
+<CodeBlock links={{"earth2studio.utils.coords.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.interpmodafno.InterpModAFNO.__call__(
+    x: torch.Tensor,
+    coords: earth2studio.utils.coords.CoordSystem
+) -> tuple[torch.Tensor, earth2studio.utils.coords.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Runs prognostic model 1 step
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Input tensor
+</ParamField>
+
+<ParamField path="coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system
+</ParamField>
+
+**Returns:** `tuple[torch.Tensor,` [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) `]`
+
+Output tensor and coordinate system 1 hour in the future
+
+</Indent>
+<Anchor id="earth2studio-models-px-interpmodafno-InterpModAFNO-create_iterator">
+
+<CodeBlock links={{"earth2studio.utils.coords.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.interpmodafno.InterpModAFNO.create_iterator(
+    x: torch.Tensor,
+    coords: earth2studio.utils.coords.CoordSystem
+) -> collections.abc.Iterator[tuple[torch.Tensor, earth2studio.utils.coords.CoordSystem]]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Creates a iterator which can be used to perform time-integration of the
+prognostic model. Will return the initial condition first (0th step).
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Input tensor
+</ParamField>
+
+<ParamField path="coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system
+</ParamField>
+
+</Indent>
+<Anchor id="earth2studio-models-px-interpmodafno-InterpModAFNO-input_coords">
+
+<CodeBlock links={{"earth2studio.utils.coords.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.interpmodafno.InterpModAFNO.input_coords() -> earth2studio.utils.coords.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Input coordinate system of the prognostic model
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Coordinate system dictionary
+
+</Indent>
+<Anchor id="earth2studio-models-px-interpmodafno-InterpModAFNO-load_default_package">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.interpmodafno.InterpModAFNO.load_default_package() -> earth2studio.models.auto.Package
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Load prognostic package
+
+</Indent>
+<Anchor id="earth2studio-models-px-interpmodafno-InterpModAFNO-load_model">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package","earth2studio.models.px.base.PrognosticModel":"./base.mdx#earth2studio-models-px-base-PrognosticModel"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.interpmodafno.InterpModAFNO.load_model(
+    package: earth2studio.models.auto.Package,
+    px_model: earth2studio.models.px.base.PrognosticModel | None = None
+) -> earth2studio.models.px.base.PrognosticModel
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Load prognostic from package
+
+**Parameters:**
+
+<ParamField path="package" type="Package">
+[`Package`](../auto/package.mdx#earth2studio-models-auto-package-Package) — Package to load model from
+</ParamField>
+
+<ParamField path="px_model" type="PrognosticModel | None" default="None">
+[`PrognosticModel`](./base.mdx#earth2studio-models-px-base-PrognosticModel) `| None` — The base forecast model that produces the coarse time resolution forecasts.
+If None, should be set manually, by default None
+</ParamField>
+
+**Returns:** [`PrognosticModel`](./base.mdx#earth2studio-models-px-base-PrognosticModel)
+
+Prognostic model
+
+</Indent>
+<Anchor id="earth2studio-models-px-interpmodafno-InterpModAFNO-output_coords">
+
+<CodeBlock links={{"earth2studio.utils.coords.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.interpmodafno.InterpModAFNO.output_coords(
+    input_coords: earth2studio.utils.coords.CoordSystem
+) -> earth2studio.utils.coords.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Output coordinate system of the prognostic model
+
+**Parameters:**
+
+<ParamField path="input_coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system to transform into output_coords
+by default None, will use self.input_coords.
+</ParamField>
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Coordinate system dictionary
+
+</Indent>
+</Indent>

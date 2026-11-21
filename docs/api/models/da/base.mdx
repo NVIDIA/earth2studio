@@ -1,0 +1,241 @@
+---
+layout: overview
+title: earth2studio.models.da.base
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`AssimilationModel`](#earth2studio-models-da-base-AssimilationModel) | Data assimilation model interface |
+
+### API
+
+<Anchor id="earth2studio-models-da-base-AssimilationModel">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.models.da.base.AssimilationModel()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>Protocol</Badge>
+
+Data assimilation model interface
+
+<Anchor id="earth2studio-models-da-base-AssimilationModel-__call__">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.da.base.AssimilationModel.__call__(
+    args: pandas.DataFrame | xarray.DataArray | None = ()
+) -> tuple[pandas.DataFrame | xarray.DataArray, ...]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Stateless iteration for the data assimilation model.
+
+Processes observations and returns assimilated data without maintaining
+internal state between calls. This method is suitable for independent
+processing of observation batches.
+
+**Parameters:**
+
+<ParamField path="*args" type="pd.DataFrame | xr.DataArray | None" default="()">
+Variable number of observation arguments. Each argument can be a
+DataFrame (pandas or cudf DataFrame) or xarray DataArray
+containing observation data. None can be passed for optional
+arguments when no input data is available.
+</ParamField>
+
+**Returns:** `tuple[pd.DataFrame | xr.DataArray, ...]`
+
+Assimilated data output. Can return a combination of DataFrames or
+xarray DataArrays depending on the particular model. Output is expect to be
+on the same device as the model.
+
+</Indent>
+<Anchor id="earth2studio-models-da-base-AssimilationModel-create_generator">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.da.base.AssimilationModel.create_generator(
+    args: pandas.DataFrame | xarray.DataArray = ()
+) -> collections.abc.Generator[tuple[pandas.DataFrame | xarray.DataArray, ...], tuple[pandas.DataFrame | xarray.DataArray | None, ...], None]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Creates a generator which accepts collection of input observations and
+outputs a collection of assimilated data. Used for both stateless and stateful
+iterations of the data assimilation model
+
+The generator accepts observations (DataFrame or DataArray) via the send()
+method and yields assimilated data (DataFrame or DataArray) as output.
+Supports any number of arguments (variadic).
+
+**Parameters:**
+
+<ParamField path="*args" type="pd.DataFrame | xr.DataArray" default="()">
+Variable number of initialization arguments, if any are required by
+the model. Each argument can be a DataFrame (pandas or cudf
+DataFrame) or xarray DataArray containing initial state data.
+</ParamField>
+
+**Examples:**
+
+<CodeBlock showLineNumbers={false}>
+
+```python
+>>> generator = model.create_generator()
+>>> generator.send(None)  # Prime the generator
+>>> # Process observations over time
+>>> for obs in observations:
+...     result = generator.send(obs)  # Send observations, receive assimilated data
+...     # result is a tuple of DataFrames or DataArrays
+>>> generator.close()  # Clean up
+```
+
+</CodeBlock>
+
+</Indent>
+<Anchor id="earth2studio-models-da-base-AssimilationModel-init_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.FrameSchema":"../../utils/type.mdx#earth2studio-utils-type-FrameSchema","earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.da.base.AssimilationModel.init_coords() -> tuple[earth2studio.utils.type.FrameSchema | earth2studio.utils.type.CoordSystem, ...] | None
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Initialization coordinate system required by the assimilation model.
+
+Specifies the coordinate system(s) for initial state data that must be provided
+before the model can process observations. The returned coordinate systems should
+match the expected input format for the first argument(s) passed to ``__call__``
+or sent to ``create_generator`` when initializing the model state.
+
+**Returns:** `tuple[` [`FrameSchema`](../../utils/type.mdx#earth2studio-utils-type-FrameSchema) `|` [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) `, ...] | None`
+
+Tuple of coordinate systems or frame schemas defining the structure of
+required initialization data. Returns ``None`` if the model does not require
+initialization data (e.g., stateless models).
+
+</Indent>
+<Anchor id="earth2studio-models-da-base-AssimilationModel-input_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.FrameSchema":"../../utils/type.mdx#earth2studio-utils-type-FrameSchema","earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.da.base.AssimilationModel.input_coords() -> tuple[earth2studio.utils.type.FrameSchema | earth2studio.utils.type.CoordSystem, ...]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Input coordinate system of assimilation model.
+
+For DataFrame inputs, this should return a PyArrow schema (or a wrapper
+containing schema and constraints). For tensor inputs, this should return
+a CoordSystem.
+
+**Returns:** `tuple[` [`FrameSchema`](../../utils/type.mdx#earth2studio-utils-type-FrameSchema) `|` [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) `, ...]`
+
+Tuple of coordinate systems or frame schemas, one for each input argument
+that __call__ or create_generator accepts
+
+</Indent>
+<Anchor id="earth2studio-models-da-base-AssimilationModel-output_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.FrameSchema":"../../utils/type.mdx#earth2studio-utils-type-FrameSchema","earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.da.base.AssimilationModel.output_coords(
+    input_coords: tuple[earth2studio.utils.type.FrameSchema | earth2studio.utils.type.CoordSystem, ...],
+    args: typing.Any = (),
+    kwargs: typing.Any = {}
+) -> tuple[earth2studio.utils.type.FrameSchema | earth2studio.utils.type.CoordSystem, ...]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Output coordinate system of the assimilation model given an input coordinate
+system.
+
+**Parameters:**
+
+<ParamField path="input_coords" type="tuple[FrameSchema | CoordSystem, ...]">
+`tuple[` [`FrameSchema`](../../utils/type.mdx#earth2studio-utils-type-FrameSchema) `|` [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) `, ...]` — Input coordinate system tuple. FrameSchema (OrderedDict mapping field names
+to numpy arrays) for DataFrame inputs, or CoordSystem (OrderedDict mapping
+dimension names to coordinate arrays) for tensor inputs
+</ParamField>
+
+<ParamField path="*args" type="Any" default="()">
+Additional positional arguments
+</ParamField>
+
+<ParamField path="**kwargs" type="Any" default="&#123;&#125;">
+Additional keyword arguments, typically including request metadata such as
+request_time and request_lead_time from DataFrame attrs
+</ParamField>
+
+**Returns:** `tuple[` [`FrameSchema`](../../utils/type.mdx#earth2studio-utils-type-FrameSchema) `|` [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) `, ...]`
+
+Tuple of coordinate systems or frame schemas, one for each output argument
+that __call__ or create_generator returns
+
+</Indent>
+<Anchor id="earth2studio-models-da-base-AssimilationModel-to">
+
+<CodeBlock links={{"earth2studio.models.da.base.AssimilationModel":"#earth2studio-models-da-base-AssimilationModel"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.da.base.AssimilationModel.to(
+    device: typing.Any
+) -> earth2studio.models.da.base.AssimilationModel
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Moves assimilation model onto inference device, this is typically satisfied
+via `torch.nn.Module`.
+
+**Parameters:**
+
+<ParamField path="device" type="Any">
+Object representing the inference device, typically `torch.device` or str
+</ParamField>
+
+**Returns:** [`AssimilationModel`](#earth2studio-models-da-base-AssimilationModel)
+
+Returns instance of prognostic
+
+</Indent>
+</Indent>

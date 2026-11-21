@@ -1,0 +1,124 @@
+---
+layout: overview
+title: earth2studio.lexicon.camulator
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`CAMulatorLexicon`](#earth2studio-lexicon-camulator-CAMulatorLexicon) | CAMulator Lexicon |
+
+### Functions
+
+| Name | Description |
+|------|-------------|
+
+### API
+
+<Anchor id="earth2studio-lexicon-camulator-CAMulatorLexicon">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.lexicon.camulator.CAMulatorLexicon()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+CAMulator Lexicon
+
+Maps Earth2Studio variable names to the CESM/CAM6 variable names used by the
+CAMulator climate emulator. 3D variables use the ``&#123;var&#125;&#123;k&#125;k`` model-level
+convention with ``k`` the CAMulator hybrid sigma-pressure level index
+(0 = top of model, 31 = lowest layer); these are distinct from the ACE
+model-level names. Values are ``NAME`` for 2D fields and ``NAME::k`` for level
+``k`` of a 3D field. The modifier converts source units and conventions to
+Earth2Studio's (CO2 mol mol-1 -&gt; ppm; 6 h accumulated fluxes J m-2 -&gt; mean
+W m-2; surface stress from stress-on-atmosphere to stress-on-surface sign).
+
+**Examples:**
+
+<CodeBlock showLineNumbers={false}>
+
+```python
+>>> from earth2studio.lexicon.camulator import CAMulatorLexicon
+>>> CAMulatorLexicon["t2m"]
+("TREFHT", <function mod at 0x...>)
+>>> CAMulatorLexicon.get_e2s_from_cesm("TREFHT")
+"t2m"
+```
+
+</CodeBlock>
+
+<Note>
+
+Additional resources:
+
+- https://huggingface.co/willychap/camulator
+- https://arxiv.org/abs/2504.06007
+
+</Note>
+
+<Anchor id="earth2studio-lexicon-camulator-CAMulatorLexicon-get_e2s_from_cesm">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.lexicon.camulator.CAMulatorLexicon.get_e2s_from_cesm(
+    val: str
+) -> str
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Return name in Earth2Studio terminology.
+
+**Parameters:**
+
+<ParamField path="val" type="str">
+Name in CESM terminology (``NAME`` or ``NAME::k``).
+</ParamField>
+
+</Indent>
+<Anchor id="earth2studio-lexicon-camulator-CAMulatorLexicon-get_item">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.lexicon.camulator.CAMulatorLexicon.get_item(
+    val: str
+) -> tuple[str, collections.abc.Callable]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Return name in CESM vocabulary and a modifier converting source units to
+Earth2Studio units.
+
+**Parameters:**
+
+<ParamField path="val" type="str">
+Name in Earth2Studio terminology.
+</ParamField>
+
+**Returns:** `tuple[str, Callable]`
+
+CESM variable name and modifier function.
+
+</Indent>
+</Indent>

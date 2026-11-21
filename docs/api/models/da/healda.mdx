@@ -1,0 +1,490 @@
+---
+layout: overview
+title: earth2studio.models.da.healda
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`HealDA`](#earth2studio-models-da-healda-HealDA) | HealDA data assimilation model for global weather analysis from sparse |
+
+### API
+
+<Anchor id="earth2studio-models-da-healda-HealDA">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeTolerance":"../../utils/type.mdx#earth2studio-utils-type-TimeTolerance"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.models.da.healda.HealDA(
+    model: torch.nn.Module,
+    condition: torch.Tensor,
+    era5_mean: torch.Tensor,
+    era5_std: torch.Tensor,
+    sensor_stats: dict[str, dict[str, numpy.ndarray]],
+    lat_lon: bool = False,
+    output_resolution: tuple[int, int] = (181, 360),
+    time_tolerance: earth2studio.utils.type.TimeTolerance = (np.timedelta64(-21, 'h'), ...
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** `Module`, [AutoModelMixin](../auto/mixin.mdx#earth2studio-models-auto-mixin-AutoModelMixin)
+
+HealDA data assimilation model for global weather analysis from sparse
+observations on a HEALPix grid.
+
+HealDA is a stateless assimilation model that produces a single global weather
+analysis from conventional and satellite observations. It operates on a HEALPix
+level-6 padded XY grid and outputs ERA5-compatible atmospheric variables.
+
+The model accepts pre-processed observation DataFrames from
+``earth2studio.data.UFSObsConv`` and ``earth2studio.data.UFSObsSat`` and
+produces a global analysis field.
+
+**Badges:** `region:global` `class:data-assimilation` `product:wind` `product:temp` `product:atmos` `product:sat` `product:insitu` `year:2026` `gpu:40gb` `provider:nvidia` `backend:pytorch`
+
+**Parameters:**
+
+<ParamField path="model" type="torch.nn.Module">
+The underlying HealDA neural network
+</ParamField>
+
+<ParamField path="condition" type="torch.Tensor">
+Static conditioning fields (e.g. orography, land fraction) on the HEALPix grid
+of size [1, n_static, 1, npix]
+</ParamField>
+
+<ParamField path="era5_mean" type="torch.Tensor">
+ERA5 per-channel mean for output denormalization [1, out_variables, 1, 1]
+</ParamField>
+
+<ParamField path="era5_std" type="torch.Tensor">
+ERA5 per-channel std for output denormalization [1, out_variables, 1, 1]
+</ParamField>
+
+<ParamField path="sensor_stats" type="dict[str, dict[str, np.ndarray]]">
+Per-sensor normalization statistics loaded from the package
+</ParamField>
+
+<ParamField path="lat_lon" type="bool" default="False">
+If True the model output is regridded from the native HEALPix grid to a
+regular equiangular lat-lon grid using ``earth2grid``. If False the raw
+HEALPix output is returned with an ``npix`` dimension, by default False
+</ParamField>
+
+<ParamField path="output_resolution" type="tuple[int, int]" default="(181, 360)">
+``(nlat, nlon)`` size of the output lat-lon grid. Only used when
+``lat_lon=True``, by default ``(181, 360)`` (1° resolution)
+</ParamField>
+
+<ParamField path="time_tolerance" type="TimeTolerance" default="(np.timedelta64(-21, 'h'), np.timedelta64(3, 'h'))">
+[`TimeTolerance`](../../utils/type.mdx#earth2studio-utils-type-TimeTolerance) — Time tolerance for filtering observations, by default (-21 hours, 3 hours)
+</ParamField>
+
+<Note>
+
+For more information see the following references:
+
+- https://huggingface.co/nvidia/healda
+
+</Note>
+
+<Anchor id="earth2studio-models-da-healda-HealDA-__call__">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.da.healda.HealDA.__call__(
+    conv_obs: pandas.DataFrame | None = None,
+    sat_obs: pandas.DataFrame | None = None
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Run HealDA inference from conventional and/or satellite observations.
+
+At least one of the two observation DataFrames must be provided. Each
+DataFrame must carry a ``request_time`` entry in its ``.attrs``.
+
+**Parameters:**
+
+<ParamField path="conv_obs" type="pd.DataFrame | None" default="None">
+Conventional observation DataFrame from
+``earth2studio.data.UFSObsConv``, by default None
+</ParamField>
+
+<ParamField path="sat_obs" type="pd.DataFrame | None" default="None">
+Satellite observation DataFrame from ``earth2studio.data.UFSObsSat``,
+by default None
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+Global analysis on the HEALPix grid with dimensions
+[time, variable, npix]. Data is on the same device as the model
+(cupy array for GPU, numpy for CPU).
+
+**Raises:**
+
+- `ValueError`: If both *conv_obs* and *sat_obs* are ``None``
+
+</Indent>
+<Anchor id="earth2studio-models-da-healda-HealDA-build_input">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../../utils/type.mdx#earth2studio-utils-type-TimeArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.da.healda.HealDA.build_input(
+    obs_dict: dict[str, list[pandas.DataFrame | None]],
+    request_time: earth2studio.utils.type.TimeArray
+) -> dict[str, torch.Tensor]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Convert the per-(sensor, time) observation dict into model-ready tensors.
+
+Observations are laid out **sensor-major, time-minor** in the flat
+tensor so that all observations for a given sensor are contiguous:
+
+``[s0_t0, s0_t1, …, s0_tN, s1_t0, s1_t1, …, sK_tN]``
+
+The ``offsets`` tensor (shape [sensors, batch, 1]) stores the
+cumulative end-index in that layout, guaranteeing
+``offsets[s,:,:] &lt; offsets[s+1,:,:]`` and
+``offsets[s,t,:] &lt;= offsets[s,t+1,:]``.
+
+**Parameters:**
+
+<ParamField path="obs_dict" type="dict[str, list[pd.DataFrame | None]]">
+Keyed by sensor name (`ALL_SENSORS`).  Each value is a list
+of length ``len(request_time)`` with a observation DataFrame per time slot
+(or ``None`` when no observations exist for that slot).
+</ParamField>
+
+<ParamField path="request_time" type="TimeArray">
+[`TimeArray`](../../utils/type.mdx#earth2studio-utils-type-TimeArray) — Analysis valid times
+</ParamField>
+
+**Returns:** `dict[str, torch.Tensor]`
+
+Dictionary of tensors ready for the internal model forward call.
+
+</Indent>
+<Anchor id="earth2studio-models-da-healda-HealDA-build_output">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.da.healda.HealDA.build_output(
+    prediction: torch.Tensor,
+    output_coords: earth2studio.utils.type.CoordSystem
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Convert model output tensor to xarray DataArray.
+
+**Parameters:**
+
+<ParamField path="prediction" type="torch.Tensor">
+Model output [batch, variable, 1, npix]
+</ParamField>
+
+<ParamField path="output_coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Output coordinate system
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+Analysis field, either on HEALPix (npix) or lat-lon grid
+
+</Indent>
+<Anchor id="earth2studio-models-da-healda-HealDA-create_generator">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.da.healda.HealDA.create_generator() -> collections.abc.Generator[xarray.DataArray, tuple[pandas.DataFrame | None, pandas.DataFrame | None], None]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Creates a generator which accepts collection of input observations and
+yields the output global assimilated data.
+
+</Indent>
+<Anchor id="earth2studio-models-da-healda-HealDA-filter_and_normalize">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../../utils/type.mdx#earth2studio-utils-type-TimeArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.da.healda.HealDA.filter_and_normalize(
+    conv_obs: pandas.DataFrame | None,
+    sat_obs: pandas.DataFrame | None,
+    request_time: earth2studio.utils.type.TimeArray
+) -> dict[str, list[pandas.DataFrame | None]]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Pre-process, QC-filter, z-score normalize, and split observations by
+sensor and request time.
+
+This method handles the full observation pipeline:
+
+1. Convert raw inputs via `prep_conv` / `prep_sat_sensor`.
+2. Merge per-channel normalization statistics.
+3. Apply QC filters (range checks, height/pressure bounds for conv).
+4. Z-score normalize observations.
+5. Split into per-sensor, per-time buckets.
+
+**Parameters:**
+
+<ParamField path="conv_obs" type="pd.DataFrame | None">
+Raw conventional observation DataFrame (or ``None``)
+</ParamField>
+
+<ParamField path="sat_obs" type="pd.DataFrame | None">
+Raw satellite observation DataFrame (or ``None``)
+</ParamField>
+
+<ParamField path="request_time" type="TimeArray">
+[`TimeArray`](../../utils/type.mdx#earth2studio-utils-type-TimeArray) — One or more analysis valid times
+</ParamField>
+
+**Returns:** `dict[str, list[pd.DataFrame | None]]`
+
+Dictionary to dictionary mapping sensor name to list of data frames for each
+request time.
+
+</Indent>
+<Anchor id="earth2studio-models-da-healda-HealDA-init_coords">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.da.healda.HealDA.init_coords() -> None
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Initialzation coords (not required)
+
+</Indent>
+<Anchor id="earth2studio-models-da-healda-HealDA-input_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.FrameSchema":"../../utils/type.mdx#earth2studio-utils-type-FrameSchema"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.da.healda.HealDA.input_coords() -> tuple[earth2studio.utils.type.FrameSchema, earth2studio.utils.type.FrameSchema]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Input coordinate system specifying required DataFrame fields.
+
+Returns two FrameSchemas: one for conventional observations and one for
+satellite observations. When calling the model, either may be ``None``
+but not both.
+
+**Returns:** `tuple[` [`FrameSchema`](../../utils/type.mdx#earth2studio-utils-type-FrameSchema) `,` [`FrameSchema`](../../utils/type.mdx#earth2studio-utils-type-FrameSchema) `]`
+
+(conventional_schema, satellite_schema) describing the expected
+columns for each observation DataFrame
+
+</Indent>
+<Anchor id="earth2studio-models-da-healda-HealDA-load_default_package">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.da.healda.HealDA.load_default_package() -> earth2studio.models.auto.Package
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Load the default HealDA model package from HuggingFace.
+
+**Returns:** [`Package`](../auto/package.mdx#earth2studio-models-auto-package-Package)
+
+Model package pointing to the HuggingFace repository
+
+</Indent>
+<Anchor id="earth2studio-models-da-healda-HealDA-load_model">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package","earth2studio.utils.type.TimeTolerance":"../../utils/type.mdx#earth2studio-utils-type-TimeTolerance","earth2studio.models.da.base.AssimilationModel":"./base.mdx#earth2studio-models-da-base-AssimilationModel"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.da.healda.HealDA.load_model(
+    package: earth2studio.models.auto.Package,
+    lat_lon: bool = False,
+    output_resolution: tuple[int, int] = (181, 360),
+    time_tolerance: earth2studio.utils.type.TimeTolerance = (np.timedelta64(-21, 'h'), ...
+) -> earth2studio.models.da.base.AssimilationModel
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Load HealDA model from package.
+
+**Parameters:**
+
+<ParamField path="package" type="Package">
+[`Package`](../auto/package.mdx#earth2studio-models-auto-package-Package) — Package containing model checkpoint and statistics
+</ParamField>
+
+<ParamField path="lat_lon" type="bool" default="False">
+If True the output is regridded to a regular lat-lon grid,
+by default False
+</ParamField>
+
+<ParamField path="output_resolution" type="tuple[int, int]" default="(181, 360)">
+``(nlat, nlon)`` size of the output lat-lon grid. Only used when
+``lat_lon=True``, by default ``(181, 360)``
+</ParamField>
+
+<ParamField path="time_tolerance" type="TimeTolerance" default="(np.timedelta64(-21, 'h'), np.timedelta64(3, 'h'))">
+[`TimeTolerance`](../../utils/type.mdx#earth2studio-utils-type-TimeTolerance) — Time tolerance for filtering observations, by default (-21 hours, 3 hours)
+</ParamField>
+
+**Returns:** [`AssimilationModel`](./base.mdx#earth2studio-models-da-base-AssimilationModel)
+
+Loaded HealDA assimilation model
+
+</Indent>
+<Anchor id="earth2studio-models-da-healda-HealDA-output_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.da.healda.HealDA.output_coords(
+    input_coords: tuple[earth2studio.utils.type.CoordSystem, earth2studio.utils.type.CoordSystem],
+    request_time: numpy.ndarray | None = None,
+    kwargs: typing.Any = {}
+) -> tuple[earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Output coordinate system for the HealDA analysis.
+
+**Parameters:**
+
+<ParamField path="input_coords" type="tuple[CoordSystem]">
+`tuple[` [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) `]` — Input coordinate system
+</ParamField>
+
+<ParamField path="request_time" type="np.ndarray | None" default="None">
+Analysis valid time(s), by default None
+</ParamField>
+
+**Returns:** `tuple[` [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) `]`
+
+Coordinate system with time, variable, and lat/lon or npix dimensions
+
+</Indent>
+<Anchor id="earth2studio-models-da-healda-HealDA-prep_conv">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.da.healda.HealDA.prep_conv(
+    df: pandas.DataFrame
+) -> pandas.DataFrame
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Standardize a conventional observation DataFrame into the unified obs schema.
+
+**Parameters:**
+
+<ParamField path="df" type="pd.DataFrame">
+Raw conventional observation DataFrame from UFSObsConv
+</ParamField>
+
+**Returns:** `pd.DataFrame`
+
+Standardized DataFrame with unified column schema
+
+</Indent>
+<Anchor id="earth2studio-models-da-healda-HealDA-prep_sat_sensor">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.da.healda.HealDA.prep_sat_sensor(
+    df: pandas.DataFrame,
+    sensor: str
+) -> pandas.DataFrame
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Standardize a satellite DataFrame into the unified obs schema.
+
+**Parameters:**
+
+<ParamField path="df" type="pd.DataFrame">
+Raw satellite observation DataFrame from UFSObsSat
+</ParamField>
+
+<ParamField path="sensor" type="str">
+Sensor name (atms, mhs, amsua, amsub)
+</ParamField>
+
+**Returns:** `pd.DataFrame`
+
+Standardized DataFrame with unified column schema
+
+</Indent>
+</Indent>

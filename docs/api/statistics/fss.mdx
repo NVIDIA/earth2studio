@@ -1,0 +1,173 @@
+---
+layout: overview
+title: earth2studio.statistics.fss
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`fss`](#earth2studio-statistics-fss-fss) | Statistic for calculating the fractions skill score (FSS) of one tensors |
+
+### Functions
+
+| Name | Description |
+|------|-------------|
+
+### API
+
+<Anchor id="earth2studio-statistics-fss-fss">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.statistics.fss.fss(
+    reduction_dimensions: list[str],
+    window_sizes: numpy.typing.ArrayLike,
+    thresholds: numpy.typing.ArrayLike,
+    spatial_dimensions: tuple[str, str] | None = None,
+    ensemble_dimension: str | None = None,
+    batch_update: bool = False
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Statistic for calculating the fractions skill score (FSS) of one tensors
+with respect to another over a set of given dimensions.
+
+If `ensemble_dimension` is provided, computes the probabilistic FSS as defined by
+Necker et al. (2024): https://doi.org/10.1002/qj.4824.
+
+**Parameters:**
+
+<ParamField path="reduction_dimensions" type="List[str]">
+A list of names corresponding to dimensions to perform the
+statistical reduction over. Example: ['lat', 'lon']
+</ParamField>
+
+<ParamField path="window_sizes" type="ArrayLike[int]">
+A list of the window sizes (in pixels) applied when calculating FSS.
+</ParamField>
+
+<ParamField path="thresholds" type="ArrayLike[float]">
+A list of the thresholds applied when calculating FSS.
+</ParamField>
+
+<ParamField path="spatial_dimensions" type="Tuple[str, str] | None = None" default="None">
+Indicates the spatial dimensions. If None, it is assumed that these are the last
+two dimensions.
+</ParamField>
+
+<ParamField path="ensemble_dimension" type="str | None = None" default="None">
+Ensemble dimension for computation of probabilistic FSS. If None (default),
+forecast is interpreted as deterministic.
+</ParamField>
+
+<ParamField path="batch_update" type="bool = False" default="False">
+Whether to apply batch updates to the FSS with each invocation of __call__.
+This is particularly useful when data is recieved in a stream of batches. Each
+invocation of __call__ will return the running FSS.
+</ParamField>
+
+<ParamField path="diff_mean">
+</ParamField>
+
+<ParamField path="fc_mean">
+</ParamField>
+
+<ParamField path="obs_mean">
+</ParamField>
+
+<ParamField path="reduction_dimensions" type="list[str]">
+</ParamField>
+
+<ParamField path="thresholds" type="= np.array(thresholds).astype(np.float32)">
+</ParamField>
+
+<ParamField path="window_sizes" type="= np.array(window_sizes).astype(np.float32)">
+</ParamField>
+
+<ParamField path="windows" type="dict[int, Tensor] = &#123;&#125;">
+</ParamField>
+<Anchor id="earth2studio-statistics-fss-fss-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.statistics.fss.fss.__call__(
+    x: torch.Tensor,
+    x_coords: earth2studio.utils.type.CoordSystem,
+    y: torch.Tensor,
+    y_coords: earth2studio.utils.type.CoordSystem
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Apply metric to data `x` and `y`, checking that their coordinates
+are broadcastable. While reducing over `reduction_dims`.
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Input tensor, typically the forecast or prediction tensor.
+</ParamField>
+
+<ParamField path="x_coords" type="CoordSystem">
+[`CoordSystem`](../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Ordered dict representing coordinate system that describes the `x` tensor.
+`reduction_dimensions` must be in x_coords, as do `ensemble_dimension` and
+`spatial_dimensions` if provided in constructor.
+</ParamField>
+
+<ParamField path="y" type="torch.Tensor">
+Input tensor #2 intended to be used as validation data..
+</ParamField>
+
+<ParamField path="y_coords" type="CoordSystem">
+[`CoordSystem`](../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Ordered dict representing coordinate system that describes the `y` tensor.
+`reduction_dimensions` must be in y_coords, do `spatial_dimensions` if
+provided in constructor.
+</ParamField>
+
+**Returns:** `tuple[torch.Tensor,` [`CoordSystem`](../utils/type.mdx#earth2studio-utils-type-CoordSystem) `]`
+
+Returns root mean squared error tensor with appropriate reduced coordinates.
+
+</Indent>
+<Anchor id="earth2studio-statistics-fss-fss-output_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.statistics.fss.fss.output_coords(
+    input_coords: earth2studio.utils.type.CoordSystem
+) -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Output coordinate system of the computed statistic, corresponding to the given input coordinates
+
+**Parameters:**
+
+<ParamField path="input_coords" type="CoordSystem">
+[`CoordSystem`](../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system to transform into output_coords
+</ParamField>
+
+**Returns:** [`CoordSystem`](../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Coordinate system dictionary
+
+</Indent>
+</Indent>

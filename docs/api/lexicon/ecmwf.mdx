@@ -1,0 +1,172 @@
+---
+layout: overview
+title: earth2studio.lexicon.ecmwf
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`AIFSLexicon`](#earth2studio-lexicon-ecmwf-AIFSLexicon) | Artificial Intelligence Forecast System (AIFS) lexicon. |
+| [`ECMWFOpenDataLexicon`](#earth2studio-lexicon-ecmwf-ECMWFOpenDataLexicon) | Base lexicon class for the ECMWF open data client. |
+| [`IFSLexicon`](#earth2studio-lexicon-ecmwf-IFSLexicon) | Integrated Forecast System (IFS) lexicon. |
+
+### API
+
+<Anchor id="earth2studio-lexicon-ecmwf-AIFSLexicon">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.lexicon.ecmwf.AIFSLexicon()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** [ECMWFOpenDataLexicon](#earth2studio-lexicon-ecmwf-ECMWFOpenDataLexicon)
+
+Artificial Intelligence Forecast System (AIFS) lexicon.
+
+Warning
+=======
+The AIFS data store has a lot of inconsistencies with the IFS data store, be very
+careful adding new variables. See the open data documentation for details:
+
+- https://www.ecmwf.int/en/forecasts/datasets/open-data
+
+<Anchor id="earth2studio-lexicon-ecmwf-AIFSLexicon-get_item">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.lexicon.ecmwf.AIFSLexicon.get_item(
+    val: str
+) -> tuple[str, collections.abc.Callable]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Retrieve name from vocabulary.
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-lexicon-ecmwf-ECMWFOpenDataLexicon">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.lexicon.ecmwf.ECMWFOpenDataLexicon()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Base lexicon class for the ECMWF open data client.
+GRIB2 specification: &lt;Grib Parameter ID&gt;::&lt;Level Type&gt;::&lt;Level&gt;
+
+<Note>
+
+Best bet is to download an index file from the AWS bucket and read it. Additional
+resources:
+
+- https://codes.ecmwf.int/grib/param-db/?filter=grib2
+- https://www.ecmwf.int/en/forecasts/datasets/open-data
+
+</Note>
+
+<Anchor id="earth2studio-lexicon-ecmwf-ECMWFOpenDataLexicon-build_vocab">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.lexicon.ecmwf.ECMWFOpenDataLexicon.build_vocab(
+    sfc_variables: dict,
+    soil_variables: dict,
+    prs_variables: list[str],
+    prs_names: dict,
+    prs_levels: list[int]
+) -> dict[str, str]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>staticmethod</Badge>
+
+Create vocabulary dictionary.
+
+</Indent>
+<Anchor id="earth2studio-lexicon-ecmwf-ECMWFOpenDataLexicon-get_item">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.lexicon.ecmwf.ECMWFOpenDataLexicon.get_item(
+    val: str
+) -> tuple[str, collections.abc.Callable]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Retrieve name from vocabulary.
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-lexicon-ecmwf-IFSLexicon">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.lexicon.ecmwf.IFSLexicon()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** [ECMWFOpenDataLexicon](#earth2studio-lexicon-ecmwf-ECMWFOpenDataLexicon)
+
+Integrated Forecast System (IFS) lexicon.
+
+<Anchor id="earth2studio-lexicon-ecmwf-IFSLexicon-get_item">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.lexicon.ecmwf.IFSLexicon.get_item(
+    val: str
+) -> tuple[str, collections.abc.Callable]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Retrieve name from vocabulary.
+
+</Indent>
+</Indent>

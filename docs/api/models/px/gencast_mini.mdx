@@ -1,0 +1,391 @@
+---
+layout: overview
+title: earth2studio.models.px.gencast_mini
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`GenCastMini`](#earth2studio-models-px-gencast_mini-GenCastMini) | GenCast Mini diffusion-based weather prediction model. |
+
+### API
+
+<Anchor id="earth2studio-models-px-gencast_mini-GenCastMini">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.models.px.gencast_mini.GenCastMini(
+    ckpt: weathernext.weathernext1_gen.gencast.CheckPoint,
+    diffs_stddev_by_level: xarray.Dataset,
+    mean_by_level: xarray.Dataset,
+    stddev_by_level: xarray.Dataset,
+    min_by_level: xarray.Dataset,
+    land_sea_mask: numpy.ndarray,
+    geopotential_at_surface: numpy.ndarray,
+    sst_nan_mask: numpy.ndarray,
+    seed: int | None = 0,
+    jit_compile: bool = True
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** `Module`, [AutoModelMixin](../auto/mixin.mdx#earth2studio-models-auto-mixin-AutoModelMixin), [PrognosticMixin](./utils.mdx#earth2studio-models-px-utils-PrognosticMixin)
+
+GenCast Mini diffusion-based weather prediction model.
+
+A stochastic weather prediction model based on conditional diffusion that predicts
+in 12-hour time steps. This mini variant operates at 1.0-degree (181x360) resolution
+with 13 pressure levels. The model takes 2 input frames (t-12h and t) and predicts
+12 hours ahead.
+
+The mini variant trained on ERA5 reanalysis data (pre-2019), offering
+significantly lower memory requirements (~16 GB vRAM) compared to the full
+0.25-degree operational model. This wrapper runs the model with operational inputs
+which includes a zero 12hr total precipitation input.
+
+**Badges:** `region:global` `class:medium-range` `product:wind` `product:precip` `product:temp` `product:atmos` `product:ocean` `year:2024` `gpu:40gb` `provider:google` `backend:jax`
+
+**Parameters:**
+
+<ParamField path="ckpt" type="gencast.CheckPoint">
+Model checkpoint containing weights and configuration
+</ParamField>
+
+<ParamField path="diffs_stddev_by_level" type="xr.Dataset">
+Standard deviation of differences by level for normalization
+</ParamField>
+
+<ParamField path="mean_by_level" type="xr.Dataset">
+Mean values by level for normalization
+</ParamField>
+
+<ParamField path="stddev_by_level" type="xr.Dataset">
+Standard deviation by level for normalization
+</ParamField>
+
+<ParamField path="min_by_level" type="xr.Dataset">
+Minimum values by level for NaN cleaning
+</ParamField>
+
+<ParamField path="land_sea_mask" type="np.ndarray">
+Land-sea mask on lat-lon grid
+</ParamField>
+
+<ParamField path="geopotential_at_surface" type="np.ndarray">
+Geopotential at surface on lat-lon grid
+</ParamField>
+
+<ParamField path="sst_nan_mask" type="np.ndarray">
+Boolean mask indicating where SST values are NaN (ocean vs land)
+</ParamField>
+
+<ParamField path="seed" type="int | None" default="0">
+Random seed for JAX PRNG key used in stochastic sampling. If None, a random seed
+is generated each time the model is called, producing stochastic forecasts. By
+default 0.
+</ParamField>
+
+<ParamField path="jit_compile" type="bool" default="True">
+JIT-compile the model forward pass, requires 24GB of host RAM. JIT compilation
+adds a one-time cost (several minutes for the first call) but makes subsequent
+calls significantly faster, by default True.
+</ParamField>
+
+<Note>
+
+As of July 2026, GenCast was renamed to WeatherNext 1-Gen in the
+WeatherNext codebase. This Earth2Studio wrapper keeps the GenCast name
+for backwards compatibility.
+
+For more information see the following references:
+
+- https://arxiv.org/abs/2312.15796
+- https://github.com/google-deepmind/weathernext
+- https://www.nature.com/articles/s41586-024-08252-9
+
+</Note>
+
+<Warning>
+
+We encourage users to familiarize themselves with the license restrictions of this
+model's checkpoints.
+
+</Warning>
+
+<Anchor id="earth2studio-models-px-gencast_mini-GenCastMini-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.gencast_mini.GenCastMini.__call__(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Runs prognostic model 1 step.
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Input tensor
+</ParamField>
+
+<ParamField path="coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system
+</ParamField>
+
+**Returns:** `tuple[torch.Tensor,` [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) `]`
+
+Output tensor and coordinate system 12 hours in the future
+
+</Indent>
+<Anchor id="earth2studio-models-px-gencast_mini-GenCastMini-create_iterator">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.gencast_mini.GenCastMini.create_iterator(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem
+) -> collections.abc.Iterator[tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Creates a iterator which can be used to perform time-integration of the
+prognostic model. Will return the initial condition first (0th step).
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Input tensor
+</ParamField>
+
+<ParamField path="coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system
+</ParamField>
+
+</Indent>
+<Anchor id="earth2studio-models-px-gencast_mini-GenCastMini-from_dataarray_to_dataset">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.gencast_mini.GenCastMini.from_dataarray_to_dataset(
+    data: xarray.DataArray,
+    lead_time: int = 12,
+    hour_steps: int = 12
+) -> tuple[xarray.Dataset, list[str]]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Convert earth2studio DataArray to xarray Dataset for JAX model.
+
+**Parameters:**
+
+<ParamField path="data" type="xr.DataArray">
+Input data array from earth2studio
+</ParamField>
+
+<ParamField path="lead_time" type="int" default="12">
+Forecast lead time in hours, by default 12
+</ParamField>
+
+<ParamField path="hour_steps" type="int" default="12">
+Time step size in hours, by default 12
+</ParamField>
+
+**Returns:** `tuple[xr.Dataset, list[str]]`
+
+xarray Dataset suitable for GenCast and list of target lead times
+
+</Indent>
+<Anchor id="earth2studio-models-px-gencast_mini-GenCastMini-get_jax_device_from_tensor">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.gencast_mini.GenCastMini.get_jax_device_from_tensor(
+    x: torch.Tensor
+) -> jax.Device
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>staticmethod</Badge>
+
+From a tensor, get device and corresponding JAX device.
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Input tensor
+</ParamField>
+
+**Returns:** `jax.Device`
+
+Corresponding JAX device
+
+</Indent>
+<Anchor id="earth2studio-models-px-gencast_mini-GenCastMini-input_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.gencast_mini.GenCastMini.input_coords() -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Input coordinate system of the prognostic model.
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Coordinate system dictionary
+
+</Indent>
+<Anchor id="earth2studio-models-px-gencast_mini-GenCastMini-iterator_result_to_tensor">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.gencast_mini.GenCastMini.iterator_result_to_tensor(
+    dataset: xarray.Dataset
+) -> torch.Tensor
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Convert an iterator result xarray Dataset to a torch Tensor.
+
+**Parameters:**
+
+<ParamField path="dataset" type="xr.Dataset">
+xarray Dataset from JAX GenCast prediction
+</ParamField>
+
+**Returns:** `torch.Tensor`
+
+Output tensor with shape matching earth2studio conventions
+
+</Indent>
+<Anchor id="earth2studio-models-px-gencast_mini-GenCastMini-load_default_package">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.gencast_mini.GenCastMini.load_default_package() -> earth2studio.models.auto.Package
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Load default pre-trained GenCast Mini model package from Google Cloud.
+
+**Returns:** [`Package`](../auto/package.mdx#earth2studio-models-auto-package-Package)
+
+Model package
+
+</Indent>
+<Anchor id="earth2studio-models-px-gencast_mini-GenCastMini-load_model">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package","earth2studio.models.px.base.PrognosticModel":"./base.mdx#earth2studio-models-px-base-PrognosticModel"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.gencast_mini.GenCastMini.load_model(
+    package: earth2studio.models.auto.Package,
+    jit_compile: bool = True,
+    seed: int | None = 0
+) -> earth2studio.models.px.base.PrognosticModel
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Load prognostic model from package.
+
+**Parameters:**
+
+<ParamField path="package" type="Package">
+[`Package`](../auto/package.mdx#earth2studio-models-auto-package-Package) — Package to load model from
+</ParamField>
+
+<ParamField path="jit_compile" type="bool" default="True">
+JIT-compile the model forward pass with, by default True.
+</ParamField>
+
+<ParamField path="seed" type="int | None" default="0">
+Random seed for JAX PRNG key used in stochastic sampling, by default 0.
+</ParamField>
+
+**Returns:** [`PrognosticModel`](./base.mdx#earth2studio-models-px-base-PrognosticModel)
+
+Prognostic model
+
+</Indent>
+<Anchor id="earth2studio-models-px-gencast_mini-GenCastMini-output_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.gencast_mini.GenCastMini.output_coords(
+    input_coords: earth2studio.utils.type.CoordSystem
+) -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Output coordinate system of the prognostic model.
+
+**Parameters:**
+
+<ParamField path="input_coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system to transform into output_coords
+</ParamField>
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Coordinate system dictionary
+
+</Indent>
+</Indent>

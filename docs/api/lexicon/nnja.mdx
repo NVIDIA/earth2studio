@@ -1,0 +1,270 @@
+---
+layout: overview
+title: earth2studio.lexicon.nnja
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`NNJAObsConvLexicon`](#earth2studio-lexicon-nnja-NNJAObsConvLexicon) | NOAA-NASA Joint Archive (NNJA) lexicon for conventional (in-situ |
+| [`NNJAObsSatLexicon`](#earth2studio-lexicon-nnja-NNJAObsSatLexicon) | NNJA aggregate satellite observation lexicon. |
+| [`NNJAObsSatwndLexicon`](#earth2studio-lexicon-nnja-NNJAObsSatwndLexicon) | NNJA lexicon for the raw NCEP ``satwnd`` atmospheric-motion-vector dump. |
+
+### Functions
+
+| Name | Description |
+|------|-------------|
+| [`get_ncep_conventional_item`](#earth2studio-lexicon-nnja-get_ncep_conventional_item) | Return the source key and modifier for one variable. |
+
+### API
+
+<Anchor id="earth2studio-lexicon-nnja-NNJAObsConvLexicon">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.lexicon.nnja.NNJAObsConvLexicon()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+NOAA-NASA Joint Archive (NNJA) lexicon for conventional (in-situ
+and GPS RO) observations.
+
+Maps Earth2Studio variable names to a route-prefixed source key.
+The route prefix selects which NNJA archive folder (and decoder)
+the data source uses:
+
+- ``prepbufr::&lt;mnemonic&gt;`` -- read from ``conv/prepbufr/`` PrepBUFR
+  cycle files, decoded with earth2bufr using the NCEP-local DX tables
+  embedded in the file. Mnemonic is one of ``TOB``/``QOB``/``POB`` for
+  pressure/temperature/specific humidity, or ``wind::u``/``wind::v``
+  for wind components decomposed from UOB/VOB.
+- ``gpsro::&lt;descriptor_id&gt;`` -- read from ``gps/gpsro/`` GPS RO
+  occultation BUFR cycle files. ``descriptor_id`` is the BUFR
+  descriptor of the per-level field to emit:
+
+  - ``15037`` -- bending angle (rad), at impact-parameter levels.
+    ``15037`` is the generic BUFR bending-angle descriptor; it
+    occurs once per frequency in each occultation. The source emits
+    only the ionosphere-corrected (frequency-combined, MEFR == 0)
+    observation instance during decode.
+  - ``15036`` -- refractivity (N-units) at the message's geometric
+    height levels (``HEIT``), exposed as ``gps_refractivity``; only the
+    value slot is emitted, not its error.
+
+  The same source file can contain provider 1D-Var retrieval profiles:
+  pressure (``10004``), temperature (``12001``), and specific humidity
+  (``13001``). They are intentionally outside this lexicon. In particular,
+  UFS diagnostic ``gps_t`` and ``gps_q`` are model-background values
+  sampled at the bending-angle location, not these BUFR retrieval fields.
+
+The source returns PrepBUFR observation values in
+Earth2Studio standard units (the modifiers are the identity):
+
+- ``t``: TOB (DEG C) -&gt; Kelvin (+273.15)
+- ``q``: QOB (mg/kg) -&gt; kg kg-1 (/1e6)
+- ``pres``: pressure-observation subset of POB (hPa / MB) -&gt; Pa (*100).
+  Not every POB coordinate is emitted as ``pres``; ordinary POB level
+  coordinates remain in the schema-level ``pres`` column for t/q/u/v rows.
+- ``u``, ``v``: UOB/VOB already in m s-1 (no conversion)
+- ``gps``: already in SI (rad)
+
+<Note>
+
+This lexicon parallels `earth2studio.lexicon.GDASObsConvLexicon`
+while retaining NNJA route prefixes.
+
+Additional resources:
+
+- https://psl.noaa.gov/data/nnja_obs/
+- https://www.emc.ncep.noaa.gov/mmb/data_processing/prepbufr.doc/table_2.htm
+- NCEP gpsro BUFR descriptor reference (BUFR Table B 0-15-037, 0-12-001, 0-13-001)
+
+</Note>
+
+<Anchor id="earth2studio-lexicon-nnja-NNJAObsConvLexicon-get_item">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.lexicon.nnja.NNJAObsConvLexicon.get_item(
+    val: str
+) -> tuple[str, collections.abc.Callable]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Get item from the NNJA conventional vocabulary.
+
+**Parameters:**
+
+<ParamField path="val" type="str">
+Earth2Studio variable id.
+</ParamField>
+
+**Returns:** `tuple[str, Callable]`
+
+- Route-prefixed source key (``"prepbufr::..."`` or ``"gpsro::..."``).
+- The identity modifier; the source returns Earth2Studio units.
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-lexicon-nnja-NNJAObsSatLexicon">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.lexicon.nnja.NNJAObsSatLexicon()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+NNJA aggregate satellite observation lexicon.
+
+``atms`` selects encoded ``TMBR`` scene brightness temperature, while
+``atms_antenna_temperature`` selects encoded ``TMANT`` antenna temperature.
+The legacy sounder names select their encoded ``TMBR`` fields unchanged.
+
+The hyperspectral IR sounder names select every published channel of the
+sensor, returned as brightness temperature in Kelvin: ``airs`` is encoded
+as ``TMBR`` directly, while ``iasi`` (scaled radiance ``SCRA``) and
+``cris`` (float radiance ``SRAD``) are converted via Planck inversion
+during decode.
+
+<Note>
+
+Archive documentation:
+https://registry.opendata.aws/noaa-reanalyses-pds/
+
+</Note>
+
+<Anchor id="earth2studio-lexicon-nnja-NNJAObsSatLexicon-get_item">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.lexicon.nnja.NNJAObsSatLexicon.get_item(
+    val: str
+) -> tuple[str, collections.abc.Callable[[pd.DataFrame], pandas.DataFrame]]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Get an aggregate sensor/field route and identity modifier.
+
+**Parameters:**
+
+<ParamField path="val" type="str">
+Earth2Studio variable id.
+</ParamField>
+
+**Returns:** `tuple[str, Callable[[pd.DataFrame], pd.DataFrame]]`
+
+Aggregate sensor/field route and an identity modifier. Encoded
+microwave temperatures are already in kelvin.
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-lexicon-nnja-NNJAObsSatwndLexicon">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.lexicon.nnja.NNJAObsSatwndLexicon()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+NNJA lexicon for the raw NCEP ``satwnd`` atmospheric-motion-vector dump.
+
+``u``/``v`` are decomposed from the dump's ``WDIR``/``WSPD`` (m s-1, no unit
+conversion). Both components share one AMV row set; the ``SDMEDIT`` wind
+quality mark is in ``quality`` and producer metadata (satellite, subset,
+computation method, zenith angle, quality indicators) in the extra
+``NNJAObsSatwnd`` columns.
+
+<Note>
+
+Additional resources:
+
+- https://psl.noaa.gov/data/nnja_obs/
+
+</Note>
+
+<Anchor id="earth2studio-lexicon-nnja-NNJAObsSatwndLexicon-get_item">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.lexicon.nnja.NNJAObsSatwndLexicon.get_item(
+    val: str
+) -> tuple[str, collections.abc.Callable[[pd.DataFrame], pandas.DataFrame]]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Get item from the NNJA SATWND vocabulary.
+
+**Parameters:**
+
+<ParamField path="val" type="str">
+Variable id (``"u"`` or ``"v"``).
+</ParamField>
+
+**Returns:** `tuple[str, Callable]`
+
+Route-prefixed source key and an identity modifier.
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-lexicon-nnja-get_ncep_conventional_item">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.lexicon.nnja.get_ncep_conventional_item(
+    variable: str,
+    route_prefix: bool
+) -> tuple[str, collections.abc.Callable[[pd.DataFrame], pandas.DataFrame]]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Return the source key and modifier for one variable.
+
+The NCEP decoders emit Earth2Studio units, so the modifier is the identity.
+
+</Indent>

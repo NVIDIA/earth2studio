@@ -1,0 +1,145 @@
+---
+layout: overview
+title: earth2studio.models.auto.ngc
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`NGCModelFileSystem`](#earth2studio-models-auto-ngc-NGCModelFileSystem) | NGC model registry file system for pulling and opening files that are stored |
+
+### Functions
+
+| Name | Description |
+|------|-------------|
+| [`get_client`](#earth2studio-models-auto-ngc-get_client) | Default aiohttp client |
+
+### API
+
+<Anchor id="earth2studio-models-auto-ngc-NGCModelFileSystem">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.models.auto.ngc.NGCModelFileSystem(
+    authenticated_api: bool = False,
+    block_size = None,
+    simple_links = True,
+    same_scheme = True,
+    size_policy = None,
+    cache_type = 'bytes',
+    cache_options = None,
+    asynchronous = False,
+    loop = None,
+    client_kwargs = None,
+    get_client = get_client,
+    encoded = True,
+    storage_options = {}
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** `HTTPFileSystem`
+
+NGC model registry file system for pulling and opening files that are stored
+on both public and private model registries. Largely a wrapper ontop of fsspec
+HTTPFileSystem class. This works using a url with the following pattern:
+
+`ngc://models/&lt;org_id/team_id/model_id&gt;@&lt;version&gt;/&lt;path/in/repo&gt;`
+
+or if no team
+
+`ngc://models/&lt;org_id/model_id&gt;@&lt;version&gt;/&lt;path/in/repo&gt;`
+
+For example:
+`ngc://models/nvidia/modulus/sfno_73ch_small@0.1.0/sfno_73ch_small/config.json`
+
+**Parameters:**
+
+<ParamField path="authenticated_api" type="bool" default="False">
+Use NGC SDK package for authentication for access to private packages. Requires
+an additional install of ngcsdk, by default False
+</ParamField>
+
+<ParamField path="block_size" type="int" default="None">
+Blocks to read bytes; if 0, will default to raw requests file-like
+objects instead of HTTPFile instances
+</ParamField>
+
+<ParamField path="simple_links" type="bool" default="True">
+If True, will consider both HTML &lt;a&gt; tags and anything that looks
+like a URL; if False, will consider only the former.
+</ParamField>
+
+<ParamField path="same_scheme" type="bool" default="True">
+When doing ls/glob, if this is True, only consider paths that have
+http/https matching the input URLs.
+</ParamField>
+
+<ParamField path="size_policy" type="this argument is deprecated" default="None">
+
+</ParamField>
+
+<ParamField path="client_kwargs" type="dict" default="None">
+Passed to aiohttp.ClientSession, see
+https://docs.aiohttp.org/en/stable/client_reference.html
+For example, ``&#123;'auth': aiohttp.BasicAuth('user', 'pass')&#125;``
+</ParamField>
+
+<ParamField path="get_client" type="Callable[..., aiohttp.ClientSession]" default="get_client">
+A callable which takes keyword arguments and constructs
+an aiohttp.ClientSession. It's state will be managed by
+the HTTPFileSystem class.
+</ParamField>
+
+<ParamField path="storage_options" type="key - value" default="&#123;&#125;">
+Any other parameters passed on to requests
+</ParamField>
+
+<ParamField path="cache_type" type="defaults used in open" default="'bytes'">
+
+</ParamField>
+
+<ParamField path="cache_options" type="defaults used in open" default="'bytes'">
+
+</ParamField>
+
+<Note>
+
+For private registries use one of the standard authentication methods such as
+an environment variable (NGC_CLI_API_KEY) or ngc config file a NGC API key that has
+access to the respective model registry.
+
+- https://docs.ngc.nvidia.com/cli/script.html?highlight=ngc_cli_api
+- https://docs.ngc.nvidia.com/cli/cmd.html
+
+</Note>
+
+</Indent>
+
+<Anchor id="earth2studio-models-auto-ngc-get_client">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.auto.ngc.get_client(
+    kwargs = {}
+) -> aiohttp.ClientSession
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Default aiohttp client
+
+</Indent>

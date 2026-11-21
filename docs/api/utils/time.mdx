@@ -1,0 +1,196 @@
+---
+layout: overview
+title: earth2studio.utils.time
+---
+## Module Contents
+
+### Functions
+
+| Name | Description |
+|------|-------------|
+| [`leadtimearray_to_timedelta`](#earth2studio-utils-time-leadtimearray_to_timedelta) | Simple converter from numpy timedelta64 array into a list of timedeltas |
+| [`normalize_time_precision`](#earth2studio-utils-time-normalize_time_precision) | Cast a datetime64 array to nanosecond precision when representable. |
+| [`normalize_time_tolerance`](#earth2studio-utils-time-normalize_time_tolerance) | Normalize a TimeTolerance to a tuple of (lower_bound, upper_bound) as np.timedelta64. |
+| [`timearray_to_datetime`](#earth2studio-utils-time-timearray_to_datetime) | Simple converter from numpy datetime64 array into a list of datetimes. |
+| [`to_time_array`](#earth2studio-utils-time-to_time_array) | A general converter for various time iterables into a numpy datetime64 array |
+
+### API
+
+<Anchor id="earth2studio-utils-time-leadtimearray_to_timedelta">
+
+<CodeBlock links={{"earth2studio.utils.type.LeadTimeArray":"./type.mdx#earth2studio-utils-type-LeadTimeArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.utils.time.leadtimearray_to_timedelta(
+    lead_time: earth2studio.utils.type.LeadTimeArray
+) -> list[datetime.timedelta]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Simple converter from numpy timedelta64 array into a list of timedeltas
+
+**Parameters:**
+
+<ParamField path="lead_time" type="TimeArray">
+[`TimeArray`](./type.mdx#earth2studio-utils-type-TimeArray) — Numpy timedelta64 array
+</ParamField>
+
+**Returns:** `list[timedelta]`
+
+List of timedelta object
+
+</Indent>
+
+<Anchor id="earth2studio-utils-time-normalize_time_precision">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.utils.time.normalize_time_precision(
+    time: numpy.ndarray
+) -> numpy.ndarray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Cast a datetime64 array to nanosecond precision when representable.
+
+Nanosecond precision is the Earth2Studio default, since it preserves the
+sub-second resolution some observation data sources carry. Times outside the
+``datetime64[ns]`` range would wrap to unrelated dates if cast, so the
+array's own precision is kept instead.
+
+**Parameters:**
+
+<ParamField path="time" type="np.ndarray">
+Numpy datetime64 array
+</ParamField>
+
+**Returns:** `np.ndarray`
+
+The array as ``datetime64[ns]`` when representable, otherwise unchanged
+
+</Indent>
+
+<Anchor id="earth2studio-utils-time-normalize_time_tolerance">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeTolerance":"./type.mdx#earth2studio-utils-type-TimeTolerance"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.utils.time.normalize_time_tolerance(
+    tolerance: earth2studio.utils.type.TimeTolerance
+) -> tuple[numpy.timedelta64, numpy.timedelta64]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Normalize a TimeTolerance to a tuple of (lower_bound, upper_bound) as np.timedelta64.
+
+**Parameters:**
+
+<ParamField path="tolerance" type="TimeTolerance">
+[`TimeTolerance`](./type.mdx#earth2studio-utils-type-TimeTolerance) — Time tolerance value. Can be:
+- A single timedelta or np.timedelta64 (interpreted as symmetric +/- bounds)
+- A tuple of (timedelta, timedelta) or (np.timedelta64, np.timedelta64)
+  (interpreted as (lower_bound, upper_bound))
+</ParamField>
+
+**Returns:** `tuple[np.timedelta64, np.timedelta64]`
+
+Tuple of (lower_bound, upper_bound) as np.timedelta64 values.
+For a single tolerance value, returns (-tolerance, +tolerance).
+For a tuple, returns the normalized bounds.
+
+**Examples:**
+
+<CodeBlock showLineNumbers={false}>
+
+```python
+>>> normalize_time_tolerance(np.timedelta64(1, "h"))
+(numpy.timedelta64(-3600,'s'), numpy.timedelta64(3600,'s'))
+```
+
+</CodeBlock>
+
+<CodeBlock showLineNumbers={false}>
+
+```python
+>>> normalize_time_tolerance((np.timedelta64(-2, "h"), np.timedelta64(3, "h")))
+(numpy.timedelta64(-7200,'s'), numpy.timedelta64(10800,'s'))
+```
+
+</CodeBlock>
+
+</Indent>
+
+<Anchor id="earth2studio-utils-time-timearray_to_datetime">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"./type.mdx#earth2studio-utils-type-TimeArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.utils.time.timearray_to_datetime(
+    time: earth2studio.utils.type.TimeArray
+) -> list[datetime.datetime]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Simple converter from numpy datetime64 array into a list of datetimes.
+
+**Parameters:**
+
+<ParamField path="time" type="TimeArray">
+[`TimeArray`](./type.mdx#earth2studio-utils-type-TimeArray) — Numpy datetime64 array
+</ParamField>
+
+**Returns:** `list[datetime]`
+
+List of datetime object
+
+</Indent>
+
+<Anchor id="earth2studio-utils-time-to_time_array">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"./type.mdx#earth2studio-utils-type-TimeArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.utils.time.to_time_array(
+    time: list[str] | list[datetime.datetime] | earth2studio.utils.type.TimeArray
+) -> earth2studio.utils.type.TimeArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+A general converter for various time iterables into a numpy datetime64 array
+
+**Parameters:**
+
+<ParamField path="time" type="list[str] | list[datetime] | TimeArray">
+`list[str] | list[datetime] |` [`TimeArray`](./type.mdx#earth2studio-utils-type-TimeArray) — Time object iterable
+</ParamField>
+
+**Returns:** [`TimeArray`](./type.mdx#earth2studio-utils-type-TimeArray)
+
+Numpy array of datetimes
+
+**Raises:**
+
+- `TypeError`: If element in iterable is not a value time object
+
+</Indent>

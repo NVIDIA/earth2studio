@@ -1,0 +1,323 @@
+---
+layout: overview
+title: earth2studio.perturbation.gaussian
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`CorrelatedSphericalField`](#earth2studio-perturbation-gaussian-CorrelatedSphericalField) | This class was taken from https://github.com/ankurmahesh/earth2mip-fork/blob/HENS/earth2mip/ensemble_utils.py#L392-L531. |
+| [`CorrelatedSphericalGaussian`](#earth2studio-perturbation-gaussian-CorrelatedSphericalGaussian) | Produces Gaussian random field on the sphere with Matern covariance peturbation |
+| [`Gaussian`](#earth2studio-perturbation-gaussian-Gaussian) | Standard Gaussian peturbation |
+
+### API
+
+<Anchor id="earth2studio-perturbation-gaussian-CorrelatedSphericalField">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.perturbation.gaussian.CorrelatedSphericalField(
+    nlat: int,
+    length_scale: float,
+    time_scale: float,
+    sigma: float,
+    N: int,
+    grid: str = 'equiangular',
+    dtype: torch.dtype = torch.float32
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** `Module`
+
+This class was taken from https://github.com/ankurmahesh/earth2mip-fork/blob/HENS/earth2mip/ensemble_utils.py#L392-L531.
+Reference publication: A.Mahesh et al. Huge Ensembles Part I: Design of Ensemble Weather Forecasts using Spherical Fourier Neural Operators https://arxiv.org/abs/2408.03100.
+
+This class can be used to create noise on the sphere
+with a given length scale (in m) and time scale (in hours).
+
+It mimics the implementation of the SPPT: Stochastic Perturbed
+Parameterized Tendency in this paper:
+
+https://www.ecmwf.int/sites/default/files/elibrary/2009/11577-stochastic-parametrization-and-model-uncertainty.pdf
+
+**Parameters:**
+
+<ParamField path="nlat" type="int">
+Number of latitudinal modes;
+longitudinal modes are 2*nlat.
+</ParamField>
+
+<ParamField path="length_scale" type="float">
+Correlation length scale in meters that determines the spatial decorrelation
+distance of the noise field on the sphere
+</ParamField>
+
+<ParamField path="time_scale" type="int">
+Time scale in hours for the AR(1) process, that governs
+the evolution of the coefficients
+</ParamField>
+
+<ParamField path="sigma" type="float">
+desired standard deviation of the field in grid point space
+</ParamField>
+
+<ParamField path="N" type="int">
+Number of latent dimensions
+</ParamField>
+
+<ParamField path="grid" type="string" default="is 'equiangular'">
+Grid type. Currently supports "equiangular" and
+"legendre-gauss".
+</ParamField>
+
+<ParamField path="dtype" type="torch.dtype" default="is torch.float32">
+Numerical type for the calculations.
+</ParamField>
+
+<ParamField path="gaussian_noise">
+</ParamField>
+
+<ParamField path="isht">
+</ParamField>
+
+<ParamField path="kT" type="= (length_scale / r_earth) ** 2 / 2">
+</ParamField>
+
+<ParamField path="lmax" type="= self.isht.lmax">
+</ParamField>
+
+<ParamField path="mmax" type="= self.isht.mmax">
+</ParamField>
+
+<ParamField path="phi" type="= np.exp(-dt / time_scale)">
+</ParamField>
+<Anchor id="earth2studio-perturbation-gaussian-CorrelatedSphericalField-calculateF0">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.perturbation.gaussian.CorrelatedSphericalField.calculateF0(
+    sigma: float,
+    phi: float,
+    lmax: int,
+    kT: float
+) -> torch.Tensor
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+This function scales the coefficients such that their grid-point standarddeviation is sigma.
+sigma is the desired variance phi is a np.exp(-dt/time_scale)
+
+</Indent>
+<Anchor id="earth2studio-perturbation-gaussian-CorrelatedSphericalField-forward">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.perturbation.gaussian.CorrelatedSphericalField.forward(
+    x: torch.Tensor,
+    time: numpy.datetime64 = None
+) -> torch.Tensor
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Generate and return a field with a correlated length scale.
+
+Update the coefficients using an AR(1) process.
+
+</Indent>
+<Anchor id="earth2studio-perturbation-gaussian-CorrelatedSphericalField-to">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.perturbation.gaussian.CorrelatedSphericalField.to(
+    args: typing.Any = (),
+    kwargs: typing.Any = {}
+) -> typing_extensions.Self
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Override cuda and to methods so sampler gets initialized with mean and
+variance on the correct device, to(*args, **kwargs)
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-perturbation-gaussian-CorrelatedSphericalGaussian">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.perturbation.gaussian.CorrelatedSphericalGaussian(
+    noise_amplitude: float | torch.Tensor,
+    sigma: float = 1.0,
+    length_scale: float = 500000.0,
+    time_scale: float = 48.0
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Produces Gaussian random field on the sphere with Matern covariance peturbation
+method output to a lat lon grid.
+
+**Parameters:**
+
+<ParamField path="noise_amplitude" type="float | torch.Tensor">
+Overall amplitude scaling factor for the noise field. Must be provided.
+</ParamField>
+
+<ParamField path="sigma" type="float" default="1.0">
+Standard deviation of the noise field, by default 1.0
+</ParamField>
+
+<ParamField path="length_scale" type="float" default="500000.0">
+Spatial correlation length scale in meters, by default 5.0e5
+</ParamField>
+
+<ParamField path="time_scale" type="float" default="48.0">
+Temporal correlation scale in hours for the AR(1) process, by default 48.0
+</ParamField>
+
+**Raises:**
+
+- `ValueError`: If noise_amplitude is not provided
+
+<Warning>
+
+Presently this method generates noise on equirectangular grid of size [N, 2*N] when
+N is even or [N+1, 2*N] when N is odd.
+
+</Warning>
+
+<Anchor id="earth2studio-perturbation-gaussian-CorrelatedSphericalGaussian-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.perturbation.gaussian.CorrelatedSphericalGaussian.__call__(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Apply perturbation method
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Input tensor intended to apply perturbation on
+</ParamField>
+
+<ParamField path="coords" type="CoordSystem">
+[`CoordSystem`](../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Ordered dict representing coordinate system that describes the tensor, must
+contain "lat" and "lon" coordinates
+</ParamField>
+
+**Returns:** `tuple[torch.Tensor,` [`CoordSystem`](../utils/type.mdx#earth2studio-utils-type-CoordSystem) `]:`
+
+Output tensor and respective coordinate system dictionary
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-perturbation-gaussian-Gaussian">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.perturbation.gaussian.Gaussian(
+    noise_amplitude: float | torch.Tensor = 0.05,
+    seed: int | None = None
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Standard Gaussian peturbation
+
+**Parameters:**
+
+<ParamField path="noise_amplitude" type="float | Tensor" default="0.05">
+Noise amplitude, by default 0.05. If a tensor,
+this must be broadcastable with the input data.
+</ParamField>
+
+<ParamField path="seed" type="int | None" default="None">
+Seed for the internal generator, by default None.
+</ParamField>
+
+<ParamField path="checkpoint" type="= bind_checkpoint_state(_GaussianCheckpointState())">
+</ParamField>
+
+<ParamField path="generator" type="Generator | None = None">
+</ParamField>
+
+<ParamField path="noise_amplitude">
+</ParamField>
+<Anchor id="earth2studio-perturbation-gaussian-Gaussian-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.perturbation.gaussian.Gaussian.__call__(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Apply perturbation method
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Input tensor intended to apply perturbation on
+</ParamField>
+
+<ParamField path="coords" type="CoordSystem">
+[`CoordSystem`](../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Ordered dict representing coordinate system that describes the tensor
+</ParamField>
+
+**Returns:** `tuple[torch.Tensor,` [`CoordSystem`](../utils/type.mdx#earth2studio-utils-type-CoordSystem) `]:`
+
+Output tensor and respective coordinate system dictionary
+
+</Indent>
+</Indent>

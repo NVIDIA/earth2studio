@@ -1,0 +1,341 @@
+---
+layout: overview
+title: earth2studio.models.dx.solarradiation_afno
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`SolarRadiationAFNO`](#earth2studio-models-dx-solarradiation_afno-SolarRadiationAFNO) | Base class for Solar Radiation AFNO diagnostic models. Predicts the accumulated global surface solar |
+| [`SolarRadiationAFNO1H`](#earth2studio-models-dx-solarradiation_afno-SolarRadiationAFNO1H) | Solar Radiation AFNO diagnostic model for 1-hour frequency predictions. |
+| [`SolarRadiationAFNO6H`](#earth2studio-models-dx-solarradiation_afno-SolarRadiationAFNO6H) | Solar Radiation AFNO diagnostic model for 6-hour frequency predictions. |
+
+### API
+
+<Anchor id="earth2studio-models-dx-solarradiation_afno-SolarRadiationAFNO">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.models.dx.solarradiation_afno.SolarRadiationAFNO(
+    core_model: torch.nn.Module,
+    freq: str,
+    era5_mean: torch.Tensor,
+    era5_std: torch.Tensor,
+    ssrd_mean: torch.Tensor,
+    ssrd_std: torch.Tensor,
+    orography: torch.Tensor,
+    landsea_mask: torch.Tensor,
+    sincos_latlon: torch.Tensor
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** `Module`, [AutoModelMixin](../auto/mixin.mdx#earth2studio-models-auto-mixin-AutoModelMixin)
+
+Base class for Solar Radiation AFNO diagnostic models. Predicts the accumulated global surface solar
+radiation [Jm^-2]. The model uses 24 variables as input and outputs one on a 0.25 degree lat-lon grid
+(south-pole including) [721 x 1440].
+
+**Parameters:**
+
+<ParamField path="core_model" type="torch.nn.Module">
+Core pytorch model
+</ParamField>
+
+<ParamField path="freq" type="str">
+Frequency of the model (e.g. "6h")
+</ParamField>
+
+<ParamField path="era5_mean" type="torch.Tensor">
+Model mean normalization tensor for ERA5 variables
+</ParamField>
+
+<ParamField path="era5_std" type="torch.Tensor">
+Model standard deviation normalization tensor for ERA5 variables
+</ParamField>
+
+<ParamField path="ssrd_mean" type="torch.Tensor">
+Model mean normalization tensor for SSRD output
+</ParamField>
+
+<ParamField path="ssrd_std" type="torch.Tensor">
+Model standard deviation normalization tensor for SSRD output
+</ParamField>
+
+<ParamField path="orography" type="torch.Tensor">
+Surface geopotential (orography)
+</ParamField>
+
+<ParamField path="landsea_mask" type="torch.Tensor">
+Land sea mask
+</ParamField>
+
+<ParamField path="sincos_latlon" type="torch.Tensor">
+4 fields embedding location information (cos(lat), sin(lat), cos(lon), sin(lon))
+</ParamField>
+
+<Anchor id="earth2studio-models-dx-solarradiation_afno-SolarRadiationAFNO-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.solarradiation_afno.SolarRadiationAFNO.__call__(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Forward pass of diagnostic
+
+</Indent>
+<Anchor id="earth2studio-models-dx-solarradiation_afno-SolarRadiationAFNO-compute_sza">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.solarradiation_afno.SolarRadiationAFNO.compute_sza(
+    output_coords: earth2studio.utils.type.CoordSystem
+) -> torch.Tensor
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Compute solar zenith angle for given coordinates.
+
+**Parameters:**
+
+<ParamField path="output_coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Output coordinate system
+</ParamField>
+
+**Returns:** `torch.Tensor`
+
+Solar zenith angle tensor
+
+</Indent>
+<Anchor id="earth2studio-models-dx-solarradiation_afno-SolarRadiationAFNO-get_sza_lonlat">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.solarradiation_afno.SolarRadiationAFNO.get_sza_lonlat(
+    lon: numpy.ndarray,
+    lat: numpy.ndarray
+) -> tuple[numpy.ndarray, numpy.ndarray]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Get longitude and latitude arrays for solar zenith angle calculation.
+
+**Parameters:**
+
+<ParamField path="lon" type="np.ndarray">
+Longitude array
+</ParamField>
+
+<ParamField path="lat" type="np.ndarray">
+Latitude array
+</ParamField>
+
+**Returns:** `tuple[np.ndarray, np.ndarray]`
+
+Tuple of (longitude, latitude) arrays
+
+</Indent>
+<Anchor id="earth2studio-models-dx-solarradiation_afno-SolarRadiationAFNO-input_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.solarradiation_afno.SolarRadiationAFNO.input_coords() -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Input coordinate system of diagnostic model
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Coordinate system dictionary
+
+</Indent>
+<Anchor id="earth2studio-models-dx-solarradiation_afno-SolarRadiationAFNO-load_default_package">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.solarradiation_afno.SolarRadiationAFNO.load_default_package() -> earth2studio.models.auto.Package
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Load prognostic package
+
+</Indent>
+<Anchor id="earth2studio-models-dx-solarradiation_afno-SolarRadiationAFNO-load_model">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package","earth2studio.models.dx.base.DiagnosticModel":"./base.mdx#earth2studio-models-dx-base-DiagnosticModel"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.solarradiation_afno.SolarRadiationAFNO.load_model(
+    package: earth2studio.models.auto.Package
+) -> earth2studio.models.dx.base.DiagnosticModel
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Load prognostic from package
+
+**Parameters:**
+
+<ParamField path="package" type="Package">
+[`Package`](../auto/package.mdx#earth2studio-models-auto-package-Package) — Package to load model from
+</ParamField>
+
+**Returns:** [`PrognosticModel`](../px/base.mdx#earth2studio-models-px-base-PrognosticModel)
+
+Prognostic model
+
+</Indent>
+<Anchor id="earth2studio-models-dx-solarradiation_afno-SolarRadiationAFNO-output_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.solarradiation_afno.SolarRadiationAFNO.output_coords(
+    input_coords: earth2studio.utils.type.CoordSystem
+) -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Output coordinate system of diagnostic model
+
+**Parameters:**
+
+<ParamField path="input_coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system to transform into output_coords
+by default None, will use self.input_coords.
+</ParamField>
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Coordinate system dictionary
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-models-dx-solarradiation_afno-SolarRadiationAFNO1H">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.models.dx.SolarRadiationAFNO1H()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** [SolarRadiationAFNO](#earth2studio-models-dx-solarradiation_afno-SolarRadiationAFNO)
+
+Solar Radiation AFNO diagnostic model for 1-hour frequency predictions.
+Predicts the accumulated global surface solar radiation over 1 hour [Jm^-2].
+
+**Badges:** `region:global` `class:medium-range` `product:solar` `year:2024` `gpu:40gb` `provider:nvidia` `backend:pytorch`
+
+<Anchor id="earth2studio-models-dx-solarradiation_afno-SolarRadiationAFNO1H-load_default_package">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.SolarRadiationAFNO1H.load_default_package() -> earth2studio.models.auto.Package
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Load prognostic package
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-models-dx-solarradiation_afno-SolarRadiationAFNO6H">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.models.dx.SolarRadiationAFNO6H()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** [SolarRadiationAFNO](#earth2studio-models-dx-solarradiation_afno-SolarRadiationAFNO)
+
+Solar Radiation AFNO diagnostic model for 6-hour frequency predictions.
+Predicts the accumulated global surface solar radiation over 6 hours [Jm^-2].
+
+**Badges:** `region:global` `class:medium-range` `product:solar` `year:2024` `gpu:40gb` `provider:nvidia` `backend:pytorch`
+
+<Anchor id="earth2studio-models-dx-solarradiation_afno-SolarRadiationAFNO6H-load_default_package">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.SolarRadiationAFNO6H.load_default_package() -> earth2studio.models.auto.Package
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Load prognostic package
+
+</Indent>
+</Indent>

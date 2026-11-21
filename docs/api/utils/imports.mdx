@@ -1,0 +1,208 @@
+---
+layout: overview
+title: earth2studio.utils.imports
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`OptionalDependencyError`](#earth2studio-utils-imports-OptionalDependencyError) | Custom error for missing optional dependencies. |
+| [`OptionalDependencyFailure`](#earth2studio-utils-imports-OptionalDependencyFailure) | Optional dependency group failure. |
+
+### Functions
+
+| Name | Description |
+|------|-------------|
+| [`check_optional_dependencies`](#earth2studio-utils-imports-check_optional_dependencies) | Decorator to handle validating optional dependencies are installed for both |
+| [`pytest_require`](#earth2studio-utils-imports-pytest_require) | Return a pytest skipif marker if required packages or groups are missing. |
+
+### API
+
+<Anchor id="earth2studio-utils-imports-OptionalDependencyError">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.utils.imports.OptionalDependencyError(
+    group_name: str,
+    object_name: str,
+    error_value: BaseException | None = None,
+    error_traceback: types.TracebackType | None = None,
+    doc_url: str | None = None
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** `ImportError`
+
+Custom error for missing optional dependencies.
+
+</Indent>
+
+<Anchor id="earth2studio-utils-imports-OptionalDependencyFailure">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.utils.imports.OptionalDependencyFailure(
+    group_name: str,
+    key: str | None = None,
+    doc_url: str | None = None
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Optional dependency group failure.
+Instantiate this in the catch of an import failure for a group of optional
+dependencies. This will add the failure the class singleton dictionary for
+later look up.
+
+**Parameters:**
+
+<ParamField path="group_name" type="str">
+Name of the optional dependency group imports are present in. For example
+this would be "data" if the install command is:
+`pip install earth2studio[data]`
+</ParamField>
+
+<ParamField path="key" type="str | None" default="None">
+Unique dependency group key to id the import. This is used with the
+`check_optional_dependencies` to check if needed optional dependencies are
+installed. Setting this manually is typically not needed. If None, the key
+will be the filename of the caller object, by default None
+</ParamField>
+
+<ParamField path="doc_url" type="str | None" default="None">
+Install doc url override of the install doc link present in error
+message if import error occurs, by default None
+</ParamField>
+
+**Raises:**
+
+- `ValueError`: If key is not unique
+
+</Indent>
+
+<Anchor id="earth2studio-utils-imports-check_optional_dependencies">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.utils.imports.check_optional_dependencies(
+    key: str | None = None
+) -> collections.abc.Callable[[Any], typing.Any]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Decorator to handle validating optional dependencies are installed for both
+functions and classes.
+
+**Parameters:**
+
+<ParamField path="key" type="str | None" default="None">
+Optional dependency group key to check for any import errors. This typically
+does not need to be set. If None will use the filename of the caller object, by
+default None
+</ParamField>
+
+</Indent>
+
+<Anchor id="earth2studio-utils-imports-pytest_require">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.utils.imports.pytest_require(
+    packages: str = (),
+    groups: list[str] | None = None
+) -> typing.Any
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Return a pytest skipif marker if required packages or groups are missing.
+
+Use this to skip entire test modules when optional dependencies are not installed.
+
+**Parameters:**
+
+<ParamField path="*packages" type="str" default="()">
+Package specs, optionally with version constraints (e.g., "scipy&gt;=1.15", "torch").
+</ParamField>
+
+<ParamField path="groups" type="list[str] | None" default="None">
+Dependency group names from pyproject.toml (e.g., ["serve", "data"]).
+</ParamField>
+
+**Returns:** `pytest.MarkDecorator`
+
+A skipif marker that skips if any requirement is not satisfied.
+
+**Examples:**
+
+<CodeBlock showLineNumbers={false}>
+
+```python
+Skip entire module if 'serve' group dependencies are not installed:
+```
+
+</CodeBlock>
+
+<CodeBlock showLineNumbers={false}>
+
+```python
+>>> pytestmark = pytest_require(groups=["serve"])
+```
+
+</CodeBlock>
+
+<CodeBlock showLineNumbers={false}>
+
+```python
+Skip if specific packages are missing or wrong version:
+```
+
+</CodeBlock>
+
+<CodeBlock showLineNumbers={false}>
+
+```python
+>>> pytestmark = pytest_require("fme", "scipy>=1.15")
+```
+
+</CodeBlock>
+
+<CodeBlock showLineNumbers={false}>
+
+```python
+Combine packages and groups:
+```
+
+</CodeBlock>
+
+<CodeBlock showLineNumbers={false}>
+
+```python
+>>> pytestmark = pytest_require("redis>=5.0", groups=["serve"])
+```
+
+</CodeBlock>
+
+</Indent>

@@ -1,0 +1,1614 @@
+---
+layout: overview
+title: earth2studio.models.px.stormscope
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`StormScopeBase`](#earth2studio-models-px-stormscope-StormScopeBase) | StormScope diffusion prognostic base model with staged denoising. |
+| [`StormScopeGOES`](#earth2studio-models-px-stormscope-StormScopeGOES) | StormScope model forecasting GOES data on the HRRR grid. |
+| [`StormScopeMRMS`](#earth2studio-models-px-stormscope-StormScopeMRMS) | StormScope model forecasting MRMS data on the HRRR grid. |
+
+### API
+
+<Anchor id="earth2studio-models-px-stormscope-StormScopeBase">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.models.px.stormscope.StormScopeBase(
+    model_spec: list[dict[str, typing.Any]],
+    means: torch.Tensor,
+    stds: torch.Tensor,
+    variables: numpy.ndarray,
+    latitudes: torch.Tensor,
+    longitudes: torch.Tensor,
+    conditioning_means: torch.Tensor | None = None,
+    conditioning_stds: torch.Tensor | None = None,
+    conditioning_variables: numpy.ndarray | None = None,
+    conditioning_data_source: typing.Any | None = None,
+    glm_mask: torch.Tensor | None = None,
+    conditioning_glm_mask: torch.Tensor | None = None,
+    topo: torch.Tensor | None = None,
+    nexrad_proximity: torch.Tensor | None = None,
+    sampler_args: dict[str, typing.Any] | None = {'num_steps': 100, 'S_churn...,
+    input_times: numpy.ndarray = np.array([np.timedelta64(0,...,
+    output_times: numpy.ndarray = np.array([np.timedelta64(1,...,
+    y_coords: numpy.ndarray | None = None,
+    x_coords: numpy.ndarray | None = None,
+    input_interp_max_dist_km: float = 12.0,
+    conditioning_interp_max_dist_km: float = 26.0,
+    amp: bool = True,
+    compile: bool = False
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** `Module`, [AutoModelMixin](../auto/mixin.mdx#earth2studio-models-auto-mixin-AutoModelMixin), [PrognosticMixin](./utils.mdx#earth2studio-models-px-utils-PrognosticMixin)
+
+StormScope diffusion prognostic base model with staged denoising.
+
+Variants should subclass to define dataset/resolution specifics (e.g., grids,
+variables, and data loading).
+
+This base class supports an "ensemble of experts" approach where the diffusion
+sampler is invoked in multiple stages, each using a different set of model
+weights applicable to a specific sigma range. Stages are defined by `model_spec`.
+Single-stage (standard diffusion sampling with one denoiser) is also supported.
+
+**Parameters:**
+
+<ParamField path="model_spec" type="list[dict[str, Any]]">
+Sequence of stage specifications. Each entry must contain:
+
+- 'model': physicsnemo.Module
+- 'sigma_min': float
+- 'sigma_max': float
+
+The sigma interval determines which expert is applied during denoising.
+</ParamField>
+
+<ParamField path="means" type="torch.Tensor">
+Per-variable mean used to normalize inputs. Expected shape [1, C, 1, 1].
+</ParamField>
+
+<ParamField path="stds" type="torch.Tensor">
+Per-variable std used to normalize inputs. Expected shape [1, C, 1, 1].
+</ParamField>
+
+<ParamField path="variables" type="np.ndarray">
+Names of prognostic variables corresponding to the high-resolution state.
+</ParamField>
+
+<ParamField path="latitudes" type="torch.Tensor">
+Latitudes of the grid, expected shape [H, W].
+</ParamField>
+
+<ParamField path="longitudes" type="torch.Tensor">
+Longitudes of the grid, expected shape [H, W].
+</ParamField>
+
+<ParamField path="conditioning_means" type="torch.Tensor | None" default="None">
+Means to normalize any external conditioning data. Default is None.
+</ParamField>
+
+<ParamField path="conditioning_stds" type="torch.Tensor | None" default="None">
+Stds to normalize any external conditioning data. Default is None.
+</ParamField>
+
+<ParamField path="conditioning_variables" type="np.ndarray | None" default="None">
+Names of external conditioning variables. Default is None.
+</ParamField>
+
+<ParamField path="conditioning_data_source" type="Any | None" default="None">
+Data source for external conditioning. Subclasses should define how this is
+used; base class does not fetch conditioning by default. Default is None.
+</ParamField>
+
+<ParamField path="sampler_args" type="dict[str, Any] | None" default="&#123;'num_steps': 100, 'S_churn': 10&#125;">
+Default sampler arguments passed to the diffusion sampler.
+Default is &#123;"num_steps": 100, "S_churn": 10&#125;.
+</ParamField>
+
+<ParamField path="input_times" type="np.ndarray" default="np.array([np.timedelta64(0, 'h')])">
+Input timesteps, of type timedelta64. Default is [0 m] (i.e., the current time).
+</ParamField>
+
+<ParamField path="output_times" type="np.ndarray" default="np.array([np.timedelta64(1, 'h')])">
+Output timesteps, of type timedelta64. Default is [60 m] (i.e., 1 hour from the current time).
+</ParamField>
+
+<ParamField path="y_coords" type="np.ndarray | None" default="None">
+Y coordinates of the grid, expected shape [H, W]. Default is None, in which
+case the model uses the enumerated indices inferred from the latitude and
+longitude grid shapes.
+</ParamField>
+
+<ParamField path="x_coords" type="np.ndarray | None" default="None">
+X coordinates of the grid, expected shape [H, W]. Default is None, in which
+case the model uses the enumerated indices inferred from the latitude and
+longitude grid shapes.
+</ParamField>
+
+<ParamField path="glm_mask" type="torch.Tensor | None" default="None">
+Boolean mask of shape [C] over the state channels, True where a channel is
+normalized with log1p/expm1 (GLM — Geostationary Lightning Mapper — style)
+rather than mean/std. Default is None, in which case all channels use mean/std.
+</ParamField>
+
+<ParamField path="conditioning_glm_mask" type="torch.Tensor | None" default="None">
+Boolean mask of shape [C_cond] over the conditioning channels, True where a
+channel is log1p-normalized. Default is None (all conditioning channels use
+mean/std).
+</ParamField>
+
+<ParamField path="input_interp_max_dist_km" type="float" default="12.0">
+Maximum distance in kilometers for nearest neighbor interpolation of input data.
+Points beyond this distance are masked as invalid. Default is 12.0.
+</ParamField>
+
+<ParamField path="conditioning_interp_max_dist_km" type="float" default="26.0">
+Maximum distance in kilometers for nearest neighbor interpolation of conditioning data.
+Points beyond this distance are masked as invalid. Default is 26.0.
+</ParamField>
+
+<ParamField path="amp" type="bool" default="True">
+Enable automatic mixed precision (autocast) for the diffusion sampler's
+network forward passes. The sampler's latent/state math is kept in
+``_SAMPLER_DTYPE`` (fp64); only the DiT forward passes run under
+autocast. Can also be toggled after construction via the ``amp``
+attribute. Default is True.
+</ParamField>
+
+<ParamField path="compile" type="bool" default="False">
+Compile each staged denoising expert with ``torch.compile`` (using the
+``"reduce-overhead"`` mode) for faster repeated sampling. Can also be
+invoked after construction via `compile_experts`. Default is False.
+</ParamField>
+
+<ParamField path="_CENTRAL_LAT_CONSTANT" type="= 38.5">
+</ParamField>
+
+<ParamField path="_CENTRAL_LON_CONSTANT" type="= 262.5">
+</ParamField>
+
+<ParamField path="_INPUT_INVALID_FILL_CONSTANT" type="= 0.0">
+</ParamField>
+
+<ParamField path="_LAT_SCALE" type="= 15">
+</ParamField>
+
+<ParamField path="_LON_SCALE" type="= 36">
+</ParamField>
+
+<ParamField path="_MODEL_DTYPE" type="= torch.float32">
+</ParamField>
+
+<ParamField path="_REGISTRY_KEY" type="str | None = None">
+</ParamField>
+
+<ParamField path="_SAMPLER_DTYPE" type="= torch.float64">
+</ParamField>
+
+<ParamField path="_flash_plan" type="list[_FlashStep] | None = None">
+</ParamField>
+
+<ParamField path="_flash_plan_sources" type="tuple[Tensor, ...] = ()">
+</ParamField>
+
+<ParamField path="_is_flash" type="bool = False">
+</ParamField>
+
+<ParamField path="_lat_cpu_copy" type="= self.latitudes.cpu().numpy()">
+</ParamField>
+
+<ParamField path="_lon_cpu_copy" type="= self.longitudes.cpu().numpy()">
+</ParamField>
+
+<ParamField path="end_sigma" type="= self.model_spec`0`">
+</ParamField>
+
+<ParamField path="model_spec">
+</ParamField>
+
+<ParamField path="region_info" type="RegionInfo">
+</ParamField>
+
+<ParamField path="sampler_args" type="= sampler_args or &#123;&#125;">
+</ParamField>
+
+<ParamField path="sliding_window" type="= len(input_times) &gt; len(output_times)">
+</ParamField>
+
+<ParamField path="stage_models">
+</ParamField>
+
+<ParamField path="start_sigma" type="= self.model_spec`-1`">
+</ParamField>
+<Anchor id="earth2studio-models-px-stormscope-StormScopeBase-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.stormscope.StormScopeBase.__call__(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Runs the prognostic model one step. Assumes the last two dimensions of the input tensor are the spatial dimensions.
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Input tensor.
+</ParamField>
+
+<ParamField path="coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system.
+</ParamField>
+
+**Returns:** `tuple[torch.Tensor,` [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) `]`
+
+Output tensor and coordinate system.
+
+</Indent>
+<Anchor id="earth2studio-models-px-stormscope-StormScopeBase-build_condition">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.stormscope.StormScopeBase.build_condition(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem,
+    conditioning: torch.Tensor | None = None,
+    conditioning_coords: earth2studio.utils.type.CoordSystem | None = None
+) -> torch.Tensor
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Construct the full conditioning input to the diffusion model.
+Subclasses can override to customize the channel layout.
+
+**Parameters:**
+
+<ParamField path="x_norm" type="torch.Tensor">
+Normalized input high-resolution state.
+</ParamField>
+
+<ParamField path="coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system to provide time and lead time for cos zenith angle calculation
+</ParamField>
+
+<ParamField path="conditioning" type="torch.Tensor | None" default="None">
+Optional normalized external conditioning, by default None.
+</ParamField>
+
+<ParamField path="conditioning_coords" type="CoordSystem | None" default="None">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) `| None` — Optional coordinate system for the conditioning, by default None.
+</ParamField>
+
+**Returns:** `torch.Tensor`
+
+Conditioning tensor to pass to the diffusion sampler.
+
+</Indent>
+<Anchor id="earth2studio-models-px-stormscope-StormScopeBase-build_conditioning_interpolator">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.stormscope.StormScopeBase.build_conditioning_interpolator(
+    conditioning_lats: torch.Tensor | numpy.typing.ArrayLike,
+    conditioning_lons: torch.Tensor | numpy.typing.ArrayLike,
+    max_dist_km: float | None = None
+) -> torch.nn.Module
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Build a module to handle interpolating data on an arbitrary input lat/lon grid
+to the internal lat/lon grid, done via nearest neighbor interpolation.
+
+**Parameters:**
+
+<ParamField path="conditioning_lats" type="torch.Tensor | ArrayLike">
+Conditioning latitudes.
+</ParamField>
+
+<ParamField path="conditioning_lons" type="torch.Tensor | ArrayLike">
+Conditioning longitudes.
+</ParamField>
+
+<ParamField path="max_dist_km" type="float" default="None">
+Maximum great-circle distance (km) to accept a nearest neighbor match.
+Target points farther than this threshold are marked invalid and will
+receive NaNs in the output. By default 6.0.
+</ParamField>
+
+</Indent>
+<Anchor id="earth2studio-models-px-stormscope-StormScopeBase-build_input_interpolator">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.stormscope.StormScopeBase.build_input_interpolator(
+    input_lats: torch.Tensor | numpy.typing.ArrayLike,
+    input_lons: torch.Tensor | numpy.typing.ArrayLike,
+    max_dist_km: float | None = None
+) -> torch.nn.Module
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Build a module to handle interpolating data on an arbitrary input lat/lon grid
+to the internal lat/lon grid, done via nearest neighbor interpolation.
+
+**Parameters:**
+
+<ParamField path="input_lats" type="torch.Tensor | ArrayLike">
+Input latitudes.
+</ParamField>
+
+<ParamField path="input_lons" type="torch.Tensor | ArrayLike">
+Input longitudes.
+</ParamField>
+
+<ParamField path="max_dist_km" type="float" default="None">
+Maximum great-circle distance (km) to accept a nearest neighbor match.
+Target points farther than this threshold are marked invalid and will
+receive NaNs in the output. By default 6.0.
+</ParamField>
+
+</Indent>
+<Anchor id="earth2studio-models-px-stormscope-StormScopeBase-call_with_conditioning">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.stormscope.StormScopeBase.call_with_conditioning(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem,
+    conditioning: torch.Tensor,
+    conditioning_coords: earth2studio.utils.type.CoordSystem
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Calls the prognostic model with explicitly provided conditioning. Useful when
+combining multiple cross-conditioned models during rollout (does not require
+model to define a conditioning data source).
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Input tensor.
+</ParamField>
+
+<ParamField path="coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system.
+</ParamField>
+
+<ParamField path="conditioning" type="torch.Tensor">
+Conditioning tensor.
+</ParamField>
+
+<ParamField path="conditioning_coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Conditioning coordinate system.
+</ParamField>
+
+**Returns:** `tuple[torch.Tensor,` [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) `]`
+
+Output tensor and coordinate system.
+
+</Indent>
+<Anchor id="earth2studio-models-px-stormscope-StormScopeBase-compile_experts">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.stormscope.StormScopeBase.compile_experts(
+    mode: str = 'reduce-overhead'
+) -> None
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Compile each staged denoising expert in place with ``torch.compile``.
+
+Compilation is lazy (each expert compiles on its first forward pass), so
+this is safe to call before or after moving the model to a device.
+Repeated calls are a no-op.
+
+**Parameters:**
+
+<ParamField path="mode" type="str" default="'reduce-overhead'">
+``torch.compile`` mode, by default ``"reduce-overhead"`` (matching
+the StormScope reference inference scripts).
+</ParamField>
+
+</Indent>
+<Anchor id="earth2studio-models-px-stormscope-StormScopeBase-create_iterator">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.stormscope.StormScopeBase.create_iterator(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem
+) -> collections.abc.Iterator[tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Creates an iterator to perform time-integration of the prognostic model.
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Input tensor.
+</ParamField>
+
+<ParamField path="coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system.
+</ParamField>
+
+</Indent>
+<Anchor id="earth2studio-models-px-stormscope-StormScopeBase-crop_output">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.stormscope.StormScopeBase.crop_output(
+    forecast: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem,
+    mask: bool = True
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Crop Flash forecasts and coordinates to the requested region.
+
+Pass uncropped forecasts to `next_input` to retain context.
+Baseline variants return their inputs unchanged.
+
+**Parameters:**
+
+<ParamField path="forecast" type="torch.Tensor">
+Forecast on the model input grid, including context pixels.
+</ParamField>
+
+<ParamField path="coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Forecast coordinates.
+</ParamField>
+
+<ParamField path="mask" type="bool" default="True">
+Mask pixels outside the requested geographic bounds with NaN,
+by default True
+</ParamField>
+
+**Returns:** `tuple[torch.Tensor,` [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) `]`
+
+Cropped forecast and coordinates; Flash returns independent copies.
+
+</Indent>
+<Anchor id="earth2studio-models-px-stormscope-StormScopeBase-fetch_conditioning">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.stormscope.StormScopeBase.fetch_conditioning(
+    coords: earth2studio.utils.type.CoordSystem,
+    device: torch.device
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Fetch external conditioning data. Subclasses should override.
+
+**Parameters:**
+
+<ParamField path="coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system.
+</ParamField>
+
+<ParamField path="device" type="torch.device">
+Device on which the conditioning tensor should reside.
+</ParamField>
+
+**Returns:** `tuple[torch.Tensor,` [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) `]`
+
+Conditioning tensor aligned with `coords`.
+
+</Indent>
+<Anchor id="earth2studio-models-px-stormscope-StormScopeBase-input_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.stormscope.StormScopeBase.input_coords() -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Input coordinate system. Subclasses should override for specific variants.
+
+</Indent>
+<Anchor id="earth2studio-models-px-stormscope-StormScopeBase-list_available_models">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.stormscope.StormScopeBase.list_available_models(
+    package: earth2studio.models.auto.Package | None = None
+) -> dict[str, dict[str, typing.Any]]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+List the model variants available in a package for this model.
+
+**Parameters:**
+
+<ParamField path="package" type="Package | None" default="None">
+[`Package`](../auto/package.mdx#earth2studio-models-auto-package-Package) `| None` — Package to inspect. If None, the default package is loaded.
+</ParamField>
+
+**Returns:** `dict[str, dict[str, Any]]`
+
+Mapping of canonical variant name to a metadata dict with
+``description`` and ``deprecated`` keys.
+
+</Indent>
+<Anchor id="earth2studio-models-px-stormscope-StormScopeBase-load_default_package">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.stormscope.StormScopeBase.load_default_package() -> earth2studio.models.auto.Package
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Load the default StormScope package from Hugging Face.
+
+</Indent>
+<Anchor id="earth2studio-models-px-stormscope-StormScopeBase-load_model">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package","earth2studio.models.px.base.PrognosticModel":"./base.mdx#earth2studio-models-px-base-PrognosticModel"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.stormscope.StormScopeBase.load_model(
+    package: earth2studio.models.auto.Package,
+    args: typing.Any = (),
+    kwargs: typing.Any = {}
+) -> earth2studio.models.px.base.PrognosticModel
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Load model from package. Must be implemented by subclasses.
+
+</Indent>
+<Anchor id="earth2studio-models-px-stormscope-StormScopeBase-next_input">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.stormscope.StormScopeBase.next_input(
+    pred: torch.Tensor,
+    pred_coords: earth2studio.utils.type.CoordSystem,
+    x: torch.Tensor,
+    x_coords: earth2studio.utils.type.CoordSystem
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Gets the inputs for the next step of the prognostic model given a pair
+of inputs and predictions that were just run. If the model uses a sliding
+window, the oldest lead time in the input is removed and the latest
+prediction is added for the next step. If the model does not
+use a sliding window, the prediction is returned as is.
+
+**Parameters:**
+
+<ParamField path="pred" type="torch.Tensor">
+Prediction tensor.
+</ParamField>
+
+<ParamField path="pred_coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Prediction coordinate system.
+</ParamField>
+
+<ParamField path="x" type="torch.Tensor">
+Input tensor.
+</ParamField>
+
+<ParamField path="x_coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system.
+</ParamField>
+
+</Indent>
+<Anchor id="earth2studio-models-px-stormscope-StormScopeBase-normalize_conditioning">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.stormscope.StormScopeBase.normalize_conditioning(
+    conditioning: torch.Tensor | None
+) -> torch.Tensor | None
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Normalize external conditioning with stored stats if available.
+
+Channels flagged in ``conditioning_glm_mask`` are normalized with
+``log1p`` instead of mean/std; all others use the affine ``(x-mean)/std``.
+
+</Indent>
+<Anchor id="earth2studio-models-px-stormscope-StormScopeBase-output_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.stormscope.StormScopeBase.output_coords(
+    input_coords: earth2studio.utils.type.CoordSystem
+) -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Output coordinate system of prognostic model.
+
+**Parameters:**
+
+<ParamField path="input_coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system to transform into output coordinates.
+</ParamField>
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Coordinate system dictionary for the model output.
+
+</Indent>
+<Anchor id="earth2studio-models-px-stormscope-StormScopeBase-prep_input">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.stormscope.StormScopeBase.prep_input(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem,
+    conditioning: bool = False
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Prepares the input tensor for the prognostic model.
+
+</Indent>
+<Anchor id="earth2studio-models-px-stormscope-StormScopeBase-set_domain">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.stormscope.StormScopeBase.set_domain(
+    lat_min: float,
+    lat_max: float,
+    lon_min: float,
+    lon_max: float,
+    padding: int = 25
+) -> typing.Self
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Return a regional Flash model sharing the loaded expert weights.
+
+Bounds must lie within this model's grid; the original model is unchanged.
+Inputs and outputs include context; use `crop_output` for presentation.
+Shared networks require sequential calls on the same device.
+
+**Parameters:**
+
+<ParamField path="lat_min" type="float">
+Southern latitude bound in degrees north.
+</ParamField>
+
+<ParamField path="lat_max" type="float">
+Northern latitude bound in degrees north.
+</ParamField>
+
+<ParamField path="lon_min" type="float">
+Western longitude bound in degrees east; negative values denote west.
+</ParamField>
+
+<ParamField path="lon_max" type="float">
+Eastern longitude bound in degrees east.
+</ParamField>
+
+<ParamField path="padding" type="int" default="25">
+Real context pixels per side, by default 25, clipped at grid edges.
+Inputs expand to at least 200 pixels per axis and align to four-pixel
+patches. Resolved dimensions and context are available in ``region_info``.
+</ParamField>
+
+**Returns:** `Self`
+
+New regional model with independent geometry and interpolation caches.
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-models-px-stormscope-StormScopeGOES">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.models.px.stormscope.StormScopeGOES(
+    model_spec: list[dict[str, typing.Any]],
+    means: torch.Tensor,
+    stds: torch.Tensor,
+    latitudes: torch.Tensor,
+    longitudes: torch.Tensor,
+    variables: numpy.ndarray = np.array(['abi01c', 'abi02c...,
+    conditioning_variables: numpy.ndarray = np.array(['z500']),
+    conditioning_means: torch.Tensor | None = None,
+    conditioning_stds: torch.Tensor | None = None,
+    conditioning_data_source: typing.Any | None = None,
+    glm_mask: torch.Tensor | None = None,
+    conditioning_glm_mask: torch.Tensor | None = None,
+    topo: torch.Tensor | None = None,
+    nexrad_proximity: torch.Tensor | None = None,
+    sampler_args: dict[str, float | int] | None = {'num_steps': 100, 'S_churn...,
+    input_times: numpy.ndarray = np.array([np.timedelta64(0,...,
+    output_times: numpy.ndarray = np.array([np.timedelta64(1,...,
+    y_coords: numpy.ndarray | None = None,
+    x_coords: numpy.ndarray | None = None,
+    input_interp_max_dist_km: float = 12.0,
+    conditioning_interp_max_dist_km: float = 26.0,
+    amp: bool = True,
+    compile: bool = False
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** [StormScopeBase](#earth2studio-models-px-stormscope-StormScopeBase)
+
+StormScope model forecasting GOES data on the HRRR grid.
+
+This model supports multiple variants at different spatiotemporal resolutions,
+selected by passing ``model_name`` to ``load_model`` (default: ``"3km_10min"``).
+The primary focus is CONUS nowcasting at 3km resolution; coarser 6km
+nearcasting variants are retained as
+legacy checkpoints. Variant names are semantic (``&lt;resolution&gt;_&lt;cadence&gt;``):
+
+  - ``3km_10min``  : 3km resolution, 10 minute timestep (CONUS nowcasting)
+  - ``3km_10min_flash``: accelerated 3km / 10 minute CONUS nowcasting
+  - ``6km_1hr``    : 6km resolution, 60 minute timestep (legacy nearcasting)
+
+Use `list_available_models` to inspect the variants in a given package
+(including any added after this release). Legacy training-style names are still
+accepted as aliases.
+
+Flash uses five backbone calls per step. Select a region within the native
+CONUS domain with `set_domain`.
+
+Variants whose input cadence is finer than their output cadence use a sliding
+window of input timesteps and predict one output timestep; others use a single
+input timestep and predict one output timestep.
+
+**Badges:** `region:na` `class:nowcasting` `product:sat` `year:2026` `gpu:80gb` `provider:nvidia` `backend:pytorch`
+
+**Parameters:**
+
+<ParamField path="model_spec" type="list[dict[str, Any]]">
+Sequence of stage specifications; see `StormScopeBase`.
+</ParamField>
+
+<ParamField path="means" type="torch.Tensor">
+Per-variable mean for normalization, shape [1, C, 1, 1].
+</ParamField>
+
+<ParamField path="stds" type="torch.Tensor">
+Per-variable std for normalization, shape [1, C, 1, 1].
+</ParamField>
+
+<ParamField path="latitudes" type="torch.Tensor">
+Latitudes of the grid, expected shape [H, W].
+</ParamField>
+
+<ParamField path="longitudes" type="torch.Tensor">
+Longitudes of the grid, expected shape [H, W].
+</ParamField>
+
+<ParamField path="variables" type="np.ndarray" default="np.array(['abi01c', 'abi02c', 'abi03c', 'abi07c', 'abi08c', 'abi09c', 'abi10c', 'abi13c'])">
+GOES input variables. Default is
+["abi01c", "abi02c", "abi03c", "abi07c", "abi08c", "abi09c", "abi10c", "abi13c"].
+</ParamField>
+
+<ParamField path="conditioning_variables" type="np.ndarray" default="np.array(['z500'])">
+Auxiliary conditioning variables. Default is ["z500"].
+</ParamField>
+
+<ParamField path="conditioning_means" type="torch.Tensor | None" default="None">
+Means to normalize any external conditioning data. Default is None.
+</ParamField>
+
+<ParamField path="conditioning_stds" type="torch.Tensor | None" default="None">
+Stds to normalize any external conditioning data. Default is None.
+</ParamField>
+
+<ParamField path="conditioning_data_source" type="Any | None" default="None">
+Data source for external conditioning. Default is None.
+</ParamField>
+
+<ParamField path="sampler_args" type="dict[str, Any] | None" default="&#123;'num_steps': 100, 'S_churn': 10&#125;">
+Default sampler arguments passed to the diffusion sampler.
+Default is &#123;"num_steps": 100, "S_churn": 10&#125;.
+</ParamField>
+
+<ParamField path="input_times" type="np.ndarray" default="np.array([np.timedelta64(0, 'h')])">
+Input timesteps, of type timedelta64. Default is [0 m] (i.e., the current time).
+</ParamField>
+
+<ParamField path="output_times" type="np.ndarray" default="np.array([np.timedelta64(1, 'h')])">
+Output timesteps, of type timedelta64. Default is [60 m] (i.e., 1 hour from the current time).
+</ParamField>
+
+<ParamField path="y_coords" type="np.ndarray | None" default="None">
+Y coordinates of the grid, expected shape [H, W]. Default is None, in which
+case the model uses the enumerated indices inferred from the latitude and
+longitude grid shapes.
+</ParamField>
+
+<ParamField path="x_coords" type="np.ndarray | None" default="None">
+X coordinates of the grid, expected shape [H, W]. Default is None, in which
+case the model uses the enumerated indices inferred from the latitude and
+longitude grid shapes.
+</ParamField>
+
+<ParamField path="input_interp_max_dist_km" type="float" default="12.0">
+Maximum distance in kilometers for nearest neighbor interpolation of input data.
+Points beyond this distance are masked as invalid. Default is 12.0.
+</ParamField>
+
+<ParamField path="conditioning_interp_max_dist_km" type="float" default="26.0">
+Maximum distance in kilometers for nearest neighbor interpolation of conditioning data.
+Points beyond this distance are masked as invalid. Default is 26.0.
+</ParamField>
+
+<Note>
+
+For more information see the following references:
+
+- https://huggingface.co/nvidia/stormscope-goes-mrms
+- MRMS forecasting skill: evaluation procedure, metrics, and score table:
+  https://huggingface.co/nvidia/stormscope-goes-mrms/blob/dcbe14a506e849b1afec9962dbf774f07d7aece8/mrms_forecast_skill.md
+To have a unified coordinate system over CONUS for convenience, the model uses the HRRR grid.
+As a result, there are portions of the domain which go beyond the extent of the GOES-East data,
+so these portions are masked as invalid (set to NaN).
+
+</Note>
+
+<Anchor id="earth2studio-models-px-stormscope-StormScopeGOES-fetch_conditioning">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.stormscope.StormScopeGOES.fetch_conditioning(
+    coords: earth2studio.utils.type.CoordSystem,
+    device: torch.device
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Fetch external conditioning data.
+
+**Parameters:**
+
+<ParamField path="coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system.
+</ParamField>
+
+<ParamField path="device" type="torch.device">
+Device on which the conditioning tensor should reside.
+</ParamField>
+
+</Indent>
+<Anchor id="earth2studio-models-px-stormscope-StormScopeGOES-input_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.stormscope.StormScopeGOES.input_coords() -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Input coordinate system
+
+</Indent>
+<Anchor id="earth2studio-models-px-stormscope-StormScopeGOES-load_model">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package","earth2studio.data.base.DataSource":"../../data/base.mdx#earth2studio-data-base-DataSource","earth2studio.data.base.ForecastSource":"../../data/base.mdx#earth2studio-data-base-ForecastSource","earth2studio.models.px.base.PrognosticModel":"./base.mdx#earth2studio-models-px-base-PrognosticModel"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.stormscope.StormScopeGOES.load_model(
+    package: earth2studio.models.auto.Package,
+    model_name: typing.Literal['3km_10min', '6km_1hr', '3km_10min_flash'] = '3km_10min',
+    conditioning_data_source: earth2studio.data.base.DataSource | earth2studio.data.base.ForecastSource | None = None,
+    amp: bool = True,
+    compile: bool = False
+) -> earth2studio.models.px.base.PrognosticModel
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Load model from package.
+
+**Parameters:**
+
+<ParamField path="package" type="Package">
+[`Package`](../auto/package.mdx#earth2studio-models-auto-package-Package) — Package to load model from
+</ParamField>
+
+<ParamField path="model_name" type="Literal['3km_10min', '6km_1hr', '3km_10min_flash']" default="'3km_10min'">
+Variant to load, by default ``"3km_10min"`` (the recommended CONUS
+nowcasting variant). Available variants (see
+`list_available_models`):
+
+- ``"3km_10min"``: 3km resolution, 10 minute timestep (CONUS nowcasting)
+- ``"3km_10min_flash"``: distilled three-kilometer, ten-minute variant
+- ``"6km_1hr"``: 6km resolution, 60 minute timestep (legacy nearcasting)
+
+Legacy training-style names are accepted as aliases.
+</ParamField>
+
+<ParamField path="conditioning_data_source" type="DataSource | ForecastSource | None" default="None">
+[`DataSource`](../../data/base.mdx#earth2studio-data-base-DataSource) `|` [`ForecastSource`](../../data/base.mdx#earth2studio-data-base-ForecastSource) `| None` — Data source to use for conditioning, by default None.
+</ParamField>
+
+<ParamField path="amp" type="bool" default="True">
+Enable automatic mixed precision (autocast) for the sampler's network
+forward passes. Default is True.
+</ParamField>
+
+<ParamField path="compile" type="bool" default="False">
+Compile each staged expert with ``torch.compile`` ("reduce-overhead").
+Default is False.
+</ParamField>
+
+**Returns:** [`PrognosticModel`](./base.mdx#earth2studio-models-px-base-PrognosticModel)
+
+Instantiated StormScopeGOES model
+
+</Indent>
+<Anchor id="earth2studio-models-px-stormscope-StormScopeGOES-output_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.stormscope.StormScopeGOES.output_coords(
+    input_coords: earth2studio.utils.type.CoordSystem
+) -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Output coordinate system of prognostic model
+
+**Parameters:**
+
+<ParamField path="input_coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system to transform into output coordinates.
+</ParamField>
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Coordinate system dictionary.
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-models-px-stormscope-StormScopeMRMS">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.models.px.stormscope.StormScopeMRMS(
+    model_spec: list[dict[str, typing.Any]],
+    means: torch.Tensor,
+    stds: torch.Tensor,
+    latitudes: torch.Tensor,
+    longitudes: torch.Tensor,
+    variables: numpy.ndarray = np.array(['refc']),
+    conditioning_variables: numpy.ndarray = np.array(['abi01c', 'abi02c...,
+    conditioning_means: torch.Tensor | None = None,
+    conditioning_stds: torch.Tensor | None = None,
+    conditioning_data_source: typing.Any | None = None,
+    glm_mask: torch.Tensor | None = None,
+    conditioning_glm_mask: torch.Tensor | None = None,
+    topo: torch.Tensor | None = None,
+    nexrad_proximity: torch.Tensor | None = None,
+    mrms_coverage_mask: torch.Tensor | None = None,
+    glm_data_source: typing.Any | None = None,
+    sampler_args: dict[str, float | int] | None = {'num_steps': 100, 'S_churn...,
+    y_coords: numpy.ndarray | None = None,
+    x_coords: numpy.ndarray | None = None,
+    input_times: numpy.ndarray = np.array([np.timedelta64(0,...,
+    output_times: numpy.ndarray = np.array([np.timedelta64(1,...,
+    input_interp_max_dist_km: float = 12.0,
+    conditioning_interp_max_dist_km: float = 12.0,
+    glm_interp_max_dist_km: float = 14.0,
+    amp: bool = True,
+    compile: bool = False
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** [StormScopeBase](#earth2studio-models-px-stormscope-StormScopeBase)
+
+StormScope model forecasting MRMS data on the HRRR grid.
+
+This model supports multiple variants at different temporal resolutions,
+selected by passing ``model_name`` to ``load_model`` (default: ``"3km_10min"``).
+Variant names are semantic (``&lt;resolution&gt;_&lt;cadence&gt;``):
+
+  - ``3km_10min``: 3km resolution, 10 minute timestep, MRMS+GLM nowcasting (default)
+  - ``3km_10min_flash``: accelerated 3km / 10 minute CONUS MRMS+GLM nowcasting
+  - ``6km_1hr``: 6km resolution, 60 minute timestep (legacy nearcasting)
+
+Use `list_available_models` to inspect the variants in a given package.
+Legacy training-style names are still accepted as aliases.
+
+Flash uses seven backbone calls per step. For regional inference within the
+native CONUS domain, use the coupled GOES model's bounds and padding with
+`set_domain`.
+
+Variants whose input cadence is finer than their output cadence use a sliding
+window of input timesteps and predict one output timestep; others use a single
+input timestep and predict one output timestep. All StormScopeMRMS models by default expect GOES-East data as
+conditioning; typically in a forecasting run this can be provided by passing the
+predictions from a StormScopeGOES model to this model's ``call_with_conditioning``
+method. Otherwise, the user must provide a conditioning data source for the model
+to use during inference.
+
+**Badges:** `region:na` `class:nowcasting` `product:radar` `year:2026` `gpu:80gb` `provider:nvidia` `backend:pytorch`
+
+**Parameters:**
+
+<ParamField path="model_spec" type="list[dict[str, Any]]">
+Sequence of stage specifications; see `StormScopeBase`.
+</ParamField>
+
+<ParamField path="means" type="torch.Tensor">
+Per-variable mean for normalization, shape [1, C, 1, 1].
+</ParamField>
+
+<ParamField path="stds" type="torch.Tensor">
+Per-variable std for normalization, shape [1, C, 1, 1].
+</ParamField>
+
+<ParamField path="latitudes" type="torch.Tensor">
+Latitudes of the grid, expected shape [H, W].
+</ParamField>
+
+<ParamField path="longitudes" type="torch.Tensor">
+Longitudes of the grid, expected shape [H, W].
+</ParamField>
+
+<ParamField path="variables" type="np.ndarray" default="np.array(['refc'])">
+MRMS input variables. Default is ["refc"].
+</ParamField>
+
+<ParamField path="conditioning_variables" type="np.ndarray" default="np.array(['abi01c', 'abi02c', 'abi03c', 'abi07c', 'abi08c', 'abi09c', 'abi10c', 'abi13c'])">
+Auxiliary conditioning variables (typically GOES channels). Default is
+["abi01c", "abi02c", "abi03c", "abi07c", "abi08c", "abi09c", "abi10c", "abi13c"].
+</ParamField>
+
+<ParamField path="conditioning_means" type="torch.Tensor | None" default="None">
+Means to normalize any external conditioning data. Default is None.
+</ParamField>
+
+<ParamField path="conditioning_stds" type="torch.Tensor | None" default="None">
+Stds to normalize any external conditioning data. Default is None.
+</ParamField>
+
+<ParamField path="conditioning_data_source" type="Any | None" default="None">
+Data source for external conditioning. Default is None.
+</ParamField>
+
+<ParamField path="sampler_args" type="dict[str, float | int] | None" default="&#123;'num_steps': 100, 'S_churn': 10&#125;">
+Default sampler arguments passed to the diffusion sampler.
+Default is &#123;"num_steps": 100, "S_churn": 10&#125;.
+</ParamField>
+
+<ParamField path="y_coords" type="np.ndarray | None" default="None">
+Y coordinates of the grid, expected shape [H, W]. Default is None, in which
+case the model uses the enumerated indices inferred from the latitude and
+longitude grid shapes.
+</ParamField>
+
+<ParamField path="x_coords" type="np.ndarray | None" default="None">
+X coordinates of the grid, expected shape [H, W]. Default is None, in which
+case the model uses the enumerated indices inferred from the latitude and
+longitude grid shapes.
+</ParamField>
+
+<ParamField path="input_times" type="np.ndarray" default="np.array([np.timedelta64(0, 'h')])">
+Input timesteps, of type timedelta64. Default is [0 h] (i.e., the current time).
+</ParamField>
+
+<ParamField path="output_times" type="np.ndarray" default="np.array([np.timedelta64(1, 'h')])">
+Output timesteps, of type timedelta64. Default is [1 h] (i.e., 1 hour from the current time).
+</ParamField>
+
+<ParamField path="input_interp_max_dist_km" type="float" default="12.0">
+Maximum distance in kilometers for nearest neighbor interpolation of input data.
+Points beyond this distance are masked as invalid. Default is 12.0.
+</ParamField>
+
+<ParamField path="conditioning_interp_max_dist_km" type="float" default="12.0">
+Maximum distance in kilometers for nearest neighbor interpolation of conditioning data.
+Points beyond this distance are masked as invalid. Default is 26.0.
+</ParamField>
+
+<ParamField path="mrms_coverage_mask" type="torch.Tensor | None" default="None">
+Boolean NEXRAD-coverage mask of shape ``[H, W]`` on the model grid, True
+where MRMS data is considered valid (inside NEXRAD circular coverage).
+When provided, it is used as the initial ``valid_mask`` and is ANDed with
+any interpolator-derived mask built by `build_input_interpolator`.
+Loaded automatically from the package for non-deprecated variants.
+Default is None.
+</ParamField>
+
+<ParamField path="glm_data_source" type="DataSource | None" default="None">
+[`DataSource`](../../data/base.mdx#earth2studio-data-base-DataSource) `| None` — Gridded GLM source (e.g. `earth2studio.data.GOESGLMGrid`) for
+variants with a ``glm_density`` state channel (``3km_10min`` and
+``3km_10min_flash``). When
+set, `__call__` (and `create_iterator`) fetch,
+regrid, and inject GLM into the state automatically on every step. Not used
+by the coupled path (`call_with_conditioning`), where
+the caller is responsible for populating GLM channels. Default is None.
+</ParamField>
+
+<Note>
+
+For more information see the following references:
+
+- https://huggingface.co/nvidia/stormscope-goes-mrms
+- MRMS forecasting skill: evaluation procedure, metrics, and score table:
+  https://huggingface.co/nvidia/stormscope-goes-mrms/blob/dcbe14a506e849b1afec9962dbf774f07d7aece8/mrms_forecast_skill.md
+To have a unified coordinate system over CONUS for convenience, the model uses the HRRR grid.
+As a result, there are portions of the domain which go beyond the extent of the MRMS data,
+so these portions are masked as invalid (set to NaN).
+**GLM state channel.**  The ``3km_10min`` and ``3km_10min_flash`` variants
+include a ``glm_density`` channel (gridded GLM lightning counts, normalized
+with ``log1p``) as part of
+its *state* — both an input observation and a predicted output (the
+``6km_1hr`` variant has no GLM channel).  Because the GLM source lives on a
+different native grid from MRMS, ``glm_density`` is handled separately from
+the radar channels and is the GLM analogue of the GOES ``conditioning``:
+
+* **Auto path** (`__call__` / `create_iterator`):
+  pass ``glm_data_source`` (e.g. `earth2studio.data.GOESGLMGrid`)
+  to ``load_model`` and GLM is fetched, bilinearly regridded, and injected
+  into the state automatically on every step — exactly as
+  ``conditioning_data_source`` is fetched via `fetch_conditioning`.
+  The GLM bilinear interpolator is built lazily on the first call. The input
+  state ``x`` only needs its radar channels populated (the GLM channels are
+  overwritten); a zero placeholder is fine. In this case, the model will be
+  using ground-truth GLM observations during the rollout, so is not doing
+  pure forecasting (and can only be run for dates in the past where the full
+  timeseries of GLM observations is available).
+
+* **Coupled path** (`call_with_conditioning`): just as
+  this method takes ``conditioning`` from the caller rather than the data
+  source, it leaves the *entire* state — GLM included — to the caller and
+  never touches ``glm_data_source``.  Populate the GLM channels of ``x``
+  yourself (e.g. via `fetch_glm` for the initial state); during the
+  rollout GLM then flows autoregressively from the model's own predictions,
+  like the radar channels. This is the more typical pure-forecast use case.
+
+</Note>
+
+<Anchor id="earth2studio-models-px-stormscope-StormScopeMRMS-build_glm_interpolator">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.stormscope.StormScopeMRMS.build_glm_interpolator(
+    glm_lats: torch.Tensor | numpy.typing.ArrayLike,
+    glm_lons: torch.Tensor | numpy.typing.ArrayLike,
+    max_dist_km: float | None = None
+) -> None
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Build a **bilinear** interpolator mapping the GLM source's native
+0.1-degree grid onto the model grid (training used bilinear regridding for
+GLM; the nearest-neighbor path used for radar/satellite inputs is not
+appropriate for the sparse count field).
+
+**Parameters:**
+
+<ParamField path="glm_lats" type="torch.Tensor | ArrayLike">
+Latitudes/longitudes of the GLM source grid. Either 2D meshgrids or
+1D coordinate vectors (as returned by `GOESGLMGrid`).
+</ParamField>
+
+<ParamField path="glm_lons" type="torch.Tensor | ArrayLike">
+Latitudes/longitudes of the GLM source grid. Either 2D meshgrids or
+1D coordinate vectors (as returned by `GOESGLMGrid`).
+</ParamField>
+
+<ParamField path="max_dist_km" type="float | None" default="None">
+Unused placeholder for API symmetry with the nearest-neighbor
+interpolators; bilinear interpolation does not threshold by distance.
+</ParamField>
+
+</Indent>
+<Anchor id="earth2studio-models-px-stormscope-StormScopeMRMS-build_input_interpolator">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.stormscope.StormScopeMRMS.build_input_interpolator(
+    input_lats: torch.Tensor,
+    input_lons: torch.Tensor,
+    max_dist_km: float | None = None
+) -> None
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Build the nearest-neighbor input interpolator and AND it with the
+NEXRAD coverage mask (if loaded from the package).
+
+After the base-class interpolator sets ``valid_mask`` from grid proximity,
+any pixels outside the NEXRAD circular coverage area are additionally
+masked so that infilling matches the training-time boundary.
+
+</Indent>
+<Anchor id="earth2studio-models-px-stormscope-StormScopeMRMS-fetch_conditioning">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.stormscope.StormScopeMRMS.fetch_conditioning(
+    coords: earth2studio.utils.type.CoordSystem,
+    device: torch.device
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Fetch external conditioning data.
+
+**Parameters:**
+
+<ParamField path="coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system.
+</ParamField>
+
+<ParamField path="device" type="torch.device">
+Device on which the conditioning tensor should reside.
+</ParamField>
+
+</Indent>
+<Anchor id="earth2studio-models-px-stormscope-StormScopeMRMS-fetch_glm">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.stormscope.StormScopeMRMS.fetch_glm(
+    coords: earth2studio.utils.type.CoordSystem,
+    device: torch.device
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Fetch the GLM observation window from ``glm_data_source`` and bilinearly
+regrid it onto the model grid.
+
+In the auto path this is called for you by `_inject_auto_observations`
+during `__call__`. Call it directly to assemble the GLM channels of
+the input state yourself — e.g. for the initial state of a coupled rollout
+driven by `call_with_conditioning`, which does not
+fetch GLM automatically.
+
+The GLM interpolator is built lazily from the source grid on first call.
+Returned values are **physical event counts** (the model applies ``log1p``
+internally); their channel order matches `glm_variables`, and the
+returned coords use the model's ``y``/``x`` grid so they align with the
+regridded MRMS state.
+
+**Parameters:**
+
+<ParamField path="coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Coordinates providing ``time`` and the input ``lead_time`` window.
+</ParamField>
+
+<ParamField path="device" type="torch.device">
+Device for the fetched/regridded tensor.
+</ParamField>
+
+**Returns:** `tuple[torch.Tensor,` [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) `]`
+
+``(glm, glm_coords)`` with ``glm`` shaped ``[time, lead_time, n_glm, H, W]``.
+
+</Indent>
+<Anchor id="earth2studio-models-px-stormscope-StormScopeMRMS-input_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.stormscope.StormScopeMRMS.input_coords() -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Input coordinate system
+
+</Indent>
+<Anchor id="earth2studio-models-px-stormscope-StormScopeMRMS-interpolate_glm">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.stormscope.StormScopeMRMS.interpolate_glm(
+    glm: torch.Tensor
+) -> torch.Tensor
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Bilinearly regrid a GLM field (event counts on the source 0.1-degree
+grid) onto the model grid. Points outside the GLM grid are filled with 0.
+Returns physical counts (apply no normalization here; the model applies
+log1p internally). Requires `build_glm_interpolator` first.
+
+</Indent>
+<Anchor id="earth2studio-models-px-stormscope-StormScopeMRMS-load_model">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package","earth2studio.data.base.DataSource":"../../data/base.mdx#earth2studio-data-base-DataSource","earth2studio.data.base.ForecastSource":"../../data/base.mdx#earth2studio-data-base-ForecastSource","earth2studio.models.px.base.PrognosticModel":"./base.mdx#earth2studio-models-px-base-PrognosticModel"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.stormscope.StormScopeMRMS.load_model(
+    package: earth2studio.models.auto.Package,
+    model_name: typing.Literal['3km_10min', '6km_1hr', '3km_10min_flash'] = '3km_10min',
+    conditioning_data_source: earth2studio.data.base.DataSource | earth2studio.data.base.ForecastSource | None = None,
+    glm_data_source: earth2studio.data.base.DataSource | None = None,
+    amp: bool = True,
+    compile: bool = False
+) -> earth2studio.models.px.base.PrognosticModel
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Load model from package.
+
+**Parameters:**
+
+<ParamField path="package" type="Package">
+[`Package`](../auto/package.mdx#earth2studio-models-auto-package-Package) — Package to load model from
+</ParamField>
+
+<ParamField path="model_name" type="Literal['3km_10min', '6km_1hr', '3km_10min_flash']" default="'3km_10min'">
+Variant to load. Available variants (see
+`list_available_models`):
+
+- ``"3km_10min"``: 3km resolution, 10 minute timestep, MRMS+GLM nowcasting
+- ``"3km_10min_flash"``: distilled three-kilometer, ten-minute variant
+- ``"6km_1hr"``: 6km resolution, 60 minute timestep, MRMS+GLM nearcasting
+
+Legacy training-style names are accepted as aliases.
+Default is ``"3km_10min"``.
+</ParamField>
+
+<ParamField path="conditioning_data_source" type="DataSource | ForecastSource | None" default="None">
+[`DataSource`](../../data/base.mdx#earth2studio-data-base-DataSource) `|` [`ForecastSource`](../../data/base.mdx#earth2studio-data-base-ForecastSource) `| None` — Data source to use for conditioning (GOES), by default None.
+</ParamField>
+
+<ParamField path="glm_data_source" type="DataSource | None" default="None">
+[`DataSource`](../../data/base.mdx#earth2studio-data-base-DataSource) `| None` — Gridded GLM source (e.g. `earth2studio.data.GOESGLMGrid`)
+used for variants with a ``glm_density`` state channel (``3km_10min``
+and ``3km_10min_flash``; ``6km_1hr`` has no GLM channel). The GLM analogue
+of ``conditioning_data_source``: when set, `__call__`
+(and `create_iterator`) fetch, regrid, and
+inject GLM into the state automatically. The coupled path
+(`call_with_conditioning`) does not use it —
+there the caller populates the GLM channels of ``x`` (e.g. via
+`fetch_glm`). By default None.
+</ParamField>
+
+<ParamField path="amp" type="bool" default="True">
+Enable automatic mixed precision (autocast) for the sampler's network
+forward passes. Default is True.
+</ParamField>
+
+<ParamField path="compile" type="bool" default="False">
+Compile each staged expert with ``torch.compile`` ("reduce-overhead").
+Default is False.
+</ParamField>
+
+**Returns:** [`PrognosticModel`](./base.mdx#earth2studio-models-px-base-PrognosticModel)
+
+Instantiated StormScopeMRMS model
+
+</Indent>
+<Anchor id="earth2studio-models-px-stormscope-StormScopeMRMS-output_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.stormscope.StormScopeMRMS.output_coords(
+    input_coords: earth2studio.utils.type.CoordSystem
+) -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Output coordinate system of prognostic model
+
+**Parameters:**
+
+<ParamField path="input_coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system to transform into output coordinates.
+</ParamField>
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Coordinate system dictionary.
+
+</Indent>
+<Anchor id="earth2studio-models-px-stormscope-StormScopeMRMS-prep_input">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.stormscope.StormScopeMRMS.prep_input(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem,
+    conditioning: bool = False
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Prepares the input tensor for the MRMS prognostic model. Same behavior as the base
+class, but with additional value imputation/standardization for low reflectivity values.
+
+</Indent>
+</Indent>
