@@ -161,7 +161,9 @@ the in-memory dataset) yields, for each array:
 
 - the written values, with fill values at unwritten positions;
 - dimension coordinates equal to the template's: `time` as `datetime64[ns]`,
-`lead_time` as `timedelta64[ns]`, and other labels unchanged;
+`lead_time` as `timedelta64[ns]`, and other labels unchanged. Labels nanoseconds
+cannot hold, such as climate years before 1678, keep a coarser unit instead of
+wrapping; Xarray may decode such netCDF times as `cftime` dates;
 - the template's auxiliary coordinates and coordinate attributes;
 - the persisted attributes above, so `infer_grid` recovers the template's grid.
 
