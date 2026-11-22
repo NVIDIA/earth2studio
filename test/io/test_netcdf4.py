@@ -36,24 +36,28 @@ VARIABLES = ["t2m", "tp:sum:6h"]
 GRID = LatLonGrid(np.array([1.0, 0.0, -1.0]), np.arange(4.0))
 
 
-def make_template() -> xr.DataArray:
+def make_template(
+    time: np.ndarray = TIMES, lead_time: np.ndarray = LEADS
+) -> xr.DataArray:
     return coord_array(
         ("time", "lead_time", "variable", "lat", "lon"),
-        {"time": TIMES, "lead_time": LEADS, "variable": VARIABLES},
+        {"time": time, "lead_time": lead_time, "variable": VARIABLES},
         grid=GRID,
         attrs={"units": "K"},
     )
 
 
-def make_field(time: np.ndarray = TIMES, seed: int = 0) -> xr.DataArray:
-    shape = (len(time), len(LEADS), len(VARIABLES), 3, 4)
+def make_field(
+    time: np.ndarray = TIMES, seed: int = 0, lead_time: np.ndarray = LEADS
+) -> xr.DataArray:
+    shape = (len(time), len(lead_time), len(VARIABLES), 3, 4)
     data = np.random.default_rng(seed).standard_normal(shape).astype(np.float32)
     return xr.DataArray(
         data,
         dims=("time", "lead_time", "variable", "lat", "lon"),
         coords={
             "time": time,
-            "lead_time": LEADS,
+            "lead_time": lead_time,
             "variable": VARIABLES,
             **GRID.coords(),
         },
@@ -161,6 +165,33 @@ def test_netcdf4_cf_time_encoding(tmp_path: Path) -> None:
         assert dataset["lead_time"].dtype == np.dtype("timedelta64[ns]")
         np.testing.assert_array_equal(dataset["time"].values, TIMES)
         np.testing.assert_array_equal(dataset["lead_time"].values, LEADS)
+
+
+def test_netcdf4_out_of_range_times(tmp_path: Path) -> None:
+    # Climate years and lead times nanoseconds cannot hold are stored in seconds and
+    # read back unchanged after reopening, instead of wrapping to other dates
+    times = np.array(["0311-01-01", "2311-07-01"], dtype="datetime64[s]")
+    leads = np.array([0, 400 * 365 * 24], dtype="timedelta64[h]")
+    path = tmp_path / "store.nc"
+    io = NetCDF4Backend(path, backend_kwargs={"mode": "w"})
+    io.add_array(make_template(times, leads))
+    field = make_field(times, lead_time=leads)
+    io.write(field)
+    io.close()
+
+    with netCDF4.Dataset(path) as dataset:
+        assert dataset["time"].units == "seconds since 1970-01-01 00:00:00"
+        assert dataset["lead_time"].units == "seconds"
+
+    # Compare in the given units: comparing to nanosecond labels would wrap both sides
+    io = NetCDF4Backend(path, backend_kwargs={"mode": "r"})
+    stored = io.to_xarray()
+    np.testing.assert_array_equal(stored["time"].values.astype(times.dtype), times)
+    np.testing.assert_array_equal(stored["lead_time"].values.astype(leads.dtype), leads)
+    selection = {"time": times[:1], "lead_time": leads, "variable": VARIABLES}
+    result = io.read({**selection, **GRID.coords()})
+    np.testing.assert_array_equal(result.values, field.values[:1])
+    io.close()
 
 
 def test_netcdf4_json_attributes(tmp_path: Path) -> None:

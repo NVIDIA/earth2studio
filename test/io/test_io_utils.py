@@ -92,6 +92,19 @@ def test_plan_arrays(signature: xr.DataArray) -> None:
     assert plan.attrs[E2S_CRS] == signature.attrs[E2S_CRS]
 
 
+def test_plan_arrays_out_of_range_times() -> None:
+    # Labels nanoseconds cannot hold keep their own unit instead of wrapping
+    times = np.array(["0311-01-01", "2311-07-01"], dtype="datetime64[s]")
+    leads = np.array([0, 400 * 365], dtype="timedelta64[D]")
+    template = coord_array(
+        ("time", "lead_time"), {"time": times, "lead_time": leads}, name="a"
+    )
+    plan = plan_arrays(template)
+    assert plan.coords["time"].dtype == np.dtype("datetime64[s]")
+    np.testing.assert_array_equal(plan.coords["time"].values, times)
+    np.testing.assert_array_equal(plan.coords["lead_time"].values, leads)
+
+
 def test_plan_arrays_existing_coords() -> None:
     template = coord_array(("lat", "lon"), {"lat": [0.0, np.nan], "lon": [1]}, name="a")
     existing = {"lat": xr.Variable("lat", [0.0, np.nan])}

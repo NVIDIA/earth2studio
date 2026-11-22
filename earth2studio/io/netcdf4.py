@@ -26,12 +26,26 @@ import xarray as xr
 from netCDF4 import Dataset, Variable
 from numpy.typing import ArrayLike, DTypeLike
 
-from earth2studio.io.utils import Indexer, plan_arrays, plan_read, plan_write
+from earth2studio.io.utils import (
+    Indexer,
+    _normalize_labels,
+    plan_arrays,
+    plan_read,
+    plan_write,
+)
 
 # CF encodings that round-trip nanosecond labels through Xarray without loss
 TIME_UNITS = "nanoseconds since 1970-01-01 00:00:00"
 TIME_CALENDAR = "proleptic_gregorian"
 LEAD_TIME_UNITS = "nanoseconds"
+# CF unit names for the NumPy units labels are stored in; labels nanoseconds cannot
+# hold, such as climate dates before 1678, use the finest unit that holds them
+CF_UNITS = {
+    "ns": "nanoseconds",
+    "us": "microseconds",
+    "ms": "milliseconds",
+    "s": "seconds",
+}
 
 
 class NetCDF4Backend:
@@ -341,32 +355,51 @@ class NetCDF4Backend:
 
 
 def _encode_variable(variable: xr.Variable) -> xr.Variable:
-    """Encode datetime and timedelta labels as CF nanosecond integers."""
+    """Encode datetime and timedelta labels as CF integers.
+
+    Labels are stored in nanoseconds when they fit, which is the usual case, and in
+    the finest unit down to seconds that holds them otherwise.
+    """
     values = np.asarray(variable.values)
     attrs = dict(variable.attrs)
-    if np.issubdtype(values.dtype, np.datetime64):
-        values = values.astype("datetime64[ns]").astype("int64")
-        attrs |= {"units": TIME_UNITS, "calendar": TIME_CALENDAR}
-    elif np.issubdtype(values.dtype, np.timedelta64):
-        values = values.astype("timedelta64[ns]").astype("int64")
-        attrs |= {"units": LEAD_TIME_UNITS, "dtype": "timedelta64[ns]"}
+    if values.dtype.kind in "mM":
+        values = _normalize_labels(values)
+        unit = np.datetime_data(values.dtype)[0]
+        if unit not in CF_UNITS:  # e.g. days or years, which seconds hold exactly
+            unit = "s"
+        values = values.astype(f"{values.dtype.kind}8[{unit}]")
+        if values.dtype.kind == "M":
+            since = f"{CF_UNITS[unit]} since 1970-01-01 00:00:00"
+            attrs |= {"units": since, "calendar": TIME_CALENDAR}
+        else:
+            attrs |= {"units": CF_UNITS[unit], "dtype": f"timedelta64[{unit}]"}
+        values = values.astype("int64")
     return xr.Variable(variable.dims, values, attrs)
 
 
 def _decode_variable(name: Hashable, variable: Variable) -> xr.Variable:
-    """Decode a stored coordinate, normalizing time labels to nanoseconds."""
+    """Decode a stored coordinate, normalizing time labels to nanoseconds if they fit."""
     attrs = {
         key: variable.getncattr(key)
         for key in variable.ncattrs()
         if key != "_FillValue"
     }
     raw = xr.Variable(variable.dimensions, np.asarray(variable[:]), attrs)
-    decoded = xr.conventions.decode_cf_variable(str(name), raw)
-    values = np.asarray(decoded.values)
-    if np.issubdtype(values.dtype, np.datetime64):
-        values = values.astype("datetime64[ns]")
-    elif np.issubdtype(values.dtype, np.timedelta64):
-        values = values.astype("timedelta64[ns]")
+    # Decode in the stored unit; Xarray's default nanoseconds would reject or wrap
+    # labels outside the nanosecond range
+    first = str(attrs.get("units", "")).split(" ", 1)[0]
+    unit = next((key for key, cf in CF_UNITS.items() if cf == first), "s")
+    decoded = xr.conventions.decode_cf_variable(
+        str(name),
+        raw,
+        decode_times=xr.coders.CFDatetimeCoder(time_unit=unit),  # type: ignore[arg-type]
+        decode_timedelta=(
+            xr.coders.CFTimedeltaCoder(time_unit=unit)  # type: ignore[arg-type]
+            if str(attrs.get("dtype", "")).startswith("timedelta64")
+            else None
+        ),
+    )
+    values = _normalize_labels(np.asarray(decoded.values))
     return xr.Variable(decoded.dims, values, dict(decoded.attrs))
 
 

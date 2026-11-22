@@ -28,6 +28,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed `ISD` returning duplicate observations when the tolerance windows of
   several requested times overlap, and missing observations from the neighboring
   year when a window crosses a year boundary.
+- Fixed IO backends silently changing time and lead time labels that nanoseconds
+  cannot hold, such as climate years before 1678 or after 2262; they now keep a
+  coarser unit, and NetCDF stores them in seconds (#1401).
 - Fixed weighted running variance and standard deviation (`batch_update=True`) to use
   the same weighted denominator as the non-batched statistic.
 
