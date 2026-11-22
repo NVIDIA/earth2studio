@@ -384,23 +384,34 @@ def _decode_variable(name: Hashable, variable: Variable) -> xr.Variable:
         for key in variable.ncattrs()
         if key != "_FillValue"
     }
-    raw = xr.Variable(variable.dimensions, np.asarray(variable[:]), attrs)
-    # Decode in the stored unit; Xarray's default nanoseconds would reject or wrap
-    # labels outside the nanosecond range
-    first = str(attrs.get("units", "")).split(" ", 1)[0]
-    unit = next((key for key, cf in CF_UNITS.items() if cf == first), "s")
-    decoded = xr.conventions.decode_cf_variable(
-        str(name),
-        raw,
-        decode_times=xr.coders.CFDatetimeCoder(time_unit=unit),  # type: ignore[arg-type]
-        decode_timedelta=(
-            xr.coders.CFTimedeltaCoder(time_unit=unit)  # type: ignore[arg-type]
-            if str(attrs.get("dtype", "")).startswith("timedelta64")
-            else None
-        ),
-    )
+    values = np.asarray(variable[:])
+    labels = _decode_labels(values, attrs)
+    if labels is not None:
+        cf_attrs = ("units", "calendar", "dtype")
+        attrs = {key: value for key, value in attrs.items() if key not in cf_attrs}
+        return xr.Variable(variable.dimensions, _normalize_labels(labels), attrs)
+    raw = xr.Variable(variable.dimensions, values, attrs)
+    decoded = xr.conventions.decode_cf_variable(str(name), raw)
     values = _normalize_labels(np.asarray(decoded.values))
     return xr.Variable(decoded.dims, values, dict(decoded.attrs))
+
+
+def _decode_labels(values: np.ndarray, attrs: Mapping[str, Any]) -> np.ndarray | None:
+    """Decode the CF time integers this backend writes in their stored unit.
+
+    Xarray decodes to nanoseconds by default, which cannot hold labels such as
+    climate years before 1678. Returns None for any other encoding.
+    """
+    units = str(attrs.get("units", ""))
+    for unit, cf in CF_UNITS.items():
+        if (
+            units == f"{cf} since 1970-01-01 00:00:00"
+            and attrs.get("calendar") == TIME_CALENDAR
+        ):
+            return values.astype("int64").astype(f"datetime64[{unit}]")
+        if units == cf and attrs.get("dtype") == f"timedelta64[{unit}]":
+            return values.astype("int64").astype(f"timedelta64[{unit}]")
+    return None
 
 
 def _encode_attr(value: Any) -> Any:
