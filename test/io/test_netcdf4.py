@@ -194,6 +194,24 @@ def test_netcdf4_out_of_range_times(tmp_path: Path) -> None:
     io.close()
 
 
+def test_netcdf4_fractional_time_labels(tmp_path: Path) -> None:
+    # Floating-point times in the same units, as other tools may write, keep their
+    # fractions when the store is reopened
+    path = tmp_path / "store.nc"
+    with netCDF4.Dataset(path, "w") as dataset:
+        dataset.createDimension("time", 2)
+        time = dataset.createVariable("time", "f8", ("time",))
+        time.units = "seconds since 1970-01-01 00:00:00"
+        time.calendar = TIME_CALENDAR
+        time[:] = [0.25, 1.25]
+
+    io = NetCDF4Backend(path, backend_kwargs={"mode": "r"})
+    stored = io._stored_coords()["time"].values
+    io.close()
+    expected = np.array(["1970-01-01T00:00:00.25", "1970-01-01T00:00:01.25"])
+    np.testing.assert_array_equal(stored, expected.astype("datetime64[ns]"))
+
+
 def test_netcdf4_json_attributes(tmp_path: Path) -> None:
     # netCDF cannot store lists or dictionaries, so they become JSON strings
     io = NetCDF4Backend(tmp_path / "store.nc", backend_kwargs={"mode": "w"})

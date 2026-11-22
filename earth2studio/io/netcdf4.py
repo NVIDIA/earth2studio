@@ -400,8 +400,12 @@ def _decode_labels(values: np.ndarray, attrs: Mapping[str, Any]) -> np.ndarray |
     """Decode the CF time integers this backend writes in their stored unit.
 
     Xarray decodes to nanoseconds by default, which cannot hold labels such as
-    climate years before 1678. Returns None for any other encoding.
+    climate years before 1678. Returns None for any other encoding, including
+    floating-point or packed values, which Xarray decodes.
     """
+    packed = ("scale_factor", "add_offset", "missing_value")
+    if values.dtype.kind not in "iu" or any(key in attrs for key in packed):
+        return None
     units = str(attrs.get("units", ""))
     for unit, cf in CF_UNITS.items():
         if (
