@@ -28,7 +28,7 @@ import os
 import socket
 import subprocess
 import sys
-from collections.abc import Iterator, Mapping
+from collections.abc import Iterable, Iterator, Mapping
 from pathlib import Path
 
 import numpy as np
@@ -361,6 +361,36 @@ def test_failed_item_is_not_marked_and_resume_reruns_it(tmp_path: Path) -> None:
         output={"forecast": ZarrBackend(path)},
         progress=ProgressStore(tmp_path / "progress"),
         device="cpu",
+    ).run(items)
+    assert again.ran == []
+
+
+class _Rerunning(Pipeline):
+    """Run every item, then its first item once more, as found during the run."""
+
+    def run_items(self, items: Iterable[WorkItem], rank: int) -> None:
+        mine = list(items)
+        super().run_items(iter(mine + mine[:1]), rank)
+
+
+def test_run_items_can_add_items_found_during_the_run(
+    tmp_path: Path, info_log: list[str]
+) -> None:
+    items = work_items([T0, T1], H12)
+    runner = _Recording(_runner())
+    progress = ProgressStore(tmp_path / "progress")
+    store = KVBackend()
+    _Rerunning(runner, output={"forecast": store}, progress=progress, device="cpu").run(
+        items
+    )
+    assert runner.ran == [T0, T1, T0]
+    np.testing.assert_array_equal(store["u10m"][0, :, 0, 0], np.arange(3))
+    # an iterable without length is logged without a total
+    assert any("finished work item 3 (time" in message for message in info_log)
+    # the added run is marked done like the others, so a resume runs nothing
+    again = _Recording(_runner())
+    Pipeline(
+        again, output={"forecast": KVBackend()}, progress=progress, device="cpu"
     ).run(items)
     assert again.ran == []
 

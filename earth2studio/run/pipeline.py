@@ -29,7 +29,7 @@ import hashlib
 import json
 import os
 from collections import OrderedDict
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence, Sized
 from typing import Any, Protocol, TypeVar
 
 import numpy as np
@@ -291,10 +291,7 @@ class Pipeline:
         error: Exception | None = None
         try:
             if self.sync is None:
-                for index, item in enumerate(mine):
-                    self._run_item(item)
-                    self._mark_done(item)
-                    _log_finished(rank, index, mine)
+                self.run_items(mine, rank)
             else:
                 # Ranks with fewer items idle through the last round.
                 rounds = -(-len(remaining) // world_size)
@@ -309,6 +306,28 @@ class Pipeline:
             close_error = outputs.close()
             close_error = _close_progress(self.progress) or close_error
         raise_if_any_failed(error or close_error)
+
+    def run_items(self, items: Iterable[WorkItem], rank: int) -> None:
+        """Run this rank's items in order, marking each done once it finished.
+
+        Called by :meth:`run` on every rank, also on ranks without items, with
+        the rank's share of the items not yet done. Subclasses may override it,
+        e.g. to run items that become known only during the run, by passing
+        another iterable to ``super().run_items``. Not called with a ``sync``
+        hook, whose lockstep rounds need every rank's items up front.
+
+        Parameters
+        ----------
+        items : Iterable[WorkItem]
+            Items to run, each one of the items passed to :meth:`run`
+        rank : int
+            This process's rank
+        """
+        total = len(items) if isinstance(items, Sized) else None
+        for index, item in enumerate(items):
+            self._run_item(item)
+            self._mark_done(item)
+            _log_finished(rank, index, item, total)
 
     def _run_item(self, item: WorkItem) -> None:
         outputs = self._outputs
@@ -354,7 +373,7 @@ class Pipeline:
         _all_agree(lambda: sync(item))
         if item is not None:
             _all_agree(lambda: self._mark_done(item))
-            _log_finished(rank, index, mine)
+            _log_finished(rank, index, item, len(mine))
         else:
             _all_agree(lambda: None)
 
@@ -598,11 +617,11 @@ def _items_digest(items: Sequence[WorkItem]) -> str:
     return hashlib.sha256(json.dumps(payload).encode()).hexdigest()
 
 
-def _log_finished(rank: int, index: int, mine: list[WorkItem]) -> None:
-    item = mine[index]
+def _log_finished(rank: int, index: int, item: WorkItem, total: int | None) -> None:
     members = f", members {list(item.member_ids)}" if item.member_ids else ""
+    count = f"{index + 1}" if total is None else f"{index + 1}/{total}"
     logger.info(
-        f"Rank {rank}: finished work item {index + 1}/{len(mine)} "
+        f"Rank {rank}: finished work item {count} "
         f"(time {item.time}, final_lead_time {item.final_lead_time}{members})"
     )
 
