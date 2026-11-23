@@ -197,10 +197,10 @@ class BatchNetCDFBackend:
 class SeedRecorder:
     """Record the seed of every member as array ``random_seed`` of a store.
 
-    The array has dimensions ``(ensemble, time)``. A member that stayed
-    unstable in every attempt gets :data:`FAILED_SEED`. As a
+    The array has dimensions ``(ensemble, time)``. A member whose attempt was
+    unstable gets :data:`FAILED_SEED`, until a retry replaces it. As a
     :class:`~src.ensemble.runner.BatchObserver`, it writes the seeds of each
-    batch when the batch is done, so they are flushed with its fields.
+    attempt when the attempt is done, so they are flushed with its fields.
 
     Parameters
     ----------
@@ -250,7 +250,7 @@ class SeedRecorder:
         item : WorkItem
             The batch
         seed : int | None
-            Seed of the stable attempt, None if the batch failed
+            Seed of the attempt, None if it was unstable
         attempts : int
             Number of attempts made
         """
@@ -270,14 +270,14 @@ class SeedRecorder:
 
 
 class AttemptFlush:
-    """Wait for the writes of an attempt before the next one replaces them.
+    """Wait for the writes of an unstable attempt before NaN steps replace them.
 
-    A retry, and the NaN steps of a failed batch, write to the same store
-    positions as the attempt before. Stores that write in background threads,
-    like the Zarr store, do not order writes to the same chunk, so an earlier
-    write could land after its replacement. As a
-    :class:`~src.ensemble.runner.BatchObserver`, this flushes the store before
-    any attempt but the first of a batch, and before the NaN steps.
+    The NaN steps of a failed batch write to the same store positions as its
+    last attempt. Stores that write in background threads, like the Zarr store,
+    do not order writes to the same chunk, so an earlier write could land after
+    its replacement. As a :class:`~src.ensemble.runner.BatchObserver`, this
+    flushes the store once an attempt was unstable. A retry needs no flush, as
+    the pipeline flushes the store after every attempt.
 
     Parameters
     ----------
@@ -287,10 +287,9 @@ class AttemptFlush:
 
     def __init__(self, store: IOBackend) -> None:
         self.store = store
-        self._batch: WorkItem | None = None
 
     def attempt_started(self, item: WorkItem, attempt: int, seed: int) -> None:
-        """Flush before an attempt that replaces an earlier one of the batch.
+        """Nothing to flush before an attempt.
 
         Parameters
         ----------
@@ -301,19 +300,16 @@ class AttemptFlush:
         seed : int
             Seed of the attempt
         """
-        if self._batch == item:
-            self.store.flush()
-        self._batch = item
 
     def batch_finished(self, item: WorkItem, seed: int | None, attempts: int) -> None:
-        """Flush before the NaN steps of a failed batch.
+        """Flush once an attempt was unstable, before any NaN steps.
 
         Parameters
         ----------
         item : WorkItem
             The batch
         seed : int | None
-            Seed of the stable attempt, None if the batch failed
+            Seed of the attempt, None if it was unstable
         attempts : int
             Number of attempts made
         """
