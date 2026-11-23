@@ -453,6 +453,7 @@ categories:
         extra: derived
         summary: Derived diagnostic model dependencies.
         api_refs:
+          - earth2studio.models.dx.DerivedHDW
           - earth2studio.models.dx.DerivedRHDewpoint
           - earth2studio.models.dx.DerivedRH
           - earth2studio.models.dx.DerivedSurfacePressure
