@@ -59,7 +59,12 @@ def kill_group(pid: int, sig: int) -> None:
         pass
 
 
-def stop(process: subprocess.Popen, directory: Path, grace: float) -> None:
+def stop(
+    process: subprocess.Popen,
+    directory: Path,
+    grace: float,
+    live_nodeid: str | None = None,
+) -> bool:
     if process.poll() is None:
         if any(event["event"] == "ready" for event in events(directory)):
             try:
@@ -67,6 +72,19 @@ def stop(process: subprocess.Popen, directory: Path, grace: float) -> None:
             except ProcessLookupError:
                 pass
             time.sleep(min(grace, 0.1))
+        # The call can finish while its stack dump is being collected. Recheck
+        # before signalling so a stale live deadline does not kill teardown.
+        # File/global deadlines and shutdown cleanup remain unconditional.
+        if live_nodeid is not None and any(
+            event.get("nodeid") == live_nodeid
+            and (
+                event["event"] == "finished"
+                or (event["event"] == "report" and event["phase"] == "call")
+                or (event["event"] == "phase" and event["phase"] == "teardown")
+            )
+            for event in events(directory)
+        ):
+            return False
         kill_group(process.pid, signal.SIGTERM)
         try:
             process.wait(timeout=grace)
@@ -75,6 +93,7 @@ def stop(process: subprocess.Popen, directory: Path, grace: float) -> None:
     # Also remove descendants left behind by a normally exiting pytest process.
     kill_group(process.pid, signal.SIGKILL)
     process.wait()
+    return True
 
 
 def report(
@@ -351,7 +370,15 @@ def main() -> int:
                     elif live and time.monotonic() >= live["started"] + live["timeout"]:
                         reason = "LIVE TIMEOUT"
                 if code is not None or reason:
-                    stop(process, directory, args.grace)
+                    if not stop(
+                        process,
+                        directory,
+                        args.grace,
+                        live_nodeid=(
+                            live["nodeid"] if reason == "LIVE TIMEOUT" else None
+                        ),
+                    ):
+                        continue
                     if reason == "SHUTDOWN":
                         print(
                             f"Forced process cleanup after pytest completed: {file}",
