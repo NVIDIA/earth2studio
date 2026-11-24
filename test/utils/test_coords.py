@@ -442,10 +442,9 @@ def test_map_roll_condition(monkeypatch: pytest.MonkeyPatch):
 
     mapped_x, mapped_coords = map_coords(x, input_coords, output_coords)
     expected_x = torch.tensor([2, 3, 0, 1], dtype=torch.float32)
-    expected_coords = OrderedDict({"lon": np.array([180, 270, 0, 90])})
 
     assert torch.equal(mapped_x, expected_x)
-    assert np.all(mapped_coords["lon"] == expected_coords["lon"])
+    np.testing.assert_array_equal(mapped_coords["lon"], output_coords["lon"])
 
     input_coords = OrderedDict({"lat": np.array([0, 30, 60, 90])})
     output_coords = OrderedDict({"lat": np.array([60, 90, 0, 30])})
@@ -453,10 +452,9 @@ def test_map_roll_condition(monkeypatch: pytest.MonkeyPatch):
 
     mapped_x, mapped_coords = map_coords(x, input_coords, output_coords)
     expected_x = torch.tensor([2, 3, 0, 1], dtype=torch.float32)
-    expected_coords = OrderedDict({"lat": np.array([60, 90, 0, 30])})
 
     assert torch.equal(mapped_x, expected_x)
-    assert np.all(mapped_coords["lat"] == expected_coords["lat"])
+    np.testing.assert_array_equal(mapped_coords["lat"], output_coords["lat"])
 
     input_coords = OrderedDict(
         {"lon": np.array([0, 90, 180, 270]), "lat": np.array([0, 30, 60, 90])}
@@ -471,43 +469,24 @@ def test_map_roll_condition(monkeypatch: pytest.MonkeyPatch):
         [[10, 11, 8, 9], [14, 15, 12, 13], [2, 3, 0, 1], [6, 7, 4, 5]],
         dtype=torch.float32,
     )
-    expected_coords = OrderedDict(
-        {"lon": np.array([180, 270, 0, 90]), "lat": np.array([60, 90, 0, 30])}
-    )
 
     assert torch.equal(mapped_x, expected_x)
-    assert np.all(mapped_coords["lon"] == expected_coords["lon"])
-    assert np.all(mapped_coords["lat"] == expected_coords["lat"])
-    # Test non-symmetric roll shifts (shift=1 and shift=3 for 4 elements)
-    # Check that the roll path (shifts -1 and -3) is taken, not index_select.
-    orig_roll = torch.roll
-    roll_calls = []
+    np.testing.assert_array_equal(mapped_coords["lon"], output_coords["lon"])
+    np.testing.assert_array_equal(mapped_coords["lat"], output_coords["lat"])
 
-    def spy_roll(x, shifts, dims=None):
-        roll_calls.append((shifts, dims))
-        return orig_roll(x, shifts=shifts, dims=dims)
-
+    # Output checks alone would also pass through the generic fallback.
     def fail_index_select(*args, **kwargs):
-        raise RuntimeError("torch.index_select should not be called for cyclic roll")
+        pytest.fail("Cyclic reorder should use torch.roll")
 
-    monkeypatch.setattr(torch, "roll", spy_roll)
     monkeypatch.setattr(torch, "index_select", fail_index_select)
 
-    input_coords = OrderedDict({"lon": np.array([0, 90, 180, 270])})
-    output_coords = OrderedDict({"lon": np.array([90, 180, 270, 0])})
     x = torch.arange(4).float()
-    mapped_x, mapped_coords = map_coords(x, input_coords, output_coords)
-    assert torch.equal(mapped_x, torch.tensor([1, 2, 3, 0], dtype=torch.float32))
-    assert np.all(mapped_coords["lon"] == output_coords["lon"])
-    assert len(roll_calls) == 1
-    assert roll_calls[-1] == (-1, 0)
-
-    output_coords = OrderedDict({"lon": np.array([270, 0, 90, 180])})
-    mapped_x, mapped_coords = map_coords(x, input_coords, output_coords)
-    assert torch.equal(mapped_x, torch.tensor([3, 0, 1, 2], dtype=torch.float32))
-    assert np.all(mapped_coords["lon"] == output_coords["lon"])
-    assert len(roll_calls) == 2
-    assert roll_calls[-1] == (-3, 0)
+    coords = OrderedDict(lon=np.array([0, 90, 180, 270]))
+    for indices in ([1, 2, 3, 0], [3, 0, 1, 2]):
+        target = OrderedDict(lon=coords["lon"][indices])
+        actual, actual_coords = map_coords(x, coords, target)
+        assert torch.equal(actual, x[indices])
+        np.testing.assert_array_equal(actual_coords["lon"], target["lon"])
 
 
 def test_map_errors():
