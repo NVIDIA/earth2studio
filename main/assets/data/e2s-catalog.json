@@ -54,6 +54,7 @@
       "dataclass:simulation",
       "product:atmos",
       "product:ocean",
+      "product:solar",
       "provider:ncar"
     ],
     "chips": [
@@ -61,7 +62,8 @@
       "Numerical / AI Simulation",
       "NCAR",
       "Atmosphere",
-      "Ocean"
+      "Ocean",
+      "Solar"
     ],
     "filters": {
       "data class": [
@@ -71,7 +73,8 @@
       "gpu": [],
       "product": [
         "Atmosphere",
-        "Ocean"
+        "Ocean",
+        "Solar"
       ],
       "provider": [
         "NCAR"
@@ -86,7 +89,7 @@
     "signature": "CAMulatorForcing(mode: Literal['cyclic', 'transient'] = 'cyclic', forcing_file: str | None = None, leap_day: Literal['nearest', 'raise'] = 'nearest', cache: bool = True, verbose: bool = True)",
     "summary": "CAMulator prescribed forcing data source: TOA insolation (`mtdwswrf`), sea-surface temperature (`sst`), sea-ice fraction (`sic`) and CO2 volume mixing ratio (`global_mean_co2`, ppm) on the 1 degree CAMulator grid, as shipped with the CAMulator model on HuggingFace. Two records are available: a cyclic climatological year (default; every year of a rollout sees the same forcing) and the transient 1980-2014 record. Files are downloaded on demand and cached.",
     "title": "CAMulatorForcing",
-    "tone": "ocean",
+    "tone": "solar",
     "url": "../../../modules/generated/data/analysis/CAMulatorForcing"
   },
   {
@@ -5976,6 +5979,7 @@
       "product:precip",
       "product:temp",
       "product:atmos",
+      "product:solar",
       "year:2025",
       "gpu:24gb",
       "provider:ncar",
@@ -6003,7 +6007,8 @@
         "Surface Winds",
         "Surface Precipitation",
         "Surface Temperature",
-        "Atmosphere"
+        "Atmosphere",
+        "Solar"
       ],
       "provider": [
         "NCAR"
@@ -6018,9 +6023,9 @@
     "group": "Prognostic",
     "kind": "model",
     "signature": "CAMulator(core_model: torch.nn.Module, center: torch.Tensor, scale: torch.Tensor, forcing_center: torch.Tensor, forcing_scale: torch.Tensor, tracer_center: torch.Tensor, tracer_scale: torch.Tensor, statics: torch.Tensor, hyai: torch.Tensor, hybi: torch.Tensor, area: torch.Tensor, phis: torch.Tensor, forcing_data_source: DataSource | None = None, conservation_fixers: bool = True, wind_filter: bool = True)",
-    "summary": "CAMulator: NSF NCAR's autoregressive emulator of the CAM6 atmosphere, trained in the CREDIT framework. A CrossFormer encoder-decoder advances a 1 degree (192x288), 32 hybrid-sigma-level atmospheric state by 6 hours given prescribed sea-surface temperature, sea-ice fraction, TOA insolation and CO2 forcing, for climate-length rollouts. The inference-time post-processing of the CREDIT toolbox is reproduced: tracer clipping, the jet wind-artifact filter and the global dry-air mass, water and total-energy conservation fixers.",
+    "summary": "CAMulator global climate emulator prognostic model. Consists of a single CrossFormer model with a time-step size of 6 hours. CAMulator operates on the 1 degree (192x288) CESM finite-volume lat-lon grid with 130 prognostic variables on 32 hybrid sigma-pressure levels and 17 output-only diagnostics, driven by prescribed sea-surface temperature, sea-ice fraction, TOA insolation and CO2 forcing that callers supply at the input valid time.",
     "title": "CAMulator",
-    "tone": "precip",
+    "tone": "solar",
     "url": "../../../modules/generated/models/px/CAMulator"
   },
   {
