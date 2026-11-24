@@ -62,7 +62,12 @@ and no track files. The run takes one to two minutes, most of it loading the
 model.
 
 With several GPUs (`torchrun`), a retry runs on whichever rank is free, see
-the main README.
+the main README. How the ranks pass retries to each other is covered by unit
+tests, which need neither a GPU nor a model and run in seconds:
+
+```bash
+pytest test/test_schedule.py
+```
 
 ## Test 4: Extracting individual storms from historic data
 
