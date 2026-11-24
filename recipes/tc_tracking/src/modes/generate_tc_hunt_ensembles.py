@@ -358,6 +358,7 @@ def run_ensemble(cfg: DictConfig) -> None:
     progress_dir = os.path.join(cfg.store_dir, f"{cfg.project}_progress")
     seed = base_seed(cfg, progress_dir)
 
+    # to make sure tracker.close() runs even if the run fails
     with ExitStack() as cleanup:
         # cyclone tracking: the tracker's input fields become stream "tracking"
         tracker = None
