@@ -472,3 +472,18 @@ class EarthMoverERA5Lexicon(_EarthMoverLexiconBase):
         **PRESSURE_VARIABLES,
     }
     SPECS: dict[str, VariableSpec] = _build_specs(VOCAB)
+
+
+class EarthMoverCustomLexicon(_EarthMoverLexiconBase):
+    """Earthmover lexicon for custom Arraylake repositories.
+
+    Union of the Earthmover Marketplace lexicons. Where the same Earth2Studio
+    variable is defined by several of them, the ERA5 descriptor is used.
+    """
+
+    VOCAB: dict[str, str] = {
+        **EarthMoverIFSLexicon.VOCAB,
+        **EarthMoverIFSInitialConditionLexicon.VOCAB,
+        **EarthMoverERA5Lexicon.VOCAB,
+    }
+    SPECS: dict[str, VariableSpec] = _build_specs(VOCAB)

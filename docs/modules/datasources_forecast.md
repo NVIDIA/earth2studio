@@ -30,6 +30,7 @@ earth2studio.data.DynamicalIFS_ENS_FX
 earth2studio.data.DynamicalAIFS_FX
 earth2studio.data.DynamicalAIFSENS_FX
 earth2studio.data.EarthMoverBrightBandIFS_FX
+earth2studio.data.EarthMoverCustomRepo_FX
 earth2studio.data.GFS_FX
 earth2studio.data.GEFS_FX
 earth2studio.data.GEFS_FX_721x1440

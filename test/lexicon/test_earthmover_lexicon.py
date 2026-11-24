@@ -18,6 +18,7 @@ import numpy as np
 import pytest
 
 from earth2studio.lexicon import (
+    EarthMoverCustomLexicon,
     EarthMoverERA5Lexicon,
     EarthMoverIFSInitialConditionLexicon,
     EarthMoverIFSLexicon,
@@ -238,3 +239,19 @@ def test_earthmover_unit_conversions(variable, src_units, raw, expected):
 def test_earthmover_era5_unit_conversions(variable, src_units, raw, expected):
     spec = EarthMoverERA5Lexicon.spec(variable)
     np.testing.assert_allclose(make_modifier(spec, src_units)(raw), expected)
+
+
+def test_earthmover_custom_lexicon_is_union():
+    for lexicon in (
+        EarthMoverERA5Lexicon,
+        EarthMoverIFSInitialConditionLexicon,
+        EarthMoverIFSLexicon,
+    ):
+        assert set(lexicon.VOCAB) <= set(EarthMoverCustomLexicon.VOCAB)
+    # ERA5 descriptors take precedence for shared variables.
+    for variable, key in EarthMoverERA5Lexicon.VOCAB.items():
+        assert EarthMoverCustomLexicon.VOCAB[variable] == key
+    assert EarthMoverCustomLexicon.spec("t2m") == EarthMoverERA5Lexicon.spec("t2m")
+    # Variables only present in one preset are still available.
+    assert "pv500" in EarthMoverCustomLexicon.VOCAB
+    assert "sst" in EarthMoverCustomLexicon.VOCAB

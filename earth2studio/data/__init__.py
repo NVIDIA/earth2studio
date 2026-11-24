@@ -53,6 +53,8 @@ from .dynamical import (
 from .earthmover import (
     EarthMoverBrightBandIFS,
     EarthMoverBrightBandIFS_FX,
+    EarthMoverCustomRepo,
+    EarthMoverCustomRepo_FX,
     EarthMoverERA5,
 )
 from .ecmwf import AIFS_ENS_FX, AIFS_FX, IFS, IFS_ENS, IFS_ENS_FX, IFS_FX

@@ -26,6 +26,8 @@ import xarray as xr
 from earth2studio.data import (
     EarthMoverBrightBandIFS,
     EarthMoverBrightBandIFS_FX,
+    EarthMoverCustomRepo,
+    EarthMoverCustomRepo_FX,
     EarthMoverERA5,
 )
 from earth2studio.data.base import DataSource, ForecastSource
@@ -155,6 +157,27 @@ TEST_TIME = datetime(2022, 1, 1, 0)
 IFS_LIVE_TIME = (datetime.now(timezone.utc) - timedelta(days=1)).replace(
     hour=0, minute=0, second=0, microsecond=0, tzinfo=None
 )
+
+
+@pytest.mark.live(timeout=60)
+@pytest.mark.parametrize("variable", ["t2m", ["t2m", "msl", "z500"]])
+def test_earthmover_custom_repo_fetch(variable):
+    org = os.environ.get("EARTHMOVER_ORGANIZATION")
+    if not org:
+        pytest.skip("EARTHMOVER_ORGANIZATION is not set")
+    ds = EarthMoverCustomRepo(
+        f"{org}/era5-subscription",
+        group=["single/spatial", "pressure/spatial"],
+        cache=False,
+    )
+    data = ds(TEST_TIME, variable)
+
+    if isinstance(variable, str):
+        variable = [variable]
+
+    assert data.shape == (1, len(variable), 721, 1440)
+    assert not np.isnan(data.values).any()
+    assert np.array_equal(data.coords["variable"].values, np.array(variable))
 
 
 @pytest.mark.live(timeout=60)
@@ -699,3 +722,639 @@ class TestEarthMoverErrors:
             ds(datetime(2022, 1, 1), timedelta(hours=0), "q500")
         with pytest.raises(ValueError, match="not available"):
             ds(datetime(1999, 1, 1), timedelta(hours=0), "t2m")
+
+
+CUSTOM_TIMES = np.array(
+    ["1930-06-01T00:30:00", "1930-06-02T00:30:00"], dtype="datetime64[ns]"
+)
+
+
+def mock_earthmover_custom() -> dict[str | None, xr.Dataset]:
+    """Private repo with a layout and time axis that fit none of the presets."""
+    levels = np.array([850.0, 500.0])
+    coords = {"time": ("time", CUSTOM_TIMES), "lat": LAT, "lon": LON}
+    dims = ("time", "lat", "lon")
+    shape = (CUSTOM_TIMES.size, LAT.size, LON.size)
+    surface = xr.Dataset(
+        {
+            "tas": (dims, _grid(shape)),
+            "psl": (dims, _grid(shape) + 10.0),
+        },
+        coords=coords,
+    )
+    surface["tas"].attrs = {"standard_name": "air_temperature", "units": "degC"}
+    surface["psl"].attrs = {
+        "standard_name": "air_pressure_at_mean_sea_level",
+        "units": "Pa",
+    }
+    level_dims = ("time", "plev", "lat", "lon")
+    level_shape = (CUSTOM_TIMES.size, levels.size, LAT.size, LON.size)
+    upper = xr.Dataset(
+        {"hus": (level_dims, _grid(level_shape))},
+        coords={**coords, "plev": ("plev", levels)},
+    )
+    upper["plev"].attrs = {"standard_name": "air_pressure", "units": "hPa"}
+    upper["hus"].attrs = {"standard_name": "specific_humidity", "units": "kg kg-1"}
+    return {"daily/surface": surface, "daily/levels": upper, None: surface}
+
+
+class TestEarthMoverCustomRepo:
+    def test_constructor_signatures(self):
+        for cls in (EarthMoverCustomRepo, EarthMoverCustomRepo_FX):
+            assert list(inspect.signature(cls.__init__).parameters) == [
+                "self",
+                "repo",
+                "group",
+                "branch",
+                "preprocess",
+                "keep_extra_dims",
+                "client",
+                "cache",
+                "verbose",
+            ]
+
+    def test_protocols(self):
+        assert isinstance(EarthMoverCustomRepo("org/repo"), DataSource)
+        assert isinstance(EarthMoverCustomRepo_FX("org/repo"), ForecastSource)
+
+    def test_presets_are_not_custom_repos(self):
+        assert not issubclass(EarthMoverERA5, EarthMoverCustomRepo)
+        assert not issubclass(EarthMoverBrightBandIFS, EarthMoverCustomRepo)
+        assert not issubclass(EarthMoverBrightBandIFS_FX, EarthMoverCustomRepo_FX)
+
+    @pytest.mark.parametrize(
+        "group,variables",
+        [
+            (None, ["t2m", "msl"]),
+            ("daily/surface", ["t2m", "msl"]),
+            (["daily/surface", "daily/levels"], ["t2m", "msl", "q500"]),
+        ],
+    )
+    def test_custom_call_mock(self, patch_earthmover, group, variables):
+        patch_earthmover(mock_earthmover_custom())
+        ds = EarthMoverCustomRepo("my-org/private", group=group)
+
+        # Off-hour, pre-1940 timestamps: no dataset-specific time validation.
+        out = ds(datetime(1930, 6, 1, 0, 30), variables)
+
+        assert_analysis_data_array(out, variables)
+        # degC -> K unit conversion, rolled to 0..360 longitude.
+        assert float(
+            out.sel(variable="t2m").isel(time=0, lat=0, lon=0)
+        ) == pytest.approx(2.0 + 273.15)
+        if "q500" in variables:
+            assert float(out.sel(variable="q500").isel(time=0, lat=0, lon=0)) == (
+                LAT.size * LON.size + 2.0
+            )
+
+    def test_custom_group_is_explicit(self, patch_earthmover):
+        patch_earthmover(mock_earthmover_custom())
+        ds = EarthMoverCustomRepo("my-org/private", group="daily/surface")
+
+        with pytest.raises(ValueError, match="Could not resolve"):
+            ds(datetime(1930, 6, 1, 0, 30), "q500")
+
+    def test_custom_available(self, patch_earthmover):
+        patch_earthmover(mock_earthmover_custom())
+        ds = EarthMoverCustomRepo(
+            "my-org/private", group=["daily/surface", "daily/levels"]
+        )
+
+        assert ds.available(datetime(1930, 6, 1, 0, 30))
+        assert not ds.available(datetime(1930, 6, 1, 0))
+        with pytest.raises(ValueError, match="not available"):
+            ds(datetime(1930, 6, 1, 0), "t2m")
+
+    def test_custom_fx_call_mock(self, patch_earthmover):
+        patch_earthmover({"forecast": mock_earthmover_brightband_ifs_fx()})
+        variables = ["t2m", "msl"]
+        ds = EarthMoverCustomRepo_FX("my-org/private-fx", group="forecast")
+
+        out = ds(
+            datetime(2022, 1, 1),
+            [timedelta(hours=0), timedelta(hours=6)],
+            variables,
+        )
+
+        assert_forecast_data_array(out, variables, lead_time_count=2)
+        assert (
+            float(out.sel(variable="t2m").isel(time=0, lead_time=1, lat=0, lon=0))
+            == LAT.size * LON.size + 2.0
+        )
+
+    def test_custom_analysis_on_forecast_repo(self, patch_earthmover):
+        patch_earthmover(mock_earthmover_brightband_ifs_fx())
+        ds = EarthMoverCustomRepo("my-org/private-fx")
+
+        with pytest.raises(ValueError, match="EarthMoverCustomRepo_FX"):
+            ds(datetime(2022, 1, 1), "t2m")
+
+    def test_custom_forecast_on_analysis_repo(self, patch_earthmover):
+        patch_earthmover(mock_earthmover_custom())
+        ds = EarthMoverCustomRepo_FX("my-org/private", group="daily/surface")
+
+        with pytest.raises(ValueError, match="no lead-time/step dimension"):
+            ds(datetime(1930, 6, 1, 0, 30), timedelta(hours=0), "t2m")
+
+    def test_custom_forecast_on_scalar_step_coordinate(self, patch_earthmover):
+        store = mock_earthmover_custom()["daily/surface"].assign_coords(
+            step=np.timedelta64(0, "ns")
+        )
+        patch_earthmover(store)
+        variables = ["t2m", "msl"]
+
+        # A scalar step coordinate (common in cfgrib output) is not a lead axis.
+        out = EarthMoverCustomRepo("my-org/private")(
+            datetime(1930, 6, 1, 0, 30), variables
+        )
+        assert_analysis_data_array(out, variables)
+        with pytest.raises(ValueError, match="no lead-time/step dimension"):
+            EarthMoverCustomRepo_FX("my-org/private")(
+                datetime(1930, 6, 1, 0, 30), timedelta(hours=0), "t2m"
+            )
+
+    def test_preset_rejects_extra_dimension(self, patch_earthmover):
+        store = mock_earthmover_brightband_ifs().expand_dims(realization=[0, 1])
+        patch_earthmover(store)
+        ds = EarthMoverBrightBandIFS("vandelay-industries/ifs")
+
+        with pytest.raises(ValueError, match=r"unsupported dimension.*realization"):
+            ds(datetime(2022, 1, 1), "t2m")
+
+    def test_custom_has_no_named_grid(self):
+        assert EarthMoverCustomRepo("org/repo")._grid is None
+        assert EarthMoverCustomRepo_FX("org/repo")._grid is None
+        for preset in (
+            EarthMoverERA5,
+            EarthMoverBrightBandIFS,
+            EarthMoverBrightBandIFS_FX,
+        ):
+            assert preset("org/repo")._grid == "latlon-0.25deg"
+
+
+def mock_earthmover_cmip(calendar: str | None = None) -> dict[str | None, xr.Dataset]:
+    """CMIP-style repo: non-GRIB names, height coordinates, ensemble members."""
+    members = np.array(["r1i1p1f1", "r2i1p1f1"])
+    if calendar is None:
+        times = CUSTOM_TIMES
+    else:
+        times = xr.date_range(
+            "2050-07-01 12:00", periods=2, freq="D", calendar=calendar, use_cftime=True
+        )
+    coords = {
+        "time": ("time", times),
+        "realization": ("realization", members),
+        "lat": LAT,
+        "lon": LON,
+    }
+    member_dims = ("time", "realization", "lat", "lon")
+    member_shape = (len(times), members.size, LAT.size, LON.size)
+    height_dims = ("time", "realization", "height", "lat", "lon")
+    height_shape = (len(times), members.size, 2, LAT.size, LON.size)
+    ds = xr.Dataset(
+        {
+            "tas": (member_dims, _grid(member_shape)),
+            # Winds on a height dimension: 10 m and 100 m.
+            "ua": (height_dims, _grid(height_shape)),
+            "psl": (("time", "lat", "lon"), _grid((len(times), LAT.size, LON.size))),
+        },
+        coords={**coords, "height": ("height", np.array([10.0, 100.0]))},
+    )
+    ds["tas"].attrs = {"standard_name": "air_temperature", "units": "K"}
+    ds["ua"].attrs = {"units": "m s-1"}
+    ds["psl"].attrs = {
+        "standard_name": "air_pressure_at_mean_sea_level",
+        "units": "Pa",
+    }
+    return {"daily": ds}
+
+
+def _first_member(ds: xr.Dataset) -> xr.Dataset:
+    return ds.isel(realization=0)
+
+
+CELL = {"time": 0, "lat": 0, "lon": 0}
+# Value at CELL of ``_grid`` data for the first time (lon=0 is stored index 2).
+CELL_VALUE = 2.0
+GRID_SIZE = LAT.size * LON.size
+
+
+class TestEarthMoverCustomRepoFeatures:
+    T0 = datetime(1930, 6, 1, 0, 30)
+
+    def test_extra_dimension_requires_opt_in(self, patch_earthmover):
+        patch_earthmover(mock_earthmover_cmip())
+        ds = EarthMoverCustomRepo("my-org/cmip", group="daily")
+
+        with pytest.raises(
+            ValueError, match=r"unsupported dimension.*realization.*keep_extra_dims"
+        ):
+            ds(self.T0, "t2m")
+
+    def test_extra_dimension_is_kept_and_broadcast(self, patch_earthmover):
+        store = mock_earthmover_cmip()
+        patch_earthmover(store)
+        ds = EarthMoverCustomRepo("my-org/cmip", group="daily", keep_extra_dims=True)
+
+        out = ds(self.T0, ["t2m", "msl"])
+
+        assert list(out.dims) == ["time", "realization", "variable", "lat", "lon"]
+        assert out.shape == (1, 2, 2, LAT.size, LON.size)
+        assert list(out.realization.values) == ["r1i1p1f1", "r2i1p1f1"]
+        t2m = out.sel(variable="t2m")
+        assert float(t2m.isel(realization=0, **CELL)) == CELL_VALUE
+        assert float(t2m.isel(realization=1, **CELL)) == CELL_VALUE + GRID_SIZE
+        # msl has no realization dimension and is broadcast along it.
+        msl = out.sel(variable="msl")
+        np.testing.assert_array_equal(
+            msl.isel(realization=0).values, msl.isel(realization=1).values
+        )
+        np.testing.assert_allclose(out.lon.values, E2S_LON)
+
+    def test_extra_dimension_forecast(self, patch_earthmover):
+        store = mock_earthmover_brightband_ifs_fx().expand_dims(number=[0, 1, 2])
+        patch_earthmover(store)
+        ds = EarthMoverCustomRepo_FX("my-org/fx", keep_extra_dims=True)
+
+        out = ds(datetime(2022, 1, 1), [timedelta(hours=0), timedelta(hours=6)], "t2m")
+
+        assert list(out.dims) == [
+            "time",
+            "lead_time",
+            "number",
+            "variable",
+            "lat",
+            "lon",
+        ]
+        assert out.shape == (1, 2, 3, 1, LAT.size, LON.size)
+
+    def test_single_member_is_not_broadcast_over_other_members(self, patch_earthmover):
+        base = mock_earthmover_custom()["daily/surface"]
+        one = base[["tas"]].expand_dims(number=[0])
+        three = base[["psl"]].expand_dims(number=[0, 1, 2])
+        patch_earthmover({"a": one, "b": three})
+        ds = EarthMoverCustomRepo(
+            "my-org/private", group=["a", "b"], keep_extra_dims=True
+        )
+
+        with pytest.raises(ValueError, match="do not share the same coordinates"):
+            ds(self.T0, ["t2m", "msl"])
+        # Without keeping extra dimensions the single member is dropped.
+        patch_earthmover(one)
+        out = EarthMoverCustomRepo("my-org/private")(self.T0, ["t2m"])
+        assert_analysis_data_array(out, ["t2m"])
+
+    def test_preprocess_selects_member(self, patch_earthmover):
+        patch_earthmover(mock_earthmover_cmip())
+        ds = EarthMoverCustomRepo(
+            "my-org/cmip",
+            group="daily",
+            preprocess=lambda ds: ds.sel(realization="r2i1p1f1"),
+        )
+
+        out = ds(self.T0, ["t2m", "msl"])
+
+        assert_analysis_data_array(out, ["t2m", "msl"])
+        assert float(out.sel(variable="t2m").isel(CELL)) == CELL_VALUE + GRID_SIZE
+
+    def test_preprocess_must_return_dataset(self, patch_earthmover):
+        patch_earthmover(mock_earthmover_cmip())
+        ds = EarthMoverCustomRepo(
+            "my-org/cmip", group="daily", preprocess=lambda ds: ds["tas"]
+        )
+
+        with pytest.raises(TypeError, match="must return an xarray.Dataset"):
+            ds(self.T0, "t2m")
+
+    def test_preprocess_is_lazy(self, patch_earthmover):
+        pytest.importorskip("dask")
+        store = mock_earthmover_cmip()["daily"].chunk({"time": 1})
+        patch_earthmover(store)
+        calls = []
+
+        def preprocess(ds: xr.Dataset) -> xr.Dataset:
+            calls.append(ds)
+            assert ds["tas"].chunks is not None
+            return _first_member(ds)
+
+        ds = EarthMoverCustomRepo("my-org/cmip", preprocess=preprocess)
+        out = ds(self.T0, ["t2m", "msl"])
+        ds(self.T0, ["t2m"])
+
+        assert len(calls) == 1
+        assert_analysis_data_array(out, ["t2m", "msl"])
+        assert float(out.sel(variable="t2m").isel(CELL)) == CELL_VALUE
+
+    def test_height_from_variable_id(self, patch_earthmover):
+        # CMIP6 style near-surface wind with a scalar 10 m height coordinate.
+        store = mock_earthmover_custom()["daily/surface"][["tas"]]
+        store = store.rename({"tas": "uas"}).assign_coords(height=10.0)
+        store["height"].attrs = {"standard_name": "height", "units": "m"}
+        store["uas"].attrs = {"standard_name": "eastward_wind", "units": "m s-1"}
+        patch_earthmover(store)
+        ds = EarthMoverCustomRepo("my-org/cmip")
+
+        # It is the 10 m wind only, although standard_name also fits u100m.
+        out = ds(self.T0, ["u10m"])
+        assert float(out.isel(variable=0, **CELL)) == CELL_VALUE
+        with pytest.raises(ValueError, match="Could not resolve.*preprocess"):
+            ds(self.T0, "u100m")
+        # Naming the variable is the explicit override.
+        ds = EarthMoverCustomRepo(
+            "my-org/cmip", preprocess=lambda ds: ds.rename({"uas": "u100m"})
+        )
+        assert_analysis_data_array(ds(self.T0, ["u100m"]), ["u100m"])
+
+    def test_height_dimension_is_selected(self, patch_earthmover):
+        store = mock_earthmover_cmip()["daily"]
+        store["ua"].attrs["standard_name"] = "eastward_wind"
+        patch_earthmover(store)
+        ds = EarthMoverCustomRepo("my-org/cmip", preprocess=_first_member)
+
+        out = ds(self.T0, ["u10m", "u100m"])
+
+        assert_analysis_data_array(out, ["u10m", "u100m"])
+        u10 = float(out.sel(variable="u10m").isel(CELL))
+        u100 = float(out.sel(variable="u100m").isel(CELL))
+        assert (u10, u100) == (CELL_VALUE, CELL_VALUE + GRID_SIZE)
+
+    def test_variable_named_like_the_request(self, patch_earthmover):
+        patch_earthmover(mock_earthmover_cmip())
+
+        def preprocess(ds: xr.Dataset) -> xr.Dataset:
+            ds = _first_member(ds)
+            return ds.assign(
+                u100m=ds["ua"].sel(height=100.0), my_pressure=ds["psl"] / 100.0
+            )
+
+        ds = EarthMoverCustomRepo("my-org/cmip", group="daily", preprocess=preprocess)
+        variables = ["u100m", "my_pressure", "t2m"]
+
+        out = ds(self.T0, variables)
+
+        assert_analysis_data_array(out, variables)
+        assert float(out.sel(variable="u100m").isel(CELL)) == CELL_VALUE + GRID_SIZE
+        assert float(out.sel(variable="my_pressure").isel(CELL)) == pytest.approx(
+            CELL_VALUE / 100.0
+        )
+
+    def test_named_variable_takes_precedence_and_converts_units(self, patch_earthmover):
+        store = mock_earthmover_custom()["daily/surface"]
+        store = store.assign(t2m=store["psl"])
+        store["t2m"].attrs = {"units": "degC"}
+        patch_earthmover(store)
+
+        out = EarthMoverCustomRepo("my-org/private")(self.T0, ["t2m"])
+
+        # ``t2m`` wins over ``tas`` (standard_name) and is converted to K.
+        assert float(out.isel(variable=0, **CELL)) == pytest.approx(
+            CELL_VALUE + 10.0 + 273.15
+        )
+
+    def test_named_variable_pressure_level(self, patch_earthmover):
+        store = mock_earthmover_custom()["daily/levels"].rename({"hus": "q500"})
+        store["q500"].attrs = {"units": "kg kg-1"}
+        patch_earthmover(store)
+
+        out = EarthMoverCustomRepo("my-org/private")(self.T0, ["q500"])
+
+        assert float(out.isel(variable=0, **CELL)) == CELL_VALUE + GRID_SIZE
+
+    def test_named_variable_errors(self, patch_earthmover):
+        store = mock_earthmover_cmip()
+        patch_earthmover(store)
+        ds = EarthMoverCustomRepo(
+            "my-org/cmip", group="daily", preprocess=_first_member
+        )
+        with pytest.raises(
+            ValueError, match=r"'ua' .* several levels along \['height'\]"
+        ):
+            ds(self.T0, "ua")
+        with pytest.raises(ValueError, match="not a known Earth2Studio variable.*name"):
+            ds(self.T0, "nope")
+
+        patch_earthmover({"a": store["daily"], "b": store["daily"]})
+        ds = EarthMoverCustomRepo(
+            "my-org/cmip", group=["a", "b"], preprocess=_first_member
+        )
+        with pytest.raises(ValueError, match="'tas' exists in 2 groups"):
+            ds(self.T0, "tas")
+
+    def test_presets_ignore_variable_names(self, patch_earthmover):
+        store = mock_earthmover_brightband_ifs()
+        store = store.assign(fdir=store["msl"])
+        patch_earthmover(store)
+        ds = EarthMoverBrightBandIFS("vandelay-industries/ifs")
+
+        with pytest.raises(ValueError, match="not a known Earth2Studio variable"):
+            ds(datetime(2022, 1, 1), "fdir")
+
+    @pytest.mark.parametrize(
+        "calendar,kwargs", [("noleap", {}), ("360_day", {"align_on": "date"})]
+    )
+    def test_cftime_calendar(self, patch_earthmover, calendar, kwargs):
+        pytest.importorskip("cftime")
+        patch_earthmover(mock_earthmover_cmip(calendar))
+
+        ds = EarthMoverCustomRepo(
+            "my-org/cmip", group="daily", preprocess=_first_member
+        )
+        with pytest.raises(ValueError, match="not datetime64.*convert_calendar"):
+            ds(datetime(2050, 7, 1, 12), "t2m")
+
+        ds = EarthMoverCustomRepo(
+            "my-org/cmip",
+            group="daily",
+            preprocess=lambda ds: _first_member(ds).convert_calendar(
+                "standard", use_cftime=False, **kwargs
+            ),
+        )
+        out = ds(datetime(2050, 7, 1, 12), ["t2m", "msl"])
+        assert_analysis_data_array(out, ["t2m", "msl"])
+        assert out.time.dtype == np.dtype("datetime64[ns]")
+
+    def test_group_without_time_dimension(self, patch_earthmover):
+        store = mock_earthmover_custom()
+        static = xr.Dataset(
+            {"land_mask": (("lat", "lon"), _grid((LAT.size, LON.size)))},
+            coords={"lat": LAT, "lon": LON},
+        )
+        store["static"] = static
+        patch_earthmover(store)
+        ds = EarthMoverCustomRepo("my-org/private", group=["daily/surface", "static"])
+
+        assert ds.available(self.T0)
+        assert_analysis_data_array(ds(self.T0, ["t2m"]), ["t2m"])
+        with pytest.raises(ValueError, match="no recognizable time coordinate"):
+            ds(self.T0, "land_mask")
+
+        ds = EarthMoverCustomRepo("my-org/private", group="static")
+        assert not ds.available(self.T0)
+        with pytest.raises(ValueError, match="no recognizable time coordinate"):
+            ds(self.T0, "land_mask")
+
+    def test_groups_on_different_grids(self, patch_earthmover):
+        store = mock_earthmover_custom()
+        store["daily/levels"] = store["daily/levels"].isel(lat=slice(0, 5))
+        patch_earthmover(store)
+        ds = EarthMoverCustomRepo(
+            "my-org/private", group=["daily/surface", "daily/levels"]
+        )
+
+        with pytest.raises(ValueError, match="do not share the same coordinates"):
+            ds(self.T0, ["t2m", "q500"])
+
+    def test_groups_with_reordered_coordinates(self, patch_earthmover):
+        store = mock_earthmover_custom()
+        store["daily/levels"] = store["daily/levels"].isel(lat=slice(None, None, -1))
+        patch_earthmover(store)
+        ds = EarthMoverCustomRepo(
+            "my-org/private", group=["daily/surface", "daily/levels"]
+        )
+
+        out = ds(self.T0, ["t2m", "q500"])
+
+        assert_analysis_data_array(out, ["t2m", "q500"])
+        np.testing.assert_array_equal(out.lat.values, LAT)
+        assert float(out.sel(variable="q500").isel(CELL)) == CELL_VALUE + GRID_SIZE
+
+    def test_empty_group_list(self):
+        with pytest.raises(ValueError, match="at least one group"):
+            EarthMoverCustomRepo("my-org/private", group=[])
+
+    @pytest.mark.parametrize(
+        "lon,expected,order",
+        [
+            # Global, odd number of points.
+            (
+                [-180.0, -108.0, -36.0, 36.0, 108.0],
+                [36.0, 108.0, 180.0, 252.0, 324.0],
+                [3, 4, 0, 1, 2],
+            ),
+            # Global, cell centred.
+            ([-135.0, -45.0, 45.0, 135.0], [45.0, 135.0, 225.0, 315.0], [2, 3, 0, 1]),
+            # Global, stored zero carrying float noise.
+            ([-180.0, -90.0, -1e-11, 90.0], [0.0, 90.0, 180.0, 270.0], [2, 3, 0, 1]),
+            # Regional, crossing the prime meridian: stays contiguous.
+            ([-20.0, -10.0, 0.0, 10.0], [340.0, 350.0, 0.0, 10.0], [0, 1, 2, 3]),
+            # Already 0..360.
+            ([0.0, 90.0, 180.0, 270.0], [0.0, 90.0, 180.0, 270.0], [0, 1, 2, 3]),
+        ],
+    )
+    @pytest.mark.parametrize("dtype", ["float64", "float32"])
+    def test_longitude_convention(self, patch_earthmover, lon, expected, order, dtype):
+        base = mock_earthmover_custom()["daily/surface"]
+        size = len(lon)
+        columns = np.arange(size, dtype="float32")
+        data = np.broadcast_to(columns, (CUSTOM_TIMES.size, LAT.size, size)).copy()
+        store = xr.Dataset(
+            {
+                "tas": (
+                    ("time", "lat", "lon"),
+                    data,
+                    {"units": "K", **base["tas"].attrs},
+                )
+            },
+            coords={
+                "time": base["time"],
+                "lat": LAT,
+                "lon": np.array(lon, dtype=dtype),
+            },
+        )
+        store["tas"].attrs["units"] = "K"
+        patch_earthmover(store)
+
+        out = EarthMoverCustomRepo("my-org/private")(self.T0, ["t2m"])
+
+        np.testing.assert_allclose(out.lon.values, expected, atol=1e-5)
+        assert out.lon.dtype == np.dtype(dtype)
+        # Each output column holds the stored column it is labelled as.
+        np.testing.assert_array_equal(out.isel(time=0, variable=0, lat=0).values, order)
+
+    def test_grid_checked_on_connect(self, patch_earthmover):
+        base = mock_earthmover_custom()["daily/surface"]
+        shuffled = base.isel(lat=[0, 2, 1, 3, 4, 5, 6, 7, 8])
+        patch_earthmover(shuffled)
+        ds = EarthMoverCustomRepo("my-org/private")
+        with pytest.raises(ValueError, match="'lat' is not strictly monotonic"):
+            ds(self.T0, "t2m")
+
+        lat2d = np.broadcast_to(LAT[:, None], (LAT.size, LON.size))
+        projected = base.rename({"lat": "y"}).assign_coords(lat=(("y", "lon"), lat2d))
+        patch_earthmover(projected)
+        ds = EarthMoverCustomRepo("my-org/private")
+        with pytest.raises(ValueError, match="coordinate 'lat' is 2-D"):
+            ds(self.T0, "t2m")
+
+    def test_undecoded_lead_time(self, patch_earthmover):
+        store = mock_earthmover_brightband_ifs_fx().assign_coords(step=[0, 6, 12])
+        patch_earthmover(store)
+
+        with pytest.raises(ValueError, match="'step' has dtype int64, not timedelta64"):
+            EarthMoverCustomRepo_FX("my-org/fx")(
+                datetime(2022, 1, 1), timedelta(hours=6), "t2m"
+            )
+
+    def test_single_nonzero_lead_is_not_analysis(self, patch_earthmover):
+        store = mock_earthmover_brightband_ifs_fx().isel(step=[1])
+        patch_earthmover(store)
+
+        with pytest.raises(ValueError, match="EarthMoverCustomRepo_FX"):
+            EarthMoverCustomRepo("my-org/fx")(datetime(2022, 1, 1), "t2m")
+        with pytest.raises(ValueError, match="EarthMoverCustomRepo_FX"):
+            EarthMoverBrightBandIFS("my-org/fx")(datetime(2022, 1, 1), "t2m")
+
+    def test_forecast_lead_time_errors(self, patch_earthmover):
+        store = mock_earthmover_brightband_ifs_fx()
+        store["surface_pressure"] = store["msl"].isel(step=0, drop=True)
+        patch_earthmover(store)
+        ds = EarthMoverCustomRepo_FX("my-org/fx")
+
+        assert ds.available(datetime(2022, 1, 1))
+        with pytest.raises(ValueError, match="lead times not available"):
+            ds(datetime(2022, 1, 1), timedelta(hours=7), "t2m")
+        with pytest.raises(
+            ValueError, match="'surface_pressure' has no lead-time/step dimension"
+        ):
+            ds(datetime(2022, 1, 1), timedelta(hours=0), "surface_pressure")
+
+    def test_reserved_dimension_name(self, patch_earthmover):
+        store = mock_earthmover_custom()["daily/surface"].expand_dims(variable=[0, 1])
+        patch_earthmover(store)
+        ds = EarthMoverCustomRepo("my-org/private", keep_extra_dims=True)
+
+        with pytest.raises(ValueError, match="dimension named 'variable'"):
+            ds(self.T0, "t2m")
+
+    def test_valid_time_auxiliary_coordinate(self, patch_earthmover):
+        store = mock_earthmover_brightband_ifs().rename({"valid_time": "time"})
+        patch_earthmover(store)
+        ds = EarthMoverCustomRepo_FX("my-org/fx")
+
+        out = ds(datetime(2022, 1, 1), timedelta(hours=0), ["t2m", "msl"])
+
+        assert_forecast_data_array(out, ["t2m", "msl"], lead_time_count=1)
+
+    @pytest.mark.asyncio
+    async def test_async_fetch(self, patch_earthmover):
+        patch_earthmover(mock_earthmover_custom())
+        ds = EarthMoverCustomRepo("my-org/private", group="daily/surface")
+
+        out = await ds.fetch(self.T0, ["t2m", "msl"])
+
+        assert_analysis_data_array(out, ["t2m", "msl"])
+
+    def test_fetch_data(self, patch_earthmover):
+        from earth2studio.data import fetch_data
+
+        store = mock_earthmover_brightband_ifs_fx()
+        patch_earthmover(store)
+        variables = np.array(["t2m", "msl"])
+        times = np.array([np.datetime64("2022-01-01T00:00")])
+        leads = np.array([np.timedelta64(0, "h"), np.timedelta64(6, "h")])
+
+        out = fetch_data(EarthMoverCustomRepo_FX("my-org/fx"), times, variables, leads)
+
+        assert out.shape == (1, 2, 2, LAT.size, LON.size)
+        expected = store["msl"].isel(time=0, step=1).roll(longitude=-2).values
+        np.testing.assert_array_equal(np.asarray(out[0, 1, 1]), expected)
