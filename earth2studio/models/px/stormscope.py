@@ -1052,6 +1052,8 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         # all others use the affine (x-mean)/std. Invalid mean/std channels are
         # filled with _INPUT_INVALID_FILL_CONSTANT (0.0 by default); GLM channels
         # use log1p(0)=0.
+        if self._is_flash and self._REGISTRY_KEY == "goes":
+            x = torch.where(torch.isnan(x), 0.0, x)
         x_norm = self._normalize_state(x)
         if self._is_flash and self._REGISTRY_KEY == "goes":
             from earth2studio.models.nn.stormscope_flash import prepare_flash_goes_state

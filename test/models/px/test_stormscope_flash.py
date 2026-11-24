@@ -922,6 +922,56 @@ def test_stormscope_flash_normalization(cls, is_flash, fill_nan):
     assert model.normalize_conditioning(None) is None
 
 
+@pytest.mark.parametrize("missing_case", ["complete", "missing_band", "isolated_nan"])
+def test_flash_goes_nan_input(missing_case, monkeypatch):
+    model = _domain_wrapper(StormScopeGOES).with_region(Region.box(-110, 36, -108, 38))
+    model.means.fill_(10.0)
+    model.stds.fill_(2.0)
+    model.valid_mask[0, 0] = False
+    state, coords = _state(model, 12.0).e2s.to_torch()
+    expected = torch.ones(1, 6, *model.latitudes.shape)
+    if missing_case == "missing_band":
+        state[:, :, 0, 0] = torch.nan
+        expected[:, 0] = -5.0
+    elif missing_case == "isolated_nan":
+        state[0, 0, 0, 0, 2, 3] = torch.nan
+        expected[0, 0, 2, 3] = -5.0
+    expected[..., 0, 0] = 0.0
+    original = state.clone()
+
+    def sample(wrapper, latents, condition):
+        torch.testing.assert_close(condition[:, :6], expected)
+        torch.testing.assert_close(
+            wrapper.stage_models[0].model.mask, ~model.valid_mask[None]
+        )
+        return torch.zeros_like(latents)
+
+    monkeypatch.setattr(stormscope_flash, "sample_flash", sample)
+    result = model._forward_tensor(state, coords)
+    assert torch.all(result[..., model.valid_mask] == 10.0)
+    assert torch.isnan(result[..., 0, 0]).all()
+    torch.testing.assert_close(state, original, equal_nan=True)
+
+
+@pytest.mark.parametrize(
+    "cls,is_flash,bad_value",
+    [
+        (StormScopeGOES, False, torch.nan),
+        (StormScopeMRMS, False, torch.nan),
+        (StormScopeMRMS, True, torch.nan),
+        (StormScopeGOES, True, torch.inf),
+    ],
+)
+def test_stormscope_rejects_nonfinite_input(cls, is_flash, bad_value):
+    model = _domain_wrapper(cls, is_flash=is_flash)
+    state, coords = _state(model, 1.0).e2s.to_torch()
+    state[:, :, 0, 0] = bad_value
+    original = state.clone()
+    with pytest.raises(ValueError, match="Non-finite values found"):
+        model._forward_tensor(state, coords)
+    torch.testing.assert_close(state, original, equal_nan=True)
+
+
 def test_stormscope_flash_goes_missing_values():
     # Flash GOES zero-fills missing pixels and masks their tokens instead.
     class MaskModel:
