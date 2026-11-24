@@ -14,20 +14,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import annotations
+
 from dataclasses import dataclass
 from typing import Any
 
 import numpy as np
 import torch
+import xarray as xr
 from typing_extensions import Self
 
+from earth2studio.models.utils import fork_rng
 from earth2studio.utils import handshake_dim
 from earth2studio.utils.checkpoint import bind_checkpoint_state
+from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
-from earth2studio.utils.type import CoordSystem
 
 try:
     from torch_harmonics import InverseRealSHT
@@ -63,42 +67,57 @@ class Gaussian:
         )
         self.generator: torch.Generator | None = None
         self.seed = seed
+        self._reseeded = False
         self.checkpoint = bind_checkpoint_state(_GaussianCheckpointState())
 
+    def set_rng(self, seed: int, reset: bool = True) -> None:
+        """Initialize or reset the perturbation's isolated random stream.
+
+        Parameters
+        ----------
+        seed : int
+            Seed for the noise draws
+        reset : bool, optional
+            Reset an existing stream, by default True. If False, an already
+            seeded stream is kept.
+        """
+        if reset or (self.seed is None and self.generator is None):
+            self.seed = seed
+            self.generator = None
+            # A reseed restarts the stream, even over a loaded checkpoint state.
+            self._reseeded = True
+
     @torch.inference_mode()
-    def __call__(
-        self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+    def __call__(self, x: xr.DataArray) -> xr.DataArray:
         """Apply perturbation method
 
         Parameters
         ----------
-        x : torch.Tensor
-            Input tensor intended to apply perturbation on
-        coords : CoordSystem
-            Ordered dict representing coordinate system that describes the tensor
+        x : xr.DataArray
+            xarray DataArray intended to apply perturbation on
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]:
-            Output tensor and respective coordinate system dictionary
+        xr.DataArray
+            Perturbed DataArray with the coordinates of the input
         """
-        generator = self._get_generator(x.device)
+        # Torch generator is used for seeding and checkpointing the noise stream
+        tensor, _ = x.e2s.to_torch()
+        generator = self._get_generator(tensor.device)
         pre_state = generator.get_state()
-        noise_amplitude = self.noise_amplitude.to(x.device)
-        y = x + noise_amplitude * torch.randn(
-            x.shape, dtype=x.dtype, device=x.device, generator=generator
+        noise_amplitude = self.noise_amplitude.to(tensor.device)
+        y = tensor + noise_amplitude * torch.randn(
+            tensor.shape, dtype=tensor.dtype, device=tensor.device, generator=generator
         )
         self._save_generator_state(pre_state, generator.get_state(), generator)
-        return y, coords
+        return from_torch(y, x)
 
     def _get_generator(self, device: torch.device) -> torch.Generator:
         if self.generator is None or self.generator.device != device:
             self.generator = torch.Generator(device=device)
             if (
-                self.checkpoint.checkpoint_state_loaded
+                not self._reseeded
+                and self.checkpoint.checkpoint_state_loaded
                 and self.checkpoint.generator_state is not None
             ):
                 self.generator.set_state(self.checkpoint.generator_state.cpu())
@@ -149,6 +168,11 @@ class CorrelatedSphericalGaussian:
     time_scale : float, optional
         Temporal correlation scale in hours for the AR(1) process, by default 48.0
 
+    Note
+    ----
+    Draws from the global Torch RNG until :meth:`set_rng` seeds it, after which
+    draws come from an isolated stream that leaves global RNG state untouched.
+
     Raises
     ------
     ValueError
@@ -172,60 +196,75 @@ class CorrelatedSphericalGaussian:
             if isinstance(noise_amplitude, torch.Tensor)
             else torch.Tensor([noise_amplitude])
         )
+        self._seed: int | None = None
+        self._rng_states: dict[str, torch.Tensor] = {}
+
+    def set_rng(self, seed: int, reset: bool = True) -> None:
+        """Initialize or reset the perturbation's isolated random stream.
+
+        Parameters
+        ----------
+        seed : int
+            Seed for the noise draws
+        reset : bool, optional
+            Reset an existing stream, by default True. If False, an already
+            seeded stream is kept.
+        """
+        if reset or self._seed is None:
+            self._seed = seed
+            self._rng_states = {}
 
     @torch.inference_mode()
-    def __call__(
-        self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+    def __call__(self, x: xr.DataArray) -> xr.DataArray:
         """Apply perturbation method
 
         Parameters
         ----------
-        x : torch.Tensor
-            Input tensor intended to apply perturbation on
-        coords : CoordSystem
-            Ordered dict representing coordinate system that describes the tensor, must
-            contain "lat" and "lon" coordinates
+        x : xr.DataArray
+            xarray DataArray intended to apply perturbation on, must contain "lat" and
+            "lon" dimensions in the last two dims
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]:
-            Output tensor and respective coordinate system dictionary
+        xr.DataArray
+            Perturbed DataArray with the coordinates of the input
         """
-        shape = x.shape
         # Check the required dimensions are present
-        handshake_dim(coords, required_dim="lat", required_index=-2)
-        handshake_dim(coords, required_dim="lon", required_index=-1)
+        handshake_dim(x, required_dim="lat", required_index=-2)
+        handshake_dim(x, required_dim="lon", required_index=-1)
+
+        # Spherical harmonic transform requires torch
+        tensor, _ = x.e2s.to_torch()
+        shape = tensor.shape
 
         # Check the ratio
         if 2 * (shape[-2] // 2) != shape[-1] / 2:
             raise ValueError("Lat/lon aspect ration must be N:2N or N+1:2N")
 
         nlat = 2 * (shape[-2] // 2)  # Noise only support even lat count
-        sampler = CorrelatedSphericalField(
-            nlat=nlat,
-            length_scale=self.length_scale,
-            time_scale=self.time_scale,
-            sigma=self.sigma,
-            N=np.prod(shape[1:-2], dtype=int),
-        )
-        sampler = sampler.to(x.device)
-
-        sample_noise = sampler(x, None)
+        # The sampler draws its initial coefficients on construction
+        with fork_rng(self._seed, tensor.device, self._rng_states):
+            sampler = CorrelatedSphericalField(
+                nlat=nlat,
+                length_scale=self.length_scale,
+                time_scale=self.time_scale,
+                sigma=self.sigma,
+                N=np.prod(shape[1:-2], dtype=int),
+            )
+            sampler = sampler.to(tensor.device)
+            sample_noise = sampler(tensor, None)
         sample_noise = sample_noise.reshape(*shape[:-2], nlat, 2 * nlat)
 
         # Hack for odd lat coords
-        if x.shape[-2] % 2 == 1:
-            noise = torch.zeros_like(x)
+        if shape[-2] % 2 == 1:
+            noise = torch.zeros_like(tensor)
             noise[..., :-1, :] = sample_noise
             noise[..., -1:, :] = noise[..., -2:-1, :]
         else:
             noise = sample_noise
 
-        noise_amplitude = self.noise_amplitude.to(x.device)
-        return x + noise_amplitude * noise, coords
+        noise_amplitude = self.noise_amplitude.to(tensor.device)
+        return from_torch(tensor + noise_amplitude * noise, x)
 
 
 class CorrelatedSphericalField(torch.nn.Module):

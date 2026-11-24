@@ -13,8 +13,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+# mypy: disable-error-code="call-overload"
 
-from numpy import asarray
+import numpy as np
+import xarray as xr
 from torch import Tensor, inference_mode
 from xarray import open_dataset
 
@@ -24,7 +26,6 @@ from earth2studio.perturbation import (
     CorrelatedSphericalGaussian,
     HemisphericCentredBredVector,
 )
-from earth2studio.utils.coords import CoordSystem
 
 
 class HENSPerturbation:
@@ -56,17 +57,14 @@ class HENSPerturbation:
         integration_steps: int,
     ) -> None:
 
-        noise_amp_seed = self.get_noise_vector(
-            model,
-            skill_path=skill_path,
-            noise_amplification=noise_amplification,
-            perturbed_var=perturbed_var,
-        )
         noise_amp_iter = self.get_noise_vector(
             model,
             skill_path=skill_path,
             noise_amplification=noise_amplification,
         )
+        variables = model.input_coords()["variable"].values
+        mask = Tensor(np.isin(variables, perturbed_var)).reshape(1, 1, 1, -1, 1, 1)
+        noise_amp_seed = noise_amp_iter * mask
 
         seed_perturbation = CorrelatedSphericalGaussian(
             noise_amplitude=noise_amp_seed,
@@ -83,12 +81,14 @@ class HENSPerturbation:
             seeding_perturbation_method=seed_perturbation,
         )
 
-        return
+    def set_rng(self, seed: int, reset: bool = True) -> None:
+        """Seed breeding noise and reset carried pairs through the public API."""
+        self.perturbation.set_rng(seed, reset=reset)
 
     def get_noise_vector(
         self,
         model: PrognosticModel,
-        skill_path: str | None = None,
+        skill_path: str,
         noise_amplification: float = 1.0,
         perturbed_var: str | list[str] | None = None,
         lead_time: int = 48,
@@ -103,8 +103,8 @@ class HENSPerturbation:
         ----------
         model : PrognosticModel
             The prognostic model used for forecasting
-        skill_path : str, optional
-            Path to the file containing model skill scores (RMSE/MSE), by default None
+        skill_path : str
+            Path to the file containing model skill scores (RMSE/MSE)
         noise_amplification : float, optional
             Base amplification factor for the noise vector, by default 1.0
         perturbed_var : str | list[str] | None, optional
@@ -117,57 +117,42 @@ class HENSPerturbation:
         torch.Tensor
             A noise vector with shape (1, 1, 1, n_vars, 1, 1) where n_vars is the number of model variables
 
-        Raises
-        ------
-        ValueError
-            If skill_path is not provided
         """
-        if skill_path is None:
-            raise ValueError(
-                f"provide path to data set containing {lead_time}h deterministic [r]mse"
-            )
-
-        model_vars = model.input_coords()["variable"]
+        model_vars = model.input_coords()["variable"].values
         if perturbed_var is None:
             perturbed_var = model_vars
         elif isinstance(perturbed_var, str):
             perturbed_var = [perturbed_var]
 
         # set noise for variables which shall not be perturbed to 0.
-        skill = open_dataset(skill_path)
-        scale_vec = Tensor(
-            asarray(
-                [
-                    (
-                        skill.sel(channel=var, lead_time=lead_time)["value"].item()
-                        if var in perturbed_var
-                        else 0.0
-                    )
-                    for var in model_vars
-                ]
+        with open_dataset(skill_path) as skill:
+            scale_vec = Tensor(
+                np.asarray(
+                    [
+                        (
+                            skill.sel(channel=var, lead_time=lead_time)["value"].item()
+                            if var in perturbed_var
+                            else 0.0
+                        )
+                        for var in model_vars
+                    ]
+                )
             )
-        )
 
         return scale_vec.reshape(1, 1, 1, -1, 1, 1) * noise_amplification
 
     @inference_mode()
-    def __call__(
-        self,
-        x: Tensor,
-        coords: CoordSystem,
-    ) -> tuple[Tensor, CoordSystem]:
+    def __call__(self, x: xr.DataArray) -> xr.DataArray:
         """Apply the perturbation.
 
         Parameters
         ----------
-        x : torch.Tensor
-            Input tensor to be perturbed
-        coords : CoordSystem
-            Coordinate system describing the input tensor
+        x : xr.DataArray
+            Input data array to be perturbed
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]
-            The perturbed tensor and its corresponding coordinate system
+        xr.DataArray
+            The perturbed data array
         """
-        return self.perturbation(x, coords)
+        return self.perturbation(x)

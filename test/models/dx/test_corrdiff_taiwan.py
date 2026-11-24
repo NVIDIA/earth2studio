@@ -19,9 +19,11 @@ from collections import OrderedDict
 import numpy as np
 import pytest
 import torch
+from test_corrdiff import _input_field
+from test_corrdiff import offline_corrdiff as offline_corrdiff
 
+from earth2studio.models.conformance import check_diagnostic_contract
 from earth2studio.models.dx import CorrDiffTaiwan
-from earth2studio.utils import handshake_dim
 
 
 class PhooCorrDiff(torch.nn.Module):
@@ -91,26 +93,26 @@ def test_corrdiff(x, device):
         }
     )
 
-    out, out_coords = dx(x, coords)
+    out = dx(_input_field(dx, x, coords))
+    out_coords = out.coords
 
     assert out.shape == torch.Size([x.shape[0], 1, 4, 448, 448])
-    assert all(out_coords["variable"] == dx.output_coords(coords)["variable"])
-    handshake_dim(out_coords, "lon", 4)
-    handshake_dim(out_coords, "lat", 3)
-    handshake_dim(out_coords, "variable", 2)
-    handshake_dim(out_coords, "sample", 1)
-    handshake_dim(out_coords, "batch", 0)
+    assert all(
+        out_coords["variable"]
+        == dx.output_coords(_input_field(dx, x, coords))["variable"]
+    )
+    assert out.dims == ("batch", "sample", "variable", "y", "x")
 
     dx.number_of_samples = 2
-    out, out_coords = dx(x, coords)
+    out = dx(_input_field(dx, x, coords))
+    out_coords = out.coords
 
     assert out.shape == torch.Size([x.shape[0], 2, 4, 448, 448])
-    assert all(out_coords["variable"] == dx.output_coords(coords)["variable"])
-    handshake_dim(out_coords, "lon", 4)
-    handshake_dim(out_coords, "lat", 3)
-    handshake_dim(out_coords, "variable", 2)
-    handshake_dim(out_coords, "sample", 1)
-    handshake_dim(out_coords, "batch", 0)
+    assert all(
+        out_coords["variable"]
+        == dx.output_coords(_input_field(dx, x, coords))["variable"]
+    )
+    assert out.dims == ("batch", "sample", "variable", "y", "x")
 
 
 @pytest.mark.parametrize(
@@ -155,7 +157,7 @@ def test_corrdiff_exceptions(x, device):
     )
 
     with pytest.raises((KeyError, ValueError)):
-        dx(x, wrong_coords)
+        dx(_input_field(dx, x, wrong_coords))
 
     wrong_coords = OrderedDict(
         {
@@ -167,7 +169,11 @@ def test_corrdiff_exceptions(x, device):
     )
 
     with pytest.raises(ValueError):
-        dx(x, wrong_coords)
+        dx(
+            _input_field(dx, x, wrong_coords).transpose(
+                "batch", "variable", "lon", "lat"
+            )
+        )
 
     wrong_coords = OrderedDict(
         {
@@ -178,7 +184,29 @@ def test_corrdiff_exceptions(x, device):
         }
     )
     with pytest.raises(ValueError):
-        dx(x, wrong_coords)
+        dx(_input_field(dx, x, wrong_coords))
+
+
+def test_corrdiff_taiwan_conformance():
+    model = PhooCorrDiff()
+    in_center = torch.zeros(12, 1, 1)
+    in_scale = torch.ones(12, 1, 1)
+    out_center = torch.zeros(4, 1, 1)
+    out_scale = torch.ones(4, 1, 1)
+    lat = torch.as_tensor(np.linspace(19.5, 27, 450, endpoint=True))
+    lon = torch.as_tensor(np.linspace(117, 125, 450, endpoint=False))
+    out_lon, out_lat = torch.meshgrid(lon, lat)
+    dx = CorrDiffTaiwan(
+        model,
+        model,
+        in_center,
+        in_scale,
+        out_center,
+        out_scale,
+        out_lat,
+        out_lon,
+    )
+    assert check_diagnostic_contract(dx) == []
 
 
 @pytest.mark.package
@@ -197,25 +225,20 @@ def test_corrdiff_package(device):
         }
     )
 
-    out, out_coords = dx(x, coords)
+    field = _input_field(dx, x, coords)
+    out = dx(field)
+    out_coords = out.coords
     assert out.shape == torch.Size([x.shape[0], 1, 4, 448, 448])
 
     # Check variables
-    assert all(out_coords["variable"] == dx.output_coords(coords)["variable"])
-    handshake_dim(out_coords, "lon", 4)
-    handshake_dim(out_coords, "lat", 3)
-    handshake_dim(out_coords, "variable", 2)
-    handshake_dim(out_coords, "sample", 1)
-    handshake_dim(out_coords, "batch", 0)
+    assert all(out_coords["variable"] == dx.output_coords(field)["variable"])
+    assert out.dims == ("batch", "sample", "variable", "y", "x")
 
     dx.number_of_samples = 2
-    out, out_coords = dx(x, coords)
+    out = dx(field)
+    out_coords = out.coords
     assert out.shape == torch.Size([x.shape[0], 2, 4, 448, 448])
 
     # Check variables
-    assert all(out_coords["variable"] == dx.output_coords(coords)["variable"])
-    handshake_dim(out_coords, "lon", 4)
-    handshake_dim(out_coords, "lat", 3)
-    handshake_dim(out_coords, "variable", 2)
-    handshake_dim(out_coords, "sample", 1)
-    handshake_dim(out_coords, "batch", 0)
+    assert all(out_coords["variable"] == dx.output_coords(field)["variable"])
+    assert out.dims == ("batch", "sample", "variable", "y", "x")

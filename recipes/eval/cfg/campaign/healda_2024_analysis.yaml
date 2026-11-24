@@ -7,7 +7,7 @@ defaults:
 
 run_id: healda_2024_analysis
 
-pipeline: src.pipelines.assimilation.AssimilationPipeline
+runner: assimilation
 
 # Every month in 2024 (12 analysis times)
 start_times:
@@ -24,7 +24,7 @@ start_times:
     - "2024-11-01 00:00:00"
     - "2024-12-01 00:00:00"
 
-# No rollout in analysis mode — nsteps is unused by this pipeline.
+# No rollout in analysis mode: the assimilation runner requires nsteps: 0.
 nsteps: 0
 ensemble_size: 1
 resume: true

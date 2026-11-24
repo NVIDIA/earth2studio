@@ -38,6 +38,7 @@ from earth2studio.data.utils import (
     prep_data_inputs,
     resolve_async_workers,
 )
+from earth2studio.grids import with_grid_metadata
 from earth2studio.lexicon import PhooLexicon
 from earth2studio.utils.type import TimeArray, VariableArray
 
@@ -144,15 +145,7 @@ class PhooAnalysis:
         xr.DataArray
             Phoo weather data array with dims [time, variable, lat, lon]
         """
-        try:
-            xr_array = _sync_async(
-                self.fetch, time, variable, timeout=self.async_timeout
-            )
-        finally:
-            if not self._cache:
-                shutil.rmtree(self.cache, ignore_errors=True)
-
-        return xr_array
+        return _sync_async(self.fetch, time, variable, timeout=self.async_timeout)
 
     async def fetch(
         self,
@@ -174,6 +167,17 @@ class PhooAnalysis:
         xr.DataArray
             Phoo weather data array with dims [time, variable, lat, lon]
         """
+        try:
+            return await self._fetch(time, variable)
+        finally:
+            if not self._cache:
+                shutil.rmtree(self.cache, ignore_errors=True)
+
+    async def _fetch(
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        variable: str | list[str] | VariableArray,
+    ) -> xr.DataArray:
         if self.store is None:
             await self._async_init()
 
@@ -203,10 +207,10 @@ class PhooAnalysis:
             max_workers=resolve_async_workers(self._async_workers, len(coros)),
             task_timeout=60.0,
             desc="Fetching Phoo data",
-            verbose=(not self._verbose),
+            verbose=self._verbose,
         )
 
-        return xr_array
+        return with_grid_metadata(xr_array, "latlon-1deg")
 
     def _create_tasks(
         self, time: list[datetime], variable: list[str]

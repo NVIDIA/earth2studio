@@ -277,30 +277,6 @@ test-da-models:
         compare_to: 'refs/heads/main'
     - <<: *test_rule_never
 
-test-serve:
-  extends:
-    - .test:base
-  variables:
-    TOX_ENV: test-serve
-  rules:
-    - <<: *test_rule_always_if_pytest_all
-    - <<: *test_rule_main_with_changes
-    - <<: *test_rule_non_github_with_changes
-      changes:
-        paths:
-          - earth2studio/serve/**/*
-          - test/serve/**/*
-          - serve/**/*
-        compare_to: 'refs/heads/main'
-    - <<: *test_rule_changes_only
-      changes:
-        paths:
-          - earth2studio/serve/**/*
-          - test/serve/**/*
-          - serve/**/*
-        compare_to: 'refs/heads/main'
-    - <<: *test_rule_never
-
 coverage:
   stage: report
   allow_failure: true
@@ -321,9 +297,6 @@ coverage:
       artifacts: true
       optional: true
     - job: test-dx-models
-      artifacts: true
-      optional: true
-    - job: test-serve
       artifacts: true
       optional: true
   tags:

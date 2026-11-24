@@ -14,24 +14,25 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections import OrderedDict
-from collections.abc import Iterable
+from types import SimpleNamespace
 
 import numpy as np
 import pytest
 import torch
+import xarray as xr
 
 try:
     from aurora import Batch, Metadata
 except ImportError:
-    pytest.importorskip("aurora")
+    Batch = Metadata = None
 
-from earth2studio.data import Random, fetch_data
 from earth2studio.models import px
+from earth2studio.models.conformance import check_prognostic_contract
 from earth2studio.models.px import Aurora1p5, Aurora1p5Ensemble
 from earth2studio.models.px import aurora1p5 as aurora_module
 from earth2studio.models.px.aurora1p5 import _OUTPUT_ONLY_SURF_VARS
-from earth2studio.utils import handshake_dim
+from earth2studio.utils.coords import coord_array, coord_array_like
+from earth2studio.utils.cupy import from_torch
 
 _N_VARS = 90  # 65 atmos + 18 surface + 7 output-only
 _H = 720
@@ -69,7 +70,25 @@ class PhooAurora1p5Model(torch.nn.Module):
 
 
 class PhooAurora1p5EnsembleModel(PhooAurora1p5Model):
-    """Dummy ensemble model: same echo logic, adds noise-cache stubs."""
+    """Dummy ensemble model: echo logic plus RNG-draw noise, adds reset_noise().
+
+    The real ensemble checkpoint injects fresh Gaussian noise per forward pass, so
+    the mock must too: a deterministic forward can't demonstrate that different
+    seeds give different rollouts (P13), since torch.manual_seed has nothing to
+    perturb. Drawing from the global generator (no explicit generator=) ties the
+    noise to whatever set_rng() seeded, matching the real model's seeding path.
+    """
+
+    def forward(self, batch: Batch, lead_times: torch.Tensor) -> Batch:
+        out = super().forward(batch, lead_times)
+        surf = {k: v + torch.randn_like(v) for k, v in out.surf_vars.items()}
+        atmos = {k: v + torch.randn_like(v) for k, v in out.atmos_vars.items()}
+        return Batch(
+            surf_vars=surf,
+            static_vars=out.static_vars,
+            atmos_vars=atmos,
+            metadata=out.metadata,
+        )
 
     def __init__(self) -> None:
         super().__init__()
@@ -94,6 +113,72 @@ def _make_ensemble_model(device: str = "cpu") -> Aurora1p5Ensemble:
     return Aurora1p5Ensemble(core, static_vars).to(device)
 
 
+@pytest.fixture(autouse=True)
+def small_models(request, monkeypatch):
+    if request.node.get_closest_marker("package"):
+        return
+    monkeypatch.setattr(__import__(__name__, fromlist=["_H"]), "_H", 4)
+    monkeypatch.setattr(__import__(__name__, fromlist=["_W"]), "_W", 8)
+    if Batch is None:
+        monkeypatch.setattr(
+            __import__(__name__, fromlist=["Batch"]), "Batch", SimpleNamespace
+        )
+        monkeypatch.setattr(
+            __import__(__name__, fromlist=["Metadata"]), "Metadata", SimpleNamespace
+        )
+        monkeypatch.setattr(aurora_module, "Batch", SimpleNamespace)
+        monkeypatch.setattr(aurora_module, "Metadata", SimpleNamespace)
+        monkeypatch.setattr(
+            aurora_module,
+            "aurora_insolation",
+            lambda dates, lat, lon, **kw: np.zeros((2, len(lat), len(lon))),
+        )
+        for cls in (
+            aurora_module._Aurora,
+            Aurora1p5,
+            Aurora1p5Ensemble,
+            px.Aurora1p5_6h,
+            px.Aurora1p5Ensemble_6h,
+        ):
+            init = cls.__init__
+            while hasattr(init, "__wrapped__"):
+                init = init.__wrapped__
+            monkeypatch.setattr(cls, "__init__", init)
+        monkeypatch.setattr(
+            aurora_module._Aurora,
+            "load_model",
+            classmethod(aurora_module._Aurora.load_model.__wrapped__),
+        )
+    original = aurora_module._Aurora.input_coords
+
+    def signature(self):
+        native = original(self)
+        return coord_array(
+            native.dims,
+            {
+                "lead_time": native.lead_time.values,
+                "variable": native.coords["variable"].values,
+                "lat": np.linspace(90, -90, _H, endpoint=False),
+                "lon": np.linspace(0, 360, _W, endpoint=False),
+            },
+            dynamic=("batch", "time"),
+        )
+
+    monkeypatch.setattr(aurora_module._Aurora, "input_coords", signature)
+
+
+def _input(p, time, device="cpu"):
+    signature = coord_array_like(p.input_coords(), {"time": time})
+    signature = coord_array_like(signature, {"batch": [0]})
+    x = from_torch(torch.rand(signature.shape, device=device), signature).isel(
+        batch=0, drop=True
+    )
+    x.name = "weather"
+    x.encoding["note"] = "kept"
+    x.attrs["source"] = "test"
+    return x.assign_coords(marker=7)
+
+
 # ── Aurora1p5 tests ───────────────────────────────────────────────────────────
 
 
@@ -107,32 +192,19 @@ def _make_ensemble_model(device: str = "cpu") -> Aurora1p5Ensemble:
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_aurora1p5_call(time, device):
     p = _make_model(device)
-
-    dc = p.input_coords()
-    del dc["batch"]
-    del dc["time"]
-    del dc["lead_time"]
-    del dc["variable"]
-    r = Random(dc)
-
-    lead_time = p.input_coords()["lead_time"]
-    variable = p.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
-
-    out, out_coords = p(x, coords)
-
-    if not isinstance(time, Iterable):
-        time = [time]
-
-    assert out.shape == torch.Size([len(time), 1, _N_VARS, _H, _W])
-    assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
-    assert (out_coords["time"] == time).all()
-    handshake_dim(out_coords, "lon", 4)
-    handshake_dim(out_coords, "lat", 3)
-    handshake_dim(out_coords, "variable", 2)
-    handshake_dim(out_coords, "lead_time", 1)
-    handshake_dim(out_coords, "time", 0)
-    assert (out[:, :, -len(_OUTPUT_ONLY_SURF_VARS) :] == 1).all()
+    x = _input(p, time)
+    out = p(x)
+    assert out.shape == torch.Size([len(time), 6, _N_VARS, _H, _W])
+    np.testing.assert_array_equal(
+        out.coords["variable"], p.output_coords(x).coords["variable"]
+    )
+    assert out.dims == x.dims and out.name == x.name and out.encoding == x.encoding
+    assert out.marker == 7
+    torch.testing.assert_close(
+        out.e2s.to_torch()[0][:, :, :83].cpu(),
+        x.e2s.to_torch()[0][:, -1:].expand(-1, 6, -1, -1, -1),
+    )
+    assert (out.e2s.to_torch()[0][:, :, -len(_OUTPUT_ONLY_SURF_VARS) :] == 1).all()
 
 
 @pytest.mark.parametrize("ensemble", [1, 2])
@@ -141,39 +213,35 @@ def test_aurora1p5_iter(ensemble, device):
     time = np.array([np.datetime64("1993-04-05T00:00")])
     p = _make_model(device)
 
-    dc = p.input_coords()
-    del dc["batch"]
-    del dc["time"]
-    del dc["lead_time"]
-    del dc["variable"]
-    r = Random(dc)
+    x = _input(p, time).expand_dims(ensemble=ensemble)
+    saved = x.copy(deep=True)
+    calls = []
 
-    lead_time = p.input_coords()["lead_time"]
-    variable = p.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    def front(field):
+        assert field.dims == x.dims and "ensemble" not in field.coords
+        calls.append("front")
+        field.data += 1
+        return field
 
-    x = x.unsqueeze(0).repeat(ensemble, 1, 1, 1, 1, 1)
-    coords.update({"ensemble": np.arange(ensemble)})
-    coords.move_to_end("ensemble", last=False)
+    def rear(field):
+        calls.append("rear")
+        field.data += 1
+        return field
 
-    p_iter = p.create_iterator(x, coords)
-
-    if not isinstance(time, Iterable):
-        time = [time]
-
-    next(p_iter)  # Skip initial condition
-    for i, (out, out_coords) in enumerate(p_iter):
+    p.front_hook, p.rear_hook = front, rear
+    p_iter = p.create_iterator(x)
+    for i in range(2):
+        out = next(p_iter)
         assert len(out.shape) == 6
-        assert out.shape == torch.Size([ensemble, len(time), 1, _N_VARS, _H, _W])
-        assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
-        assert (out_coords["ensemble"] == np.arange(ensemble)).all()
-        assert (out_coords["time"] == time).all()
-        assert out_coords["lead_time"].shape == (1,)
-        # Iterator yields at 1-hour intervals
-        assert out_coords["lead_time"][0] == np.timedelta64(i + 1, "h")
-
-        if i > 11:
-            break
+        assert out.shape == torch.Size([ensemble, len(time), 6, _N_VARS, _H, _W])
+        assert (out.coords["variable"] == p.output_coords(x).coords["variable"]).all()
+        assert (out.coords["time"] == time).all()
+        np.testing.assert_array_equal(
+            out.lead_time, (6 * i + np.arange(1, 7)).astype("timedelta64[h]")
+        )
+    assert calls == ["rear", "front", "rear"]
+    xr.testing.assert_identical(x, saved)
+    p_iter.close()
 
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
@@ -186,55 +254,42 @@ def test_aurora1p5_iter_repeated(device):
     time = np.array([np.datetime64("1993-04-05T00:00")])
     p = _make_model(device)
 
-    dc = p.input_coords()
-    del dc["batch"]
-    del dc["time"]
-    del dc["lead_time"]
-    del dc["variable"]
-    r = Random(dc)
-
-    lead_time = p.input_coords()["lead_time"]
-    variable = p.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    x = _input(p, time, device)
 
     def collect(n=3):
-        it = p.create_iterator(x, coords)
-        next(it)  # skip IC
-        return [out.clone() for (out, _coords), _ in zip(it, range(n))]
+        it = p.create_iterator(x)
+        return [out.copy(deep=True) for out, _ in zip(it, range(n))]
 
     first = collect()
     second = collect()
 
     for a, b in zip(first, second):
-        assert torch.equal(
-            a, b
-        ), "create_iterator() results differ across repeated calls"
+        xr.testing.assert_identical(a, b)
 
 
-@pytest.mark.parametrize(
-    "dc",
-    [
-        OrderedDict({"lat": np.random.randn(_H)}),
-        OrderedDict({"lat": np.random.randn(_H), "phoo": np.random.randn(_W)}),
-        OrderedDict({"lat": np.random.randn(_H), "lon": np.random.randn(1)}),
-    ],
-)
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_aurora1p5_exceptions(dc, device):
+def test_aurora1p5_exceptions(device):
     time = np.array([np.datetime64("1993-04-05T00:00")])
     p = _make_model(device)
 
-    r = Random(dc)
-    lead_time = p.input_coords()["lead_time"]
-    variable = p.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    x = _input(p, time, device)
+    with pytest.raises(ValueError):
+        p(x.transpose(..., "lon", "lat"))
 
-    with pytest.raises((KeyError, ValueError)):
-        p(x, coords)
+
+def test_aurora1p5_conformance():
+    p = Aurora1p5.__new__(Aurora1p5)
+    torch.nn.Module.__init__(p)
+    signature = p.input_coords()
+    assert signature.shape == (0, 0, 2, 83, _H, _W)
+    assert "tp1h" in p.output_coords(signature).coords["variable"]
+    check_prognostic_contract(p, rollout=False)
+    check_prognostic_contract(_make_model())
 
 
 @pytest.fixture(scope="function")
 def model() -> Aurora1p5:
+    pytest.importorskip("aurora")
     package = Aurora1p5.load_default_package()
     return Aurora1p5.load_model(package)
 
@@ -246,27 +301,13 @@ def test_aurora1p5_package(model, device):
     time = np.array([np.datetime64("2023-01-01T00:00")])
     p = model.to(device)
 
-    dc = p.input_coords()
-    del dc["batch"]
-    del dc["time"]
-    del dc["lead_time"]
-    del dc["variable"]
-    r = Random(dc)
+    x = _input(p, time, device)
+    out = p(x)
 
-    lead_time = p.input_coords()["lead_time"]
-    variable = p.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
-
-    out, out_coords = p(x, coords)
-
-    assert out.shape == torch.Size([len(time), 1, _N_VARS, _H, _W])
-    assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
-    assert (out_coords["time"] == time).all()
-    handshake_dim(out_coords, "lon", 4)
-    handshake_dim(out_coords, "lat", 3)
-    handshake_dim(out_coords, "variable", 2)
-    handshake_dim(out_coords, "lead_time", 1)
-    handshake_dim(out_coords, "time", 0)
+    assert out.shape == torch.Size([len(time), 6, _N_VARS, _H, _W])
+    assert (out.coords["variable"] == p.output_coords(x).coords["variable"]).all()
+    assert (out.time == time).all()
+    assert out.dims == x.dims
 
 
 # ── Aurora1p5Ensemble tests ───────────────────────────────────────────────────
@@ -279,29 +320,32 @@ def test_aurora1p5_ensemble_iter(n_members, device):
     time = np.array([np.datetime64("1993-04-05T00:00")])
     p = _make_ensemble_model(device)
 
-    dc = p.input_coords()
-    del dc["batch"]
-    del dc["time"]
-    del dc["lead_time"]
-    del dc["variable"]
-    r = Random(dc)
+    x = _input(p, time, device).expand_dims(ensemble=np.arange(n_members))
+    p_iter = p.create_iterator(x)
 
-    lead_time = p.input_coords()["lead_time"]
-    variable = p.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
-
-    x = x.unsqueeze(0).repeat(n_members, 1, 1, 1, 1, 1)
-    coords.update({"ensemble": np.arange(n_members)})
-    coords.move_to_end("ensemble", last=False)
-
-    p_iter = p.create_iterator(x, coords)
-    next(p_iter)  # skip initial condition
-
-    for i, (out, out_coords) in enumerate(p_iter):
-        assert out.shape == torch.Size([n_members, len(time), 1, _N_VARS, _H, _W])
-        assert out_coords["lead_time"][0] == np.timedelta64(i + 1, "h")
-        if i > 11:
+    for i, out in enumerate(p_iter):
+        assert out.shape == torch.Size([n_members, len(time), 6, _N_VARS, _H, _W])
+        assert out.lead_time.values[0] == np.timedelta64(6 * i + 1, "h")
+        if i == 1:
             break
+
+
+def test_aurora1p5_ensemble_conformance():
+    p = _make_ensemble_model("cpu")
+    check_prognostic_contract(p)
+    x = _input(p, np.array(["2001-06-04"], dtype="datetime64[ns]"))
+    state = torch.get_rng_state().clone()
+    p.set_rng(123)
+    assert torch.equal(state, torch.get_rng_state())
+    iterator = p.create_iterator(x)
+    first = next(iterator)
+    p.set_rng(123)
+    iterator = p.create_iterator(x)
+    xr.testing.assert_identical(first, next(iterator))
+    assert torch.equal(state, torch.get_rng_state())
+    stream = p._rng_seed
+    p.set_rng(456, reset=False)
+    assert stream == p._rng_seed
 
 
 @pytest.mark.parametrize(
@@ -332,14 +376,15 @@ def test_aurora1p5_fixed_cadence(model_name, step, ensemble, monkeypatch):
     monkeypatch.setattr(aurora_module, "_load_aurora1p5_from_package", load)
     p = model_cls.load_model(object())
     assert type(p) is model_cls
-    for target in (p._input_coords, p._output_coords):
-        target["lat"] = np.linspace(90, -90, 4, endpoint=False)
-        target["lon"] = np.linspace(0, 360, 8, endpoint=False)
-    coords = p.input_coords()
-    coords["batch"] = np.arange(2)
-    coords["time"] = np.array([np.datetime64("2023-01-01T00:00")])
-    coords["lead_time"] = np.array([6, 12], dtype="timedelta64[h]")
-    x = torch.zeros(2, 1, 2, 83, 4, 8)
+    coords = coord_array_like(
+        p.input_coords(),
+        {
+            "batch": np.arange(2),
+            "time": np.array([np.datetime64("2023-01-01T00:00")]),
+            "lead_time": np.array([6, 12], dtype="timedelta64[h]"),
+        },
+    )
+    x = from_torch(torch.zeros(coords.shape), coords)
     calls = []
 
     original_forward = core.forward
@@ -349,24 +394,25 @@ def test_aurora1p5_fixed_cadence(model_name, step, ensemble, monkeypatch):
         return original_forward(batch, lead_times)
 
     monkeypatch.setattr(core, "forward", forward)
-    out, out_coords = p(x, coords)
-    assert out.shape == (2, 1, 1, 90, 4, 8)
-    assert out_coords["lead_time"][0] == np.timedelta64(12 + step, "h")
-    assert calls == [(0, step)]
+    out = p(x)
+    assert out.shape == (2, 1, 6 // step, 90, 4, 8)
+    assert out.lead_time.values[0] == np.timedelta64(12 + step, "h")
+    assert calls == [(0, h) for h in range(step, 7, step)]
     calls.clear()
 
-    iterator = p.create_iterator(x, coords)
-    initial, initial_coords = next(iterator)
-    assert initial_coords["lead_time"][0] == np.timedelta64(12, "h")
-    assert torch.isnan(initial[..., 83:, :, :]).all()
-    for i in range(12 // step):
-        out, out_coords = next(iterator)
-        assert out_coords["lead_time"][0] == np.timedelta64(12 + (i + 1) * step, "h")
-        assert out.shape == (2, 1, 1, 90, 4, 8)
+    iterator = p.create_iterator(x)
+    for i in range(2):
+        out = next(iterator)
+        np.testing.assert_array_equal(
+            out.lead_time,
+            (12 + i * 6 + np.arange(step, 7, step)).astype("timedelta64[h]"),
+        )
+        assert out.shape == (2, 1, 6 // step, 90, 4, 8)
     iterator.close()
     assert calls == [(cycle, h) for cycle in range(2) for h in range(step, 7, step)]
     if ensemble:
-        assert core.noise_accumulation_calls == [6 // step, 0]
+        assert core.noise_accumulation_calls == [6 // step, 0] * 3
+    check_prognostic_contract(p)
     np.testing.assert_array_equal(
         coords["lead_time"], np.array([6, 12], dtype="timedelta64[h]")
     )
@@ -378,6 +424,7 @@ def test_aurora1p5_fixed_cadence(model_name, step, ensemble, monkeypatch):
 
 @pytest.fixture(scope="function")
 def ensemble_model() -> Aurora1p5Ensemble:
+    pytest.importorskip("aurora")
     package = Aurora1p5Ensemble.load_default_package()
     return Aurora1p5Ensemble.load_model(package)
 
@@ -389,25 +436,11 @@ def test_aurora1p5_ensemble_package(ensemble_model, device):
     time = np.array([np.datetime64("2023-01-01T00:00")])
     p = ensemble_model.to(device)
 
-    dc = p.input_coords()
-    del dc["batch"]
-    del dc["time"]
-    del dc["lead_time"]
-    del dc["variable"]
-    r = Random(dc)
-
-    lead_time = p.input_coords()["lead_time"]
-    variable = p.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
-
     n_members = 1
-    x = x.unsqueeze(0).repeat(n_members, 1, 1, 1, 1, 1)
-    coords.update({"ensemble": np.arange(n_members)})
-    coords.move_to_end("ensemble", last=False)
-
-    p_iter = p.create_iterator(x, coords)
+    x = _input(p, time, device).expand_dims(ensemble=np.arange(n_members))
+    p_iter = p.create_iterator(x)
     next(p_iter)  # skip initial condition
 
-    out, out_coords = next(p_iter)
+    out = next(p_iter)
     assert out.shape == torch.Size([n_members, len(time), 1, _N_VARS, _H, _W])
-    assert out_coords["lead_time"][0] == np.timedelta64(1, "h")
+    assert out.lead_time.values[0] == np.timedelta64(1, "h")

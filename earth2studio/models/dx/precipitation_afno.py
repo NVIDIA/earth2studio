@@ -15,24 +15,30 @@
 # limitations under the License.
 
 import zipfile
-from collections import OrderedDict
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import numpy as np
 import torch
+import xarray as xr
 
 from earth2studio.models.auto import AutoModelMixin, Package
-from earth2studio.models.batch import batch_coords, batch_func
+from earth2studio.models.batch import batch_func
 from earth2studio.models.dx.base import DiagnosticModel
 from earth2studio.utils import (
-    handshake_coords,
-    handshake_dim,
+    coord_array,
+    coord_array_like,
+    handshake_dataarray,
 )
+from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
-from earth2studio.utils.type import CoordSystem
+from earth2studio.utils.type import CoordinateSystem
+
+if TYPE_CHECKING:
+    from earth2studio.data.base import DataSource
 
 try:
     from earth2studio.models.nn.afno_precip import PrecipNet
@@ -94,6 +100,8 @@ class PrecipitationAFNO(torch.nn.Module, AutoModelMixin):
     provider:nvidia backend:pytorch
     """
 
+    stochastic = False
+
     def __init__(
         self,
         core_model: torch.nn.Module,
@@ -106,49 +114,54 @@ class PrecipitationAFNO(torch.nn.Module, AutoModelMixin):
         self.register_buffer("scale", scale)
         self.eps = 1e-5
 
-    def input_coords(self) -> CoordSystem:
-        """Input coordinate system of diagnostic model
+    def default_sources(self) -> "DataSource":
+        """Recommend the WeatherBench2 ERA5 data source.
 
         Returns
         -------
-        CoordSystem
-            Coordinate system dictionary
+        DataSource
+            ``WB2ERA5`` data source for the input slot, including relative humidity.
         """
-        return OrderedDict(
-            {
-                "batch": np.empty(0),
-                "variable": np.array(VARIABLES),
-                "lat": np.linspace(90, -90, 720, endpoint=False),
-                "lon": np.linspace(0, 360, 1440, endpoint=False),
-            }
+        from earth2studio.data import WB2ERA5
+
+        return WB2ERA5()
+
+    def input_coords(self) -> CoordinateSystem:
+        """Input coordinate system of the diagnostic model.
+
+        Returns
+        -------
+        CoordinateSystem
+            Allocation-free DataArray input signature for atmospheric fields
+            on the FCN grid.
+        """
+        return coord_array(
+            ("batch", "variable", "lat", "lon"),
+            {"variable": np.array(VARIABLES)},
+            dynamic=("batch",),
+            grid="latlon-0.25deg-south-pole-excluded",
         )
 
-    @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
-        """Output coordinate system of diagnostic model
+    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
+        """Output coordinate system of the diagnostic model.
 
         Parameters
         ----------
-        input_coords : CoordSystem
-            Input coordinate system to transform into output_coords
-            by default None, will use self.input_coords.
+        input_coords : CoordinateSystem
+            Input coordinate signature or DataArray to validate and transform.
 
         Returns
         -------
-        CoordSystem
-            Coordinate system dictionary
+        CoordinateSystem
+            Allocation-free DataArray output signature for six-hour accumulated
+            total precipitation, with variable ``tp06``, preserving leading
+            dimensions and the FCN grid.
         """
-        target_input_coords = self.input_coords()
-        handshake_dim(input_coords, "lon", 3)
-        handshake_dim(input_coords, "lat", 2)
-        handshake_dim(input_coords, "variable", 1)
-        handshake_coords(input_coords, target_input_coords, "lon")
-        handshake_coords(input_coords, target_input_coords, "lat")
-        handshake_coords(input_coords, target_input_coords, "variable")
-
-        output_coords = input_coords.copy()
-        output_coords["variable"] = np.array(["tp"])
-        return output_coords
+        handshake_dataarray(input_coords, self.input_coords())
+        return coord_array_like(
+            input_coords,
+            {"variable": np.array(["tp06"])},
+        )
 
     def __str__(self) -> str:
         return "precipnet"
@@ -205,16 +218,28 @@ class PrecipitationAFNO(torch.nn.Module, AutoModelMixin):
     @batch_func()
     def __call__(
         self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
-        """Forward pass of diagnostic"""
-        output_coords = self.output_coords(coords)
+        x: xr.DataArray,
+    ) -> xr.DataArray:
+        """Predict six-hour accumulated precipitation from an atmospheric DataArray.
 
-        x = (x - self.center) / self.scale
-        out = self.core_model(x)
+        Parameters
+        ----------
+        x : xr.DataArray
+            NumPy- or CuPy-backed atmospheric input on the FCN grid.
+
+        Returns
+        -------
+        xr.DataArray
+            Six-hour total precipitation with variable tp06 on the input device.
+        """
+        output_coords = self.output_coords(x)
+        tensor, _ = x.e2s.to_torch()
+        tensor = (tensor - self.center) / self.scale
+        out = self.core_model(tensor)
         # Unlog output
         # https://github.com/NVlabs/FourCastNet/blob/master/utils/weighted_acc_rmse.py#L66
         out = self.eps * (torch.exp(out) - 1)
 
-        return out, output_coords  # Softmax channels
+        output = from_torch(out, output_coords, name=x.name)
+        output.encoding = x.encoding.copy()
+        return output

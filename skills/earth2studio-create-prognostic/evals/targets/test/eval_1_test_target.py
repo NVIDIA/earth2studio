@@ -16,160 +16,127 @@
 
 """Tests for IdentityModel prognostic model."""
 
-from collections import OrderedDict
-from collections.abc import Iterable
-
 import numpy as np
 import pytest
 import torch
+import xarray as xr
 
-from earth2studio.data import Random, fetch_data
+from earth2studio.models.conformance import check_prognostic_contract
 from earth2studio.models.px import IdentityModel
-from earth2studio.utils import handshake_dim
+from earth2studio.models.px.base import PrognosticModel
+from earth2studio.utils import coord_array_like, handshake_dataarray
+from earth2studio.utils.cupy import from_torch
 
 
-class PhooIdentityModel(torch.nn.Module):
-    """Dummy identity model for testing."""
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return x
-
-
-@pytest.fixture(scope="class")
-def test_package(tmp_path_factory):
-    """Create dummy package for testing."""
-    tmp_path = tmp_path_factory.mktemp("model_data")
-    model = PhooIdentityModel()
-    torch.save(model, tmp_path / "model.pt")
-    from earth2studio.models.auto import Package
-
-    return Package(str(tmp_path))
+def make_input(model, batch: int = 1, device: str = "cpu") -> xr.DataArray:
+    """Concretize the configured signature with a time axis."""
+    signature = coord_array_like(
+        model.input_coords(),
+        {"batch": np.arange(batch)},
+    )
+    signature = signature.expand_dims(
+        time=np.array(["2024-01-01"], dtype="datetime64[ns]"), axis=1
+    )
+    return from_torch(torch.randn(signature.shape, device=device), signature)
 
 
 class TestIdentityModelMock:
-    """Mock tests using dummy model weights."""
+    """Mock tests using the model's built-in identity behaviour."""
 
-    @pytest.mark.parametrize(
-        "time",
-        [
-            np.array(
-                [
-                    np.datetime64("1999-10-11T12:00"),
-                    np.datetime64("2001-06-04T00:00"),
-                ]
-            ),
-        ],
-    )
-    @pytest.mark.parametrize(
-        "device",
-        [
-            "cpu",
-            pytest.param(
-                "cuda:0",
-                marks=pytest.mark.skipif(
-                    not torch.cuda.is_available(), reason="No GPU"
-                ),
-            ),
-        ],
-    )
-    def test_identity_call(self, time, device):
+    @pytest.mark.parametrize("batch", [1, 2])
+    @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+    def test_identity_call(self, batch, device):
         """Test single forward pass."""
+        if device == "cuda:0" and not torch.cuda.is_available():
+            pytest.skip("No GPU available")
         model = IdentityModel.load_model(IdentityModel.load_default_package())
         model = model.to(device)
+        x = make_input(model, batch, device)
+        before = x.copy(deep=True)
 
-        dc = model.input_coords()
-        del dc["batch"]
-        del dc["lead_time"]
-        del dc["variable"]
-
-        ds = Random(dc)
-        lead_time = model.input_coords()["lead_time"]
-        variable = model.input_coords()["variable"]
-        x, coords = fetch_data(ds, time, variable, lead_time, device=device)
-
-        out, out_coords = model(x, coords)
+        out = model(x)
 
         assert out.shape == x.shape
-        assert isinstance(out_coords, OrderedDict)
-        # output coords order: time, lead_time, variable, lat, lon
-        handshake_dim(out_coords, "variable", 2)
-
-        expected_lead = coords["lead_time"] + np.timedelta64(6, "h")
-        np.testing.assert_array_equal(out_coords["lead_time"], expected_lead)
+        assert out.dims == x.dims
+        handshake_dataarray(out, model.output_coords(x))
+        np.testing.assert_array_equal(
+            out.lead_time.values, x.lead_time.values + np.timedelta64(6, "h")
+        )
+        # Identity: values are unchanged and the input is not modified
+        np.testing.assert_array_equal(
+            out.e2s.as_numpy().values, x.e2s.as_numpy().values
+        )
+        xr.testing.assert_identical(x.e2s.as_numpy(), before.e2s.as_numpy())
 
     @pytest.mark.parametrize("ensemble", [1, 2])
-    @pytest.mark.parametrize(
-        "device",
-        [
-            "cpu",
-            pytest.param(
-                "cuda:0",
-                marks=pytest.mark.skipif(
-                    not torch.cuda.is_available(), reason="No GPU"
-                ),
-            ),
-        ],
-    )
+    @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
     def test_identity_iter(self, ensemble, device):
-        """Test iterator produces correct sequence."""
+        """Test iterator yields forecasts at +6h, +12h, ... (no initial state)."""
+        if device == "cuda:0" and not torch.cuda.is_available():
+            pytest.skip("No GPU available")
         model = IdentityModel.load_model(IdentityModel.load_default_package())
         model = model.to(device)
+        x = make_input(model, ensemble, device)
+        original = x.copy(deep=True)
 
-        time = np.array([np.datetime64("2024-01-01T00:00")])
-        dc = model.input_coords()
-        del dc["batch"]
-        del dc["lead_time"]
-        del dc["variable"]
-        ds = Random(dc)
-        lead_time = model.input_coords()["lead_time"]
-        variable = model.input_coords()["variable"]
-        x, coords = fetch_data(ds, time, variable, lead_time, device=device)
-
-        x = x.unsqueeze(0).repeat(ensemble, *([1] * x.ndim))
-        coords["ensemble"] = np.arange(ensemble)
-        coords.move_to_end("ensemble", last=False)
-
-        iterator = model.create_iterator(x, coords)
-        assert isinstance(iterator, Iterable)
-
-        step0_x, step0_coords = next(iterator)
-        assert step0_x.shape[0] == ensemble
+        expected, state = model.initialize(x)
+        iterator = model.create_iterator(x)
+        first = next(iterator)
+        # The iterator yields forecasts only; its first yield is initialize()
+        xr.testing.assert_identical(first.e2s.as_numpy(), expected.e2s.as_numpy())
+        assert first.sizes["batch"] == ensemble
         np.testing.assert_array_equal(
-            step0_coords["lead_time"], np.array([np.timedelta64(0, "h")])
+            first.lead_time.values, np.array([np.timedelta64(6, "h")])
         )
 
-        for i, (step_x, step_coords) in enumerate(iterator):
-            assert step_x.shape[0] == ensemble
-            expected_lead = np.array([np.timedelta64((i + 1) * 6, "h")])
-            np.testing.assert_array_equal(step_coords["lead_time"], expected_lead)
-            if i >= 4:
-                break
+        for i in range(1, 5):
+            out = next(iterator)
+            assert out.sizes["batch"] == ensemble
+            np.testing.assert_array_equal(
+                out.lead_time.values, np.array([np.timedelta64((i + 1) * 6, "h")])
+            )
+            np.testing.assert_array_equal(
+                out.e2s.as_numpy().values, x.e2s.as_numpy().values
+            )
+        iterator.close()
+        xr.testing.assert_identical(x.e2s.as_numpy(), original.e2s.as_numpy())
 
-    @pytest.mark.parametrize(
-        "coords",
-        [
-            OrderedDict(
-                {
-                    "batch": np.empty(0),
-                    "time": np.empty(0),
-                    "lead_time": np.array([np.timedelta64(0, "h")]),
-                    "variable": np.array(["wrong_var"]),
-                    "lat": np.linspace(90, -90, 10),
-                    "lon": np.linspace(0, 360, 20),
-                }
-            ),
-        ],
-    )
-    def test_identity_exceptions(self, coords):
-        """Test model raises on invalid coordinates."""
+    def test_identity_step_matches_iterator(self):
+        """Test step() on the preceding forecast matches the next iterator yield."""
         model = IdentityModel.load_model(IdentityModel.load_default_package())
-        x = torch.randn(
-            1,
-            1,
-            1,
-            len(coords["variable"]),
-            len(coords["lat"]),
-            len(coords["lon"]),
-        )
+        x = make_input(model)
+        y, state = model.initialize(x)
+        iterator = model.create_iterator(x)
+        next(iterator)
+        expected, _ = model.step(y, state=state)
+        xr.testing.assert_identical(next(iterator), expected)
+
+    def test_identity_exceptions(self):
+        """Test model raises on invalid inputs."""
+        model = IdentityModel.load_model(IdentityModel.load_default_package())
+        x = make_input(model)
+
+        # Wrong variable names
         with pytest.raises((KeyError, ValueError)):
-            model(x, coords)
+            model(x.assign_coords(variable=["a", "b", "c", "d"]))
+
+        # Wrong dimension order
+        with pytest.raises(ValueError):
+            model(x.transpose(*reversed(x.dims)))
+
+        # Wrong grid size
+        with pytest.raises(ValueError):
+            model(x.isel(lat=slice(0, 90)))
+
+        # Multiple lead times are not accepted by a one-frame model
+        with pytest.raises(ValueError):
+            model(xr.concat([x, x], dim="lead_time"))
+
+    def test_identity_conformance(self):
+        """Test IdentityModel against the native prognostic contract."""
+        model = IdentityModel.load_model(IdentityModel.load_default_package())
+        assert isinstance(model, PrognosticModel)
+        assert check_prognostic_contract(model) == [
+            "P14: model does not declare itself stochastic",
+            "P21: checkpoint serialization requires component-specific tests",
+        ]

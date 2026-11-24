@@ -26,6 +26,32 @@
 baselines:
   persistence: Persistence
   climatology: Climatology
+# initializations: alternative initial-condition sources. A model scored
+#         from these analyses is exported as eval_scores_<model>_<key>*.json
+#         beside its ERA5 run; its page gets an Initialization selector in
+#         the plot, an Initialization section (the `description`) ahead of
+#         the plot, and the `reference` joins the page's Reference section,
+#         rather than a scorecard of its own. A plain string is the label alone.
+initializations:
+  healda:
+    label: HealDA v2
+    description: >-
+      The Initialization selector in the plot switches between forecasts
+      started from ARCO-ERA5 and from HealDA v2. On the HealDA v2 view the
+      ERA5-initialized run stays as the dashed curve for reference, and both
+      runs are verified against ERA5. HealDA is an AI data assimilation model:
+      a neural network on a HEALPix mesh that turns a window of raw
+      conventional and satellite observations from the NNJA archive directly
+      into a global analysis. A forecast initialized from it runs from
+      observations to prediction.
+      Note : Some inputs like `tp06` are not provided by HealDA, so either
+      they can be replaced by ERA5 or a precipitation diagnostic such as
+      PrecipitationAFNOv2.
+    reference: >-
+      Gupta, A., Subramaniam, A., Pritchard, M. S., Kashinath, K., Frolov, S.,
+      Lieberman, K., ... & Brenowitz, N. D. (2026). HealDA: Highlighting the
+      importance of initial errors in end-to-end AI weather forecasts. arXiv
+      preprint [arXiv:2601.17636](https://arxiv.org/abs/2601.17636).
 labels:
   fcn3: FCN3
   aurora: Aurora
@@ -40,9 +66,13 @@ labels:
 # data_sources: display names for earth2studio data source classes shown in
 #         the Evaluation table (falls back to the raw class name).
 data_sources:
+  ARCO: ERA5 (ARCO)
   ARCO_ERA5: ERA5 (ARCO)
+  ARCO_ERA5+NCAR_ERA5: ERA5 (ARCO and NCAR)
+  NCAR_ERA5: ERA5 (NCAR)
   GFS: GFS
   HRRR: HRRR
+  HealDAv2: HealDA v2 analyses
 metrics:
   lower_is_better: [rmse, mae, lsd, ensemble_mean_mse, crps, ensemble_variance]
 ---

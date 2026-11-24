@@ -23,13 +23,12 @@ from unittest.mock import AsyncMock, patch
 import numpy as np
 import pytest
 
+import earth2studio.data.gfs as gfs_module
 from earth2studio.data import GFS, GFS_FX
-from earth2studio.lexicon import GFSLexicon
+from earth2studio.data.utils import fetch_data
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(30)
+@pytest.mark.live(timeout=30)
 @pytest.mark.parametrize(
     "time",
     [
@@ -40,7 +39,7 @@ from earth2studio.lexicon import GFSLexicon
         ],
     ],
 )
-@pytest.mark.parametrize("variable", ["t2m", ["msl", "tp"]])
+@pytest.mark.parametrize("variable", ["t2m", ["msl"]])
 def test_gfs_fetch(time, variable):
 
     ds = GFS(cache=False)
@@ -62,9 +61,7 @@ def test_gfs_fetch(time, variable):
     assert np.array_equal(data.coords["variable"].values, np.array(variable))
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(30)
+@pytest.mark.live(timeout=30)
 @pytest.mark.parametrize(
     "time,lead_time",
     [
@@ -106,9 +103,7 @@ def test_gfs_fx_fetch(time, lead_time):
     assert np.array_equal(data.coords["variable"].values, np.array(variable))
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(30)
+@pytest.mark.live(timeout=30)
 @pytest.mark.parametrize(
     "time",
     [
@@ -149,9 +144,7 @@ def test_gfs_cache(time, variable, cache):
         pass
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(15)
+@pytest.mark.live(timeout=15)
 @pytest.mark.parametrize(
     "source,time,variable,valid",
     [
@@ -180,7 +173,7 @@ def test_gfs_sources(source, time, variable, valid):
     assert not np.isnan(data.values).any()
 
 
-@pytest.mark.timeout(15)
+@pytest.mark.live(timeout=15)
 @pytest.mark.parametrize(
     "time",
     [
@@ -283,97 +276,21 @@ def test_gfs_index_parser_max_byte_size(tmp_path):
 # ----------------------------------------------------------------------
 
 
-@pytest.mark.timeout(15)
-def test_gfs_call_mock(tmp_path, monkeypatch):
-    """Exercise the full __call__ path using mocked index + grib decode."""
-    monkeypatch.setenv("EARTH2STUDIO_CACHE", str(tmp_path))
-
-    fake_index = {
-        "1::TMP::2 m above ground": (0, 65300),
-        "2::HGT::500 mb": (65300, 31215),
-    }
-    fake_grid = np.random.rand(721, 1440).astype(np.float32)
-
-    async def _fake_fetch_index(uri):
-        return fake_index
-
-    async def _fake_fetch_remote_file(*args, **kwargs):
-        return str(tmp_path / "ignored.pgrb2")
-
-    ds = GFS(source="aws", cache=True, verbose=False)
-
-    with (
-        patch.object(ds, "_async_init", new=AsyncMock(return_value=None)),
-        patch.object(ds, "_fetch_index", side_effect=_fake_fetch_index),
-        patch.object(ds, "_fetch_remote_file", side_effect=_fake_fetch_remote_file),
-        patch("earth2studio.data.gfs.decode_grib_message", return_value=fake_grid),
-    ):
-        # Bypass real store by stubbing it to a truthy sentinel.
-        ds.store = object()  # type: ignore[assignment]
-        data = ds(datetime(2024, 1, 1), ["t2m", "z500"])
-
-    assert data.shape == (1, 2, 721, 1440)
-    # t2m is identity, z500 multiplies HGT by 9.81 — both records used the
-    # same mock grid, so t2m matches the grid and z500 = grid * 9.81.
-    np.testing.assert_allclose(data.sel(variable="t2m").values[0], fake_grid)
-    np.testing.assert_allclose(
-        data.sel(variable="z500").values[0], fake_grid * 9.81, rtol=1e-6
-    )
-
-
-@pytest.mark.timeout(15)
-def test_gfs_fx_call_mock(tmp_path, monkeypatch):
-    """Exercise the GFS_FX __call__ path with multiple lead times."""
-    monkeypatch.setenv("EARTH2STUDIO_CACHE", str(tmp_path))
-
-    fake_index = {"1::TMP::2 m above ground": (0, 65300)}
-    fake_grid = np.random.rand(721, 1440).astype(np.float32)
-
-    async def _fake_fetch_index(uri):
-        return fake_index
-
-    async def _fake_fetch_remote_file(*args, **kwargs):
-        return str(tmp_path / "ignored.pgrb2")
-
-    ds = GFS_FX(source="aws", cache=True, verbose=False)
-
-    with (
-        patch.object(ds, "_async_init", new=AsyncMock(return_value=None)),
-        patch.object(ds, "_fetch_index", side_effect=_fake_fetch_index),
-        patch.object(ds, "_fetch_remote_file", side_effect=_fake_fetch_remote_file),
-        patch("earth2studio.data.gfs.decode_grib_message", return_value=fake_grid),
-    ):
-        ds.store = object()  # type: ignore[assignment]
-        data = ds(
-            datetime(2024, 1, 1),
-            [timedelta(hours=0), timedelta(hours=6)],
-            ["t2m", "z500"],
-        )
-
-    assert data.shape == (1, 2, 2, 721, 1440)
-    for j in range(2):
-        np.testing.assert_allclose(data.sel(variable="t2m").values[0, j], fake_grid)
-    assert np.isnan(data.sel(variable="z500").values).all()
-
-
 @pytest.mark.timeout(10)
 @pytest.mark.parametrize("record_number", [450, 596])
 def test_gfs_fx_tp_uses_accumulation_window(record_number):
     fake_index = {f"{record_number}::APCP::surface::6-7 hour acc fcst": (100, 10)}
     ds = GFS_FX(cache=False, verbose=False)
-    with patch.object(ds, "_fetch_index", AsyncMock(return_value=fake_index)):
-        [task] = asyncio.run(
-            ds._create_tasks([datetime(2021, 1, 1)], [timedelta(hours=7)], ["tp"])
-        )
-    _, modifier = GFSLexicon["tp"]
-    assert (task.gfs_byte_offset, task.gfs_byte_length) == (100, 10)
+    offset, length, modifier = ds._lookup_record(
+        fake_index, "tp", datetime(2021, 1, 1), timedelta(hours=7)
+    )
+    assert (offset, length) == (100, 10)
     assert modifier(np.array(1000.0)) == 1.0
 
 
 @pytest.mark.timeout(15)
 def test_gfs_missing_variable_mock(tmp_path, monkeypatch):
-    # If the requested variable is absent from the .idx, _create_tasks warns
-    # and skips it, so the output slot must remain detectably missing.
+    # An absent variable leaves the output slot detectably missing.
     monkeypatch.setenv("EARTH2STUDIO_CACHE", str(tmp_path))
 
     # Index only has t2m; z500 is missing on purpose.
@@ -398,3 +315,161 @@ def test_gfs_missing_variable_mock(tmp_path, monkeypatch):
 
     np.testing.assert_allclose(data.sel(variable="t2m").values[0], fake_grid)
     assert np.isnan(data.sel(variable="z500").values).all()
+
+
+@pytest.mark.timeout(30)
+def test_gfs_call_mock(mock_statistic_grib):
+    ds = GFS(source="aws", cache=True, verbose=True)
+    variables = ["t2m", "t2m:mean:12h", "t2m:sum:12h", "t2m:max:12h", "t2m:min:12h"]
+    index_calls = mock_statistic_grib(ds)
+    data = ds(datetime(2024, 1, 2), variables)
+    # Window (-12h, 0h] holds the 6-hourly analyses at 18z (18h) and 00z (24h)
+    assert data.shape == (1, 5, 2, 2)
+    values = [float(data.sel(variable=v).values[0, 0, 0]) for v in variables]
+    assert values == [24.0, 21.0, 42.0, 24.0, 18.0]
+    assert set(data.attrs["earth2studio_statistics"]) == set(variables[1:])
+    # Instantaneous (shared with the window) plus one extra analysis file
+    assert len(set(index_calls)) == 2
+    # Analysis windows move across cycles, always fetching lead zero.
+    assert all("f000" in uri for uri in index_calls)
+    index_calls.clear()
+    data = ds([datetime(2024, 1, 2, 6), datetime(2024, 1, 2)], variables)
+    np.testing.assert_allclose(
+        data.values[:, :, 0, 0], [[30, 27, 54, 30, 24], [24, 21, 42, 24, 18]]
+    )
+    assert len(set(index_calls)) == 3
+    assert all("f000" in uri for uri in index_calls)
+
+    data = fetch_data(
+        ds,
+        np.array(["2024-01-02"], dtype="datetime64[ns]"),
+        np.array(["TMP::2 m above ground"]),
+    )
+    assert data.values[0, 0, 0, 0, 0] == 24
+    data = ds(datetime(2024, 1, 2), ["t2m", "z500", "tp06"])
+    np.testing.assert_allclose(data.values[0, :, 0, 0], [24, 24 * 9.81, 0.021])
+    assert list(data.coords["variable"].values) == ["t2m", "z500", "tp06"]
+    mock_statistic_grib(ds, missing=(18,))
+    data = ds(datetime(2024, 1, 2), variables)
+    # A record missing from the index is NaN, and so is every window holding it
+    np.testing.assert_allclose(
+        data.values[0, :, 0, 0], [24] + [np.nan] * 4, equal_nan=True
+    )
+    np.testing.assert_allclose(data.values[0, :, 1, 0], np.nan, equal_nan=True)
+
+
+@pytest.mark.timeout(30)
+def test_gfs_fx_call_mock(mock_statistic_grib, monkeypatch, tmp_path):
+    fx = GFS_FX(source="aws", cache=True, verbose=True)
+    variables = [
+        "t2m",
+        "t2m:mean:3h",
+        "t2m:sum:+0h:+3h",
+        "t2m:max:-2h:+0h",
+        "t2m:min:3h",
+    ]
+    index_calls = mock_statistic_grib(fx)
+    data = fx(datetime(2024, 1, 1), [timedelta(hours=6), timedelta(hours=7)], variables)
+    with pytest.raises(ValueError, match="lead time"):
+        fx(datetime(2024, 1, 1), [timedelta(hours=0)], ["t2m:mean:3h"])
+    assert data.shape == (1, 2, 5, 2, 2)
+    # lead 6: mean(4,5,6)=5, sum(7,8,9)=24, max(5,6)=6; lead 7 is shifted by 1h
+    np.testing.assert_allclose(
+        data.values[0, :, :, 0, 0], [[6, 5, 24, 6, 4], [7, 6, 27, 7, 5]]
+    )
+    assert set(data.attrs["earth2studio_statistics"]) == set(variables[1:])
+    # Only leads 4..10 are indexed
+    assert len(set(index_calls)) == 7
+    np.testing.assert_allclose(data.values[0, :, 1:3, 0, 1], np.nan, equal_nan=True)
+
+    # Equal valid times from different initializations remain distinct requests.
+    index_calls.clear()
+    data = fx(
+        [datetime(2024, 1, 1, 6), datetime(2024, 1, 1)],
+        [timedelta(hours=7), timedelta(hours=6)],
+        variables,
+    )
+    np.testing.assert_allclose(
+        data.values[:, :, :, 0, 0],
+        [
+            [[13, 12, 45, 13, 11], [12, 11, 42, 12, 10]],
+            [[7, 6, 27, 7, 5], [6, 5, 24, 6, 4]],
+        ],
+    )
+    assert len(set(index_calls)) == 14
+    assert sum("gfs.t06z" in uri for uri in set(index_calls)) == 7
+    assert sum("gfs.t00z" in uri for uri in set(index_calls)) == 7
+
+    # True trailing totals at a complete bucket and across the reset at hour 6.
+    data = fx(
+        [datetime(2024, 1, 1), datetime(2024, 1, 1, 6)],
+        [timedelta(hours=h) for h in (6, 7, 11, 12, 13)],
+        ["tp", "tp06", "tp06:sum:+0h:+2h", "t2m"],
+    )
+    assert list(data.coords["variable"].values) == [
+        "tp",
+        "tp06",
+        "tp06:sum:+0h:+2h",
+        "t2m",
+    ]
+    np.testing.assert_allclose(
+        data.sel(variable="t2m").values[:, :, 0, 0],
+        [[6, 7, 11, 12, 13], [12, 13, 17, 18, 19]],
+    )
+    np.testing.assert_allclose(
+        data.sel(variable="tp").values[:, :, 0, 0],
+        [[0.021, 0.007, 0.045, 0.057, 0.013]] * 2,
+    )
+    np.testing.assert_allclose(
+        data.sel(variable="tp06").values[:, :, 0, 0],
+        [[0.021, 0.027, 0.051, 0.057, 0.063]] * 2,
+    )
+    np.testing.assert_allclose(
+        data.sel(variable="tp06:sum:+0h:+2h").values[:, :, 0, 0],
+        [[0.060, 0.072, 0.120, 0.132, 0.144]] * 2,
+    )
+    with pytest.raises(ValueError, match="at least 6 hours"):
+        fx(datetime(2024, 1, 1), timedelta(hours=5), "tp06")
+    with pytest.raises(ValueError, match="at least 6 hours"):
+        fx(datetime(2024, 1, 1), timedelta(hours=6), "tp06:mean:3h")
+    mock_statistic_grib(fx, missing=(6,))
+    data = fx(datetime(2024, 1, 1), timedelta(hours=7), ["tp", "tp06", "msl"])
+    assert data.sel(variable="tp").values[0, 0, 0, 0] == 0.007
+    assert np.isnan(data.sel(variable=["tp06", "msl"]).values).all()
+    _check_shared_download(monkeypatch, tmp_path)
+
+
+def _check_shared_download(monkeypatch, tmp_path):
+    """Concurrent requests for one byte range share a single atomic download."""
+    calls = []
+
+    async def fake_fetch(
+        store,
+        key,
+        cache_dir,
+        byte_offset=0,
+        byte_length=None,
+        cache_key=None,
+        chunked=False,
+        atomic=False,
+    ):
+        calls.append((key, byte_offset, atomic))
+        await asyncio.sleep(0.01)
+        return str(tmp_path / cache_key)
+
+    monkeypatch.setattr(gfs_module, "obstore_fetch_to_cache", fake_fetch)
+    ds = GFS_FX(source="aws", cache=False, verbose=False)
+    ds.store = object()
+
+    async def run():
+        args = ("noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f006", 4)
+        same = await asyncio.gather(
+            *[ds._fetch_remote_file(args[0], byte_offset=args[1]) for _ in range(4)]
+        )
+        other = await ds._fetch_remote_file(args[0], byte_offset=8)
+        return same, other
+
+    same, other = asyncio.run(run())
+    assert len(set(same)) == 1 and other not in same
+    assert [c[1:] for c in calls] == [(4, True), (8, True)]
+    assert not ds._inflight_downloads

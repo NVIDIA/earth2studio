@@ -19,32 +19,32 @@ from collections import OrderedDict
 import numpy as np
 import pytest
 import torch
+import xarray as xr
 
 from earth2studio.perturbation import (
     BredVector,
     Brown,
     Gaussian,
 )
+from earth2studio.utils.cupy import from_torch
+
+
+def _da(x, dims):
+    return from_torch(
+        x, OrderedDict((d, np.arange(n)) for d, n in zip(dims, x.shape)), attrs={"a": 1}
+    )
 
 
 @pytest.fixture
 def model():
-    class FooModel(torch.nn.Module):
+    class FooModel:
         def __init__(self):
-            super().__init__()
-            self.register_buffer("scale", torch.Tensor([0.1]))
+            self.scale = 0.1
             self.index = 0
-            self._input_coords = None
 
-        def input_coords(self):
-            return self._input_coords
-
-        def output_coords(self, dummy):
-            return {"lead_time": np.array([np.timedelta64(1, "s")])}
-
-        def forward(self, x, coords):
+        def __call__(self, x: xr.DataArray) -> xr.DataArray:
             self.index += 1
-            return self.scale * x, coords
+            return x * self.scale
 
     return FooModel()
 
@@ -52,14 +52,8 @@ def model():
 @pytest.mark.parametrize(
     "x, coords",
     [
-        [
-            torch.randn(2, 16, 16, 16),
-            OrderedDict([("a", []), ("variable", []), ("lat", []), ("lon", [])]),
-        ],
-        [
-            torch.randn(2, 8, 32, 16),
-            OrderedDict([("a", []), ("variable", []), ("lat", []), ("lon", [])]),
-        ],
+        [torch.randn(2, 16, 16, 16), ("a", "variable", "lat", "lon")],
+        [torch.randn(2, 8, 32, 16), ("a", "variable", "lat", "lon")],
     ],
 )
 @pytest.mark.parametrize(
@@ -86,9 +80,9 @@ def test_bred_vec(
     model, x, coords, amplitude, steps, ensemble, seeding_perturbation_method, device
 ):
 
-    model = model.to(device)
     model.index = 0
     x = x.to(device)
+    xda = _da(x, coords)
 
     if amplitude == "tensor":
         amplitude = torch.randn(
@@ -96,10 +90,12 @@ def test_bred_vec(
         )
 
     prtb = BredVector(model, amplitude, steps, ensemble, seeding_perturbation_method)
-    xout, coords = prtb(x, coords)
-    dx = xout - x
+    xout = prtb(xda)
 
     # Don't have a good statistical test for this at the moment
-    assert dx.shape == x.shape
-    assert dx.device == x.device
+    assert xout.dims == xda.dims
+    assert xout.shape == xda.shape
+    assert xout.attrs == xda.attrs
+    assert xout.e2s.is_cupy == (device != "cpu")
+    assert not np.allclose(xout.e2s.as_numpy().values, xda.e2s.as_numpy().values)
     assert model.index == steps + 1

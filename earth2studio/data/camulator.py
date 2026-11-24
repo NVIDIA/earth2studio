@@ -24,7 +24,11 @@ import xarray as xr
 from huggingface_hub import hf_hub_download
 from loguru import logger
 
-from earth2studio.data.utils import datasource_cache_dir, prep_data_inputs
+from earth2studio.data.utils import (
+    datasource_cache_dir,
+    prep_data_inputs,
+)
+from earth2studio.grids import with_grid_metadata
 from earth2studio.lexicon.camulator import CAMulatorLexicon
 from earth2studio.utils.type import TimeArray, VariableArray
 
@@ -60,8 +64,10 @@ class CAMulatorForcing:
     Parameters
     ----------
     mode : str, optional
-        Either "cyclic" (climatological year) or "transient" (1980-2014), by
-        default "cyclic"
+        Either "cyclic" (climatological year: the 1980-2014 mean seasonal cycle
+        with CO2 fixed at its year-2000 mean of 369 ppm; no published CAMulator
+        result uses it) or "transient" (the 1980-2014 record), by default
+        "cyclic"
     forcing_file : str, optional
         Local NetCDF file to read instead of downloading the shipped file. Must
         hold the CESM variables ``SOLIN``, ``SST``, ``ICEFRAC`` and
@@ -93,7 +99,8 @@ class CAMulatorForcing:
 
     Badges
     ------
-    region:global dataclass:simulation product:atmos product:ocean provider:ncar
+    region:global dataclass:simulation product:atmos product:ocean product:solar
+    provider:ncar
     """
 
     def __init__(
@@ -146,7 +153,7 @@ class CAMulatorForcing:
             if not self._cache:
                 self._close()
                 shutil.rmtree(self.cache, ignore_errors=True)
-        return result
+        return with_grid_metadata(result)
 
     async def fetch(
         self,

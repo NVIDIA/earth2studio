@@ -628,9 +628,7 @@ def test_dynamical_cache():
     assert DynamicalGFS(cache=True).cache == DynamicalGFS(cache=False).cache
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(120)
+@pytest.mark.live(timeout=120)
 def test_dynamical_fetch():
     source = DynamicalGFS()
     time = [datetime.datetime(year=2024, month=6, day=1)]
@@ -649,9 +647,7 @@ def test_dynamical_fetch():
         assert np.nanmin(t2m) > 180.0 and np.nanmax(t2m) < 350.0
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(120)
+@pytest.mark.live(timeout=120)
 def test_dynamical_forecast_fetch():
     source = DynamicalGFS_FX()
     variable = ["t2m"]

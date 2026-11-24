@@ -33,9 +33,7 @@ def _set_cdsapi_url(monkeypatch):
     monkeypatch.setenv("CDSAPI_URL", CDS_API_URL)
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(30)
+@pytest.mark.live(timeout=30)
 @pytest.mark.parametrize(
     "time",
     [
@@ -67,9 +65,7 @@ def test_cds_fetch(time, variable):
     assert np.array_equal(data.coords["variable"].values, np.array(variable))
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(120)
+@pytest.mark.live(timeout=120)
 @pytest.mark.parametrize(
     "time",
     [
@@ -93,9 +89,7 @@ def test_cds_tp06_fetch(time):
     assert np.array_equal(data.coords["variable"].values, np.array(["tp06"]))
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(90)
+@pytest.mark.live(timeout=90)
 @pytest.mark.parametrize(
     "time",
     [
@@ -134,8 +128,7 @@ def test_cds_cache(time, variable, cache):
         pass
 
 
-@pytest.mark.xfail
-@pytest.mark.timeout(30)
+@pytest.mark.live(timeout=30)
 @pytest.mark.parametrize(
     "time",
     [

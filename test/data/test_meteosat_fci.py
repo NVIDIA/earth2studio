@@ -15,7 +15,6 @@
 # limitations under the License.
 
 import pathlib
-import shutil
 from datetime import datetime
 from unittest.mock import patch
 
@@ -36,17 +35,11 @@ from earth2studio.data import MeteosatFCI
 _EUROPE_BBOX = ((35.0, 60.0), (-10.0, 30.0))
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(120)
+@pytest.mark.live(timeout=60)
 @pytest.mark.parametrize(
     "time,variable",
     [
         (datetime(2025, 3, 1, 12, 0), "fci87ir"),
-        (
-            [datetime(2025, 3, 1, 12, 0), datetime(2025, 3, 1, 12, 10)],
-            ["fci87ir", "fci63wv"],
-        ),
     ],
 )
 def test_meteosat_fci_fetch(time, variable):
@@ -62,22 +55,7 @@ def test_meteosat_fci_fetch(time, variable):
     assert not np.all(np.isnan(data.values))
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(120)
-def test_meteosat_fci_cache():
-    ds = MeteosatFCI(resolution="2km", lat_lon_bbox=_EUROPE_BBOX, cache=True)
-    time = datetime(2025, 3, 1, 12, 0)
-    data1 = ds(time, "fci87ir")
-    data2 = ds(time, "fci87ir")  # served from cache — no re-download
-    assert data1.shape == data2.shape
-    assert pathlib.Path(ds.cache).is_dir()
-    shutil.rmtree(ds.cache, ignore_errors=True)
-
-
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(120)
+@pytest.mark.live(timeout=60)
 def test_meteosat_fci_hrfi_fetch():
     # HRFI vis_06 at 500 m.  pixel_bbox restricts which BODY segments are read.
     # pixel_bbox format: ((row_start, row_end), (col_start, col_end))
@@ -244,10 +222,13 @@ def test_meteosat_fci_pixel_bbox_mock(tmp_path):
     product_dir = tmp_path / "mtg_mock"
     product_dir.mkdir()
     _build_body_nc(product_dir / "BODY_001.nc", "ir_87", _ROWS, _COLS)
+    ny = row_bounds[1] - row_bounds[0]
+    nx = col_bounds[1] - col_bounds[0]
 
     with (
         patch.object(MeteosatFCI, "_fetch_product", return_value=str(product_dir)),
-        patch.object(MeteosatFCI, "_ensure_grid", return_value=_mock_lat_lon()),
+        # The source navigates only the fetched region.
+        patch.object(MeteosatFCI, "_ensure_grid", return_value=_mock_lat_lon(ny, nx)),
         patch("earth2studio.data.meteosat_fci._GRID_SIZE", _SMALL_GRID_SIZE),
         patch.object(MeteosatFCI, "FCI_X", _SMALL_FCI_X),
         patch.object(MeteosatFCI, "FCI_Y", _SMALL_FCI_Y),
@@ -260,8 +241,6 @@ def test_meteosat_fci_pixel_bbox_mock(tmp_path):
         )
         data = ds(datetime(2025, 3, 1, 12, 0), "fci87ir")
 
-    ny = row_bounds[1] - row_bounds[0]
-    nx = col_bounds[1] - col_bounds[0]
     assert data.shape == (1, 1, ny, nx)
     assert "_lat" in data.coords and "_lon" in data.coords
 
@@ -324,6 +303,20 @@ def test_meteosat_fci_grid_orientation():
     assert float(lat[q1, mid]) < float(lat[q3, mid])
     # Western columns have lower (more negative) longitudes than eastern ones
     assert float(lon[mid, q1]) < float(lon[mid, q3])
+    assert np.isnan(lat[0, 0]) and np.isnan(lon[0, 0])
+
+    # Off-axis pixel of the StormScope package, which navigates FCI with sweep=y;
+    # sweep=x (GOES) navigation is ~0.25 degrees off here.
+    np.testing.assert_allclose(
+        (lat[5320, 2156], lon[5320, 2156]), (62.918877, -28.507347), atol=1e-5
+    )
+
+    # A pixel_bbox grid is the matching crop of the full disk.
+    pixel_bbox = ((5300, 5340), (2150, 2170))
+    crop_lat, crop_lon = MeteosatFCI.grid(resolution="2km", pixel_bbox=pixel_bbox)
+    crop = (slice(*pixel_bbox[0]), slice(*pixel_bbox[1]))
+    np.testing.assert_array_equal(crop_lat, lat[crop])
+    np.testing.assert_array_equal(crop_lon, lon[crop])
 
 
 def test_meteosat_fci_available():

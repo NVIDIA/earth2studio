@@ -27,6 +27,7 @@ from earth2studio.models.dx.corrdiff_cmip6 import CorrDiffCMIP6
 from earth2studio.models.dx.corrdiff_cosmo_era5 import CorrDiffCosmoEra5
 from earth2studio.models.dx.corrdiff_era5_hrrr import CorrDiffEra5Hrrr
 from earth2studio.models.dx.derived import (
+    DerivedPressureLevels,
     DerivedRH,
     DerivedRHDewpoint,
     DerivedSurfacePressure,

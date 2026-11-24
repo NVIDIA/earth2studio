@@ -16,8 +16,10 @@
 
 """Reference lexicon skeleton for new Earth2Studio data sources.
 
-Copy this to ``earth2studio/lexicon/<source_name>.py``, rename the class,
-and replace each ``# FILL:`` section.
+Copy this into the user's project, rename the class, and replace each ``# FILL:``
+section. Only contributions use ``earth2studio/lexicon/<source_name>.py``.
+Preserve this template's SPDX/license when copying code; it does not impose
+NVIDIA copyright on newly authored local code.
 """
 
 from collections.abc import Callable
@@ -32,6 +34,12 @@ class SourceNameLexicon(metaclass=LexiconType):
     ----
     Variable documentation: FILL: URL
     """
+
+    # OPTIONAL: only enable after implementing native temporal statistics.
+    # See temporal-statistics.py.
+    # TIME_STATISTICS: tuple[str, ...] = ("mean", "sum", "min", "max")
+    # Expose this class as source.lexicon; keep qualified labels out of VOCAB.
+    # The source parses the suffix and resolves only the base variable here.
 
     VOCAB = {
         # FILL: Map Earth2Studio variable names to remote keys.

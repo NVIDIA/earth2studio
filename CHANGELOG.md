@@ -7,9 +7,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.20.1a0] - 2026-11-xx
+## [1.1.0a0] - xxxx-xx-xx
 
 ### Added
+
+- `Pipeline` lead-time reductions per stream, such as weekly means with `LeadWindow`.
 
 ### Changed
 
@@ -19,11 +21,83 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Fixed shift direction in `map_coords` roll condition when reordering cyclic coordinates
+- Fixed noisy StormScope Flash GOES forecasts when a missing input band masked
+  every history patch; fill raw NaNs before normalization and patch masking.
+- `CAMulator` converts the CO2 forcing from ppm to mol mol-1 in float64; the
+  float32 round trip lost one ulp for some values and broke bitwise agreement
+  with the CREDIT toolbox after a few steps.
+- `CFS_FX_Flux` and `CFS_Reforecast_FX_Flux` return `tcc`, `hcc`, `mcc` and `lcc` as
+  a 0-1 fraction instead of the percent stored in the GRIB files.
+- Fixed `ISD` returning multi-hour (3, 6, 12, 24 hour) precipitation totals as
+  hourly `tp`.
+- Fixed `ISD` returning duplicate observations when the tolerance windows of
+  several requested times overlap, and missing observations from the neighboring
+  year when a window crosses a year boundary.
+- Fixed weighted running variance and standard deviation (`batch_update=True`) to use
+  the same weighted denominator as the non-batched statistic.
+- Fixed asymmetric cyclic coordinate reorderings in map_coords bypassing the torch.roll 
+  path.
 
 ### Security
 
 ### Dependencies
+
+## [1.0.0] - 2026-11-18
+
+Breaking API changes; see [MIGRATION.md](MIGRATION.md) for upgrade instructions.
+
+### Added
+
+- Grid definitions, registry, regions, and nearest/bilinear regridders.
+- `Pipeline` orchestration with runners, output streams, distributed work, and resume.
+- `CoupledRunner` and connectors for multi-model coupling.
+- WeatherMesh-5c forecasting, AIDA assimilation, and `StormCastConusSDA`.
+- Standalone DLESyM atmosphere/ocean components and `DLESyMInputSource`.
+- `StormScopeGOESConditioned` and `DerivedPressureLevels` models.
+- Lazy STAC access, OISST, composite sources, and `RegriddedSource`.
+- Ensemble-aware source protocols, member selection, and member batching.
+- Native temporal statistics for ARCO ERA5, WB2 ERA5, GFS, and HRRR.
+- NNJA raw conventional dumps, GPS-RO profile metadata, and IASI radiances.
+- NumPy/CuPy field backends, an autograd-preserving Torch backend, and `.e2s` accessors.
+- Model contract checks and component specifications.
+
+### Changed
+
+- Replaced tensor/coordinate pairs with DataArrays across models, fetching, IO,
+  perturbations, and statistics; signatures use `CoordinateSystem` instead of `CoordSystem`.
+- Models support multiple input/output slots, explicit forcing, and default data sources.
+- Prognostic/stateful assimilation models use explicit `initialize`/`step` state and
+  model-local RNG; iterators yield forecasts first.
+- Regional models use `DomainAdaptable.with_region`; CorrDiff ERA5-HRRR supports subdomains.
+- IO uses metadata templates, label-based writes, and explicit `flush`/`close`.
+- `fetch_data` uses `target_grid`/`regridder`; returned time labels must match requests.
+- Metrics require aligned truth coordinates without implicit broadcasting.
+- Temporal windows are right-closed and propagate missing samples as NaN.
+- HRRR spatial axes are now `y`/`x`; ORBIT-2 uses temporal-statistic labels and ARCO ERA5.
+- `PrecipitationAFNO` v1 and DLESyM v1.1 output `tp06`; DLESyM precipitation is in meters.
+- Torch/CuPy share RMM memory on Linux CUDA; opt out with `EARTH2STUDIO_DISABLE_RMM=1`.
+- Migrated examples, eval, HENS, S2S, and scorecards to the new APIs; added HealDA scorecards.
+
+### Removed
+
+- `DLESyMLatLon` and `DLESyMv0_ISCCP_ERA5LatLon`; use `DLESyMInputSource` and regridders.
+- Beta serving package, extra, and deployment scripts; use
+  [PhysicsNeMo Serve](https://github.com/NVIDIA/physicsnemo-serve).
+
+### Fixed
+
+- HRRR snow depth and GEFS 0.25° precipitation now use meters.
+- ISD wind components remain NaN when wind direction is missing.
+- Corrected longitude-bound selection and rejected source grids with insufficient coverage.
+
+### Security
+
+- Updated vulnerable dependencies and regenerated dependency locks.
+
+### Dependencies
+
+- Added core CuPy (Linux/Windows), RMM (Linux), and pyproj dependencies.
+- Added `weathermesh5c` and `da-aida` extras; updated HealDA.
 
 ## [0.20.0] - 2026-10-29
 

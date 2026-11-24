@@ -9,7 +9,6 @@
   "repository": "https://github.com/NVIDIA/earth2studio",
   "license": "Apache-2.0",
   "skills": "skills",
-  "rules": ".agents/rules",
   "keywords": [
     "nvidia",
     "earth2studio",
