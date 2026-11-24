@@ -35,6 +35,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   year when a window crosses a year boundary.
 - Fixed weighted running variance and standard deviation (`batch_update=True`) to use
   the same weighted denominator as the non-batched statistic.
+- Fixed asymmetric cyclic coordinate reorderings in map_coords bypassing the torch.roll
+  path.
 
 ### Security
 
