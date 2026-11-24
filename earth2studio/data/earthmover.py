@@ -1015,6 +1015,7 @@ class EarthMoverERA5(_EarthMoverAnalysis):
                     "1940 for ERA5"
                 )
 
+
 @check_optional_dependencies()
 class EarthMoverBrightBandIFS(_EarthMoverAnalysis):
     """Brightband ECMWF IFS 0.25 degree initial-condition data source on
@@ -1093,6 +1094,7 @@ class EarthMoverBrightBandIFS(_EarthMoverAnalysis):
             verbose=verbose,
             marketplace_url=self.MARKETPLACE_URL,
         )
+
 
 @check_optional_dependencies()
 class EarthMoverBrightBandIFS_FX(_EarthMoverForecast):
