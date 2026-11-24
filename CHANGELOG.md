@@ -12,8 +12,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - `Pipeline` lead-time reductions per stream, such as weekly means with `LeadWindow`.
-- `EarthMoverCustomRepo` and `EarthMoverCustomRepo_FX` data sources for custom or
-  private Earthmover Arraylake repositories with an explicit `group` layout.
+- `EarthMoverCustomRepo` analysis data source for custom or private Earthmover
+  Arraylake repositories, with an explicit `group` layout, `variable_map` and
+  `preprocess`.
+- `EarthMoverCustomRepo_FX` forecast data source for custom or private Earthmover
+  Arraylake repositories, with an explicit `group` layout, `variable_map` and
+  `preprocess`.
 
 ### Changed
 
@@ -32,6 +36,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   year when a window crosses a year boundary.
 - Fixed weighted running variance and standard deviation (`batch_update=True`) to use
   the same weighted denominator as the non-batched statistic.
+- Fixed Earthmover data sources returning negative or unordered longitudes for
+  global grids that do not start at -180, and silently filling with NaN when
+  requested variables are on different grids.
+- Earthmover forecast data sources raise a `ValueError` for lead times that are not
+  in the repository instead of a `KeyError`.
 
 ### Security
 

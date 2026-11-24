@@ -214,11 +214,42 @@ data = forecast(datetime(2024, 1, 1), [timedelta(hours=6)], ["t2m"])
 ```
 
 The repository must use a regular one-dimensional latitude/longitude grid and
-recognizable time coordinates; forecast repositories also need a lead-time coordinate
+`datetime64` time coordinates; forecast repositories also need a lead-time dimension
 such as `lead_time` or `step`. Variables are resolved across all listed groups using
-GRIB parameter identifiers, short names, CF variable names, and CF standard names.
-Earth2Studio raises an actionable `ValueError` if a requested variable cannot be
-resolved unambiguously.
+GRIB parameter identifiers, short names, CF variable names, and CF standard names, and
+all requested variables must be on one grid. Earth2Studio raises an actionable
+`ValueError` if a requested variable cannot be resolved unambiguously.
+
+Two optional arguments adapt repositories that do not fit these rules:
+
+- `variable_map` maps a variable id to a repository variable name, optionally with a
+  coordinate selection. It is tried before the metadata rules.
+- `preprocess` is a function applied lazily to each opened group, like `preprocess` in
+  `xarray.open_mfdataset`. Use it to rename coordinates, pick an ensemble member, sort
+  latitude, or convert a calendar.
+
+For example, regridded CMIP6 output with non-GRIB names, winds on several heights, a
+`noleap` calendar, and a `realization` dimension:
+
+```python
+cmip = EarthMoverCustomRepo(
+    repo="my-org/cmip6-ssp585",
+    group="daily",
+    variable_map={
+        "u10m": ("uas", {"height": 10.0}),
+        "u100m": ("uas", {"height": 100.0}),
+    },
+    preprocess=lambda ds: ds.sel(realization="r1i1p1f1").convert_calendar(
+        "standard", use_cftime=False
+    ),
+)
+data = cmip(datetime(2050, 7, 1, 12), ["t2m", "u10m", "u100m", "msl"])
+```
+
+Without the `sel` in `preprocess`, dimensions such as `realization` are kept in front
+of `variable`, giving `[time, realization, variable, lat, lon]`. That output does not
+follow the data source protocol shape, so select a single member before using the
+source with Earth2Studio models and workflows.
 
 ## Learn more
 
