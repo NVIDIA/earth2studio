@@ -36,6 +36,7 @@ from earth2studio.data.utils import (
 from earth2studio.grids import with_grid_metadata
 from earth2studio.lexicon.base import LexiconType
 from earth2studio.lexicon.earthmover import (
+    EarthMoverCustomLexicon,
     EarthMoverERA5Lexicon,
     EarthMoverIFSInitialConditionLexicon,
     EarthMoverIFSLexicon,
@@ -89,13 +90,16 @@ class _Resolved:
     rule: str  # which metadata rule matched (for diagnostics)
 
 
-class _EarthMoverBase:
+class _EarthMoverRepo:
     """Shared Earthmover Arraylake connection and resolution logic."""
 
     LEXICON: LexiconType = EarthMoverIFSLexicon
     ORG_ENV_VAR = "EARTHMOVER_ORGANIZATION"
     SUBSCRIPTION_REPO_NAME: str
     MARKETPLACE_URL: str | None = None
+    # Registered grid name used to annotate the output, if the repository is
+    # known to sit on one. None annotates the actual lat/lon axes.
+    GRID: str | None = None
 
     @classmethod
     def _derive_repo_name(cls, repo: str | None) -> str:
@@ -494,6 +498,80 @@ class _EarthMoverBase:
         da = self._standardize_longitude(da)
         return da
 
+    def _prepare_variable(
+        self,
+        variable: str,
+        time_sel: np.ndarray,
+        lead_sel: np.ndarray | None = None,
+    ) -> xr.DataArray:
+        """Resolve and select one variable as ``[time, (lead_time), lat, lon]``.
+
+        Parameters
+        ----------
+        variable : str
+            Earth2Studio variable id.
+        time_sel : np.ndarray
+            Requested (initialization) times.
+        lead_sel : np.ndarray | None, optional
+            Requested lead times. When given the repository must have a
+            lead-time coordinate, by default None.
+
+        Returns
+        -------
+        xr.DataArray
+            Lazy array with dimensions ``[time, lat, lon]`` or, with
+            ``lead_sel``, ``[time, lead_time, lat, lon]``.
+
+        Raises
+        ------
+        ValueError
+            If a lead time is requested from a repository without a lead-time
+            coordinate, or the variable has dimensions that cannot be reduced
+            to the expected ones.
+        """
+        resolved = self._resolve(variable)
+        dims = ["time", "lat", "lon"]
+        extra_sel: dict[str, np.ndarray] | None = None
+        lead_coord: str | None = None
+        if lead_sel is not None:
+            lead_coord = self._find_coord(resolved.dataset, _LEAD_NAMES)
+            if lead_coord is None:
+                raise ValueError(
+                    f"Repo '{self._repo_name}' has no lead-time/step coordinate. "
+                    "Use an analysis source such as EarthMoverCustomRepo for "
+                    "repositories without a lead-time dimension."
+                )
+            extra_sel = {lead_coord: lead_sel}
+            dims.insert(1, "lead_time")
+        if self._verbose:
+            logger.debug(
+                f"{variable} -> {self._repo_name}:{resolved.var_name} "
+                f"(matched by {resolved.rule})"
+            )
+
+        da = self._select_variable(resolved, time_sel, extra_sel=extra_sel)
+        if lead_coord is not None and lead_coord != "lead_time":
+            da = da.rename({lead_coord: "lead_time"})
+
+        squeeze_dims = [
+            dim for dim, size in da.sizes.items() if dim not in dims and size == 1
+        ]
+        if squeeze_dims:
+            da = da.squeeze(dim=squeeze_dims, drop=True)
+        extra_dims = [str(dim) for dim in da.dims if dim not in dims]
+        if extra_dims:
+            hint = ""
+            if lead_sel is None and any(d.lower() in _LEAD_NAMES for d in extra_dims):
+                hint = (
+                    " This looks like a forecast repository; use a forecast "
+                    "source such as EarthMoverCustomRepo_FX."
+                )
+            raise ValueError(
+                f"Repo '{self._repo_name}' variable '{resolved.var_name}' has "
+                f"unsupported dimension(s) {extra_dims}; expected {dims}.{hint}"
+            )
+        return da.transpose(*dims)
+
     # ------------------------------------------------------------------
     # Cache property (Arraylake/Icechunk manages remote caching internally)
     # ------------------------------------------------------------------
@@ -557,8 +635,293 @@ class _EarthMoverBase:
             )
 
 
+class _EarthMoverAnalysis(_EarthMoverRepo):
+    """Analysis (``DataSource``) interface shared by Earthmover sources."""
+
+    def __call__(
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        variable: str | list[str] | VariableArray,
+    ) -> xr.DataArray:
+        """Retrieve data for times and variables.
+
+        Parameters
+        ----------
+        time : datetime | list[datetime] | TimeArray
+            Analysis timestamps (UTC).
+        variable : str | list[str] | VariableArray
+            Earth2Studio variable id(s).
+
+        Returns
+        -------
+        xr.DataArray
+            Data array with dimensions ``[time, variable, lat, lon]``.
+        """
+        return _sync_async(self.fetch, time, variable)
+
+    async def fetch(
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        variable: str | list[str] | VariableArray,
+    ) -> xr.DataArray:
+        """Retrieve data for times and variables asynchronously.
+
+        Parameters
+        ----------
+        time : datetime | list[datetime] | TimeArray
+            Analysis timestamps (UTC).
+        variable : str | list[str] | VariableArray
+            Earth2Studio variable id(s).
+
+        Returns
+        -------
+        xr.DataArray
+            Data array with dimensions ``[time, variable, lat, lon]``.
+        """
+        time_list, variable_list = prep_data_inputs(time, variable)
+        self._validate_time(time_list)
+        await self._connect()
+        await self._validate_times(time_list)
+
+        time_sel = np.array(time_list, dtype="datetime64[ns]")
+        arrays = [self._prepare_variable(v, time_sel) for v in variable_list]
+
+        out = xr.concat(arrays, dim="variable")
+        out = out.assign_coords(variable=variable_list).transpose(
+            "time", "variable", "lat", "lon"
+        )
+        return with_grid_metadata(await asyncio.to_thread(out.load), self.GRID)
+
+
+class _EarthMoverForecast(_EarthMoverRepo):
+    """Forecast (``ForecastSource``) interface shared by Earthmover sources."""
+
+    def __call__(
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        lead_time: timedelta | list[timedelta] | LeadTimeArray,
+        variable: str | list[str] | VariableArray,
+    ) -> xr.DataArray:
+        """Retrieve forecast data for init times, lead times and variables.
+
+        Parameters
+        ----------
+        time : datetime | list[datetime] | TimeArray
+            Forecast initialization timestamps (UTC).
+        lead_time : timedelta | list[timedelta] | LeadTimeArray
+            Forecast lead times.
+        variable : str | list[str] | VariableArray
+            Earth2Studio variable id(s).
+
+        Returns
+        -------
+        xr.DataArray
+            Data array with dimensions ``[time, lead_time, variable, lat, lon]``.
+        """
+        return _sync_async(self.fetch, time, lead_time, variable)
+
+    async def fetch(
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        lead_time: timedelta | list[timedelta] | LeadTimeArray,
+        variable: str | list[str] | VariableArray,
+    ) -> xr.DataArray:
+        """Retrieve forecast data asynchronously.
+
+        Parameters
+        ----------
+        time : datetime | list[datetime] | TimeArray
+            Forecast initialization timestamps (UTC).
+        lead_time : timedelta | list[timedelta] | LeadTimeArray
+            Forecast lead times.
+        variable : str | list[str] | VariableArray
+            Earth2Studio variable id(s).
+
+        Returns
+        -------
+        xr.DataArray
+            Data array with dimensions ``[time, lead_time, variable, lat, lon]``.
+        """
+        time_list, lead_list, variable_list = prep_forecast_inputs(
+            time, lead_time, variable
+        )
+        self._validate_time(time_list)
+        await self._connect()
+        await self._validate_times(time_list)
+
+        time_sel = np.array(time_list, dtype="datetime64[ns]")
+        lead_sel = np.array(lead_list, dtype="timedelta64[ns]")
+        arrays = [
+            self._prepare_variable(v, time_sel, lead_sel=lead_sel)
+            for v in variable_list
+        ]
+
+        out = xr.concat(arrays, dim="variable")
+        out = out.assign_coords(variable=variable_list).transpose(
+            "time", "lead_time", "variable", "lat", "lon"
+        )
+        return with_grid_metadata(await asyncio.to_thread(out.load), self.GRID)
+
+
 @check_optional_dependencies()
-class EarthMoverERA5(_EarthMoverBase):
+class EarthMoverCustomRepo(_EarthMoverAnalysis):
+    """Analysis data source for a custom or private Earthmover Arraylake
+    repository.
+
+    Use this class for repositories that are not one of the Marketplace presets
+    (:py:class:`EarthMoverERA5`, :py:class:`EarthMoverBrightBandIFS`). The
+    group layout is given explicitly and only the requested times are checked
+    against the repository's time coordinate; no dataset-specific validation
+    is applied. For repositories with a lead-time dimension use
+    :py:class:`EarthMoverCustomRepo_FX`.
+
+    Parameters
+    ----------
+    repo : str
+        Arraylake repository name as ``org/repo``.
+    group : str | list[str] | None, optional
+        Zarr group, or groups, to open inside the repository. Variables are
+        resolved across all listed groups. None opens the repository root, by
+        default None.
+    branch : str, optional
+        Repository branch to read, by default "main".
+    client : arraylake.AsyncClient, optional
+        Pre-authenticated Arraylake async client. When omitted, this data source
+        uses the API key stored in ``EARTHMOVER_API_KEY``, by default None.
+    cache : bool, optional
+        Retained for API compatibility; Arraylake reads lazily via Icechunk, by
+        default True.
+    verbose : bool, optional
+        Print progress, by default True.
+
+    Warning
+    -------
+    This is a remote data source and can download a large amount of data for large
+    requests.
+
+    Note
+    ----
+    The repository must provide:
+
+    - A regular one-dimensional latitude/longitude grid.
+    - A recognizable time coordinate (``time``, ``valid_time``, ``init_time``
+      or ``forecast_reference_time``).
+    - Variables that can be matched to Earth2Studio variable ids through
+      ``GRIB_paramId``, ``GRIB_shortName`` / ``GRIB_cfVarName`` / variable name,
+      or CF ``standard_name`` metadata. Pressure-level variables are selected
+      from a pressure coordinate in hPa or Pa.
+
+    Set the ``EARTHMOVER_API_KEY`` environment variable to an Earthmover /
+    Arraylake API key, unless passing a pre-authenticated ``client``.
+    Arraylake-backed Earthmover sources require Python 3.12 or newer.
+
+    Badges
+    ------
+    region:global dataclass:analysis provider:earthmover
+    """
+
+    LEXICON = EarthMoverCustomLexicon
+
+    def __init__(
+        self,
+        repo: str,
+        group: str | list[str] | None = None,
+        branch: str = "main",
+        client: arraylake.AsyncClient | None = None,
+        cache: bool = True,
+        verbose: bool = True,
+    ) -> None:
+        super().__init__(
+            repo,
+            group=group,
+            branch=branch,
+            client=client,
+            cache=cache,
+            verbose=verbose,
+        )
+
+
+@check_optional_dependencies()
+class EarthMoverCustomRepo_FX(_EarthMoverForecast):
+    """Forecast data source for a custom or private Earthmover Arraylake
+    repository.
+
+    Use this class for forecast repositories that are not one of the
+    Marketplace presets (:py:class:`EarthMoverBrightBandIFS_FX`). The group
+    layout is given explicitly and only the requested initialization times are
+    checked against the repository's time coordinate. For repositories without
+    a lead-time dimension use :py:class:`EarthMoverCustomRepo`.
+
+    Parameters
+    ----------
+    repo : str
+        Arraylake repository name as ``org/repo``.
+    group : str | list[str] | None, optional
+        Zarr group, or groups, to open inside the repository. Variables are
+        resolved across all listed groups. None opens the repository root, by
+        default None.
+    branch : str, optional
+        Repository branch to read, by default "main".
+    client : arraylake.AsyncClient, optional
+        Pre-authenticated Arraylake async client. When omitted, this data source
+        uses the API key stored in ``EARTHMOVER_API_KEY``, by default None.
+    cache : bool, optional
+        Retained for API compatibility; Arraylake reads lazily via Icechunk, by
+        default True.
+    verbose : bool, optional
+        Print progress, by default True.
+
+    Warning
+    -------
+    This is a remote data source and can download a large amount of data for large
+    requests.
+
+    Note
+    ----
+    The repository must provide:
+
+    - A regular one-dimensional latitude/longitude grid.
+    - A recognizable initialization time coordinate (``time``, ``valid_time``,
+      ``init_time`` or ``forecast_reference_time``).
+    - A lead-time coordinate (``lead_time``, ``step``,
+      ``prediction_timedelta`` or ``forecast_period``).
+    - Variables that can be matched to Earth2Studio variable ids through
+      ``GRIB_paramId``, ``GRIB_shortName`` / ``GRIB_cfVarName`` / variable name,
+      or CF ``standard_name`` metadata. Pressure-level variables are selected
+      from a pressure coordinate in hPa or Pa.
+
+    Set the ``EARTHMOVER_API_KEY`` environment variable to an Earthmover /
+    Arraylake API key, unless passing a pre-authenticated ``client``.
+    Arraylake-backed Earthmover sources require Python 3.12 or newer.
+
+    Badges
+    ------
+    region:global dataclass:simulation provider:earthmover
+    """
+
+    LEXICON = EarthMoverCustomLexicon
+
+    def __init__(
+        self,
+        repo: str,
+        group: str | list[str] | None = None,
+        branch: str = "main",
+        client: arraylake.AsyncClient | None = None,
+        cache: bool = True,
+        verbose: bool = True,
+    ) -> None:
+        super().__init__(
+            repo,
+            group=group,
+            branch=branch,
+            client=client,
+            cache=cache,
+            verbose=verbose,
+        )
+
+
+@check_optional_dependencies()
+class EarthMoverERA5(_EarthMoverAnalysis):
     """Earthmover ERA5 0.25 degree reanalysis data source.
 
     Parameters
@@ -616,6 +979,7 @@ class EarthMoverERA5(_EarthMoverBase):
     ORG_ENV_VAR = "EARTHMOVER_ORGANIZATION"
     SUBSCRIPTION_REPO_NAME = "era5-subscription"
     DEFAULT_BRANCH = "main"
+    GRID = "latlon-0.25deg"
     TIME_START = datetime(year=1940, month=1, day=1)
     VARIABLES = tuple(EarthMoverERA5Lexicon.VOCAB)
 
@@ -637,27 +1001,6 @@ class EarthMoverERA5(_EarthMoverBase):
             marketplace_url=self.MARKETPLACE_URL,
         )
 
-    def __call__(
-        self,
-        time: datetime | list[datetime] | TimeArray,
-        variable: str | list[str] | VariableArray,
-    ) -> xr.DataArray:
-        """Retrieve ERA5 data for times and variables.
-
-        Parameters
-        ----------
-        time : datetime | list[datetime] | TimeArray
-            Analysis timestamps (UTC).
-        variable : str | list[str] | VariableArray
-            Earth2Studio variable id(s).
-
-        Returns
-        -------
-        xr.DataArray
-            Data array with dimensions ``[time, variable, lat, lon]``.
-        """
-        return _sync_async(self.fetch, time, variable)
-
     def _validate_time(self, times: list[datetime]) -> None:
         """Verify if date time is valid for ERA5 based on offline knowledge."""
         for time in times:
@@ -672,52 +1015,8 @@ class EarthMoverERA5(_EarthMoverBase):
                     "1940 for ERA5"
                 )
 
-    async def fetch(
-        self,
-        time: datetime | list[datetime] | TimeArray,
-        variable: str | list[str] | VariableArray,
-    ) -> xr.DataArray:
-        """Retrieve ERA5 data for times and variables asynchronously.
-
-        Parameters
-        ----------
-        time : datetime | list[datetime] | TimeArray
-            Analysis timestamps (UTC).
-        variable : str | list[str] | VariableArray
-            Earth2Studio variable id(s).
-
-        Returns
-        -------
-        xr.DataArray
-            Data array with dimensions ``[time, variable, lat, lon]``.
-        """
-        time_list, variable_list = prep_data_inputs(time, variable)
-        self._validate_time(time_list)
-        await self._connect()
-        await self._validate_times(time_list)
-
-        time_sel = np.array(time_list, dtype="datetime64[ns]")
-
-        arrays = []
-        for v in variable_list:
-            resolved = self._resolve(v)
-            if self._verbose:
-                logger.debug(
-                    f"{v} -> {self._repo_name}:{resolved.var_name} "
-                    f"(matched by {resolved.rule})"
-                )
-            da = self._select_variable(resolved, time_sel)
-            arrays.append(da.transpose("time", "lat", "lon"))
-
-        out = xr.concat(arrays, dim="variable")
-        out = out.assign_coords(variable=variable_list).transpose(
-            "time", "variable", "lat", "lon"
-        )
-        return with_grid_metadata(await asyncio.to_thread(out.load), "latlon-0.25deg")
-
-
 @check_optional_dependencies()
-class EarthMoverBrightBandIFS(_EarthMoverBase):
+class EarthMoverBrightBandIFS(_EarthMoverAnalysis):
     """Brightband ECMWF IFS 0.25 degree initial-condition data source on
     Earthmover Arraylake.
 
@@ -771,6 +1070,7 @@ class EarthMoverBrightBandIFS(_EarthMoverBase):
 
     MARKETPLACE_URL = "https://app.earthmover.io/marketplace/697162921880507a6587c31b"
     DEFAULT_BRANCH = "main"
+    GRID = "latlon-0.25deg"
     ORG_ENV_VAR = "EARTHMOVER_ORGANIZATION"
     SUBSCRIPTION_REPO_NAME = "ecmwf-ifs-initial-conditions-open-subscription"
     LEXICON = EarthMoverIFSInitialConditionLexicon
@@ -794,79 +1094,8 @@ class EarthMoverBrightBandIFS(_EarthMoverBase):
             marketplace_url=self.MARKETPLACE_URL,
         )
 
-    def __call__(
-        self,
-        time: datetime | list[datetime] | TimeArray,
-        variable: str | list[str] | VariableArray,
-    ) -> xr.DataArray:
-        """Retrieve IFS analysis data for times and variables.
-
-        Parameters
-        ----------
-        time : datetime | list[datetime] | TimeArray
-            Analysis timestamps (UTC).
-        variable : str | list[str] | VariableArray
-            Earth2Studio variable id(s).
-
-        Returns
-        -------
-        xr.DataArray
-            Data array with dimensions ``[time, variable, lat, lon]``.
-        """
-        return _sync_async(self.fetch, time, variable)
-
-    async def fetch(
-        self,
-        time: datetime | list[datetime] | TimeArray,
-        variable: str | list[str] | VariableArray,
-    ) -> xr.DataArray:
-        """Retrieve IFS analysis data for times and variables asynchronously.
-
-        Parameters
-        ----------
-        time : datetime | list[datetime] | TimeArray
-            Analysis timestamps (UTC).
-        variable : str | list[str] | VariableArray
-            Earth2Studio variable id(s).
-
-        Returns
-        -------
-        xr.DataArray
-            Data array with dimensions ``[time, variable, lat, lon]``.
-        """
-        time_list, variable_list = prep_data_inputs(time, variable)
-        await self._connect()
-        await self._validate_times(time_list)
-
-        time_sel = np.array(time_list, dtype="datetime64[ns]")
-
-        arrays = []
-        for v in variable_list:
-            resolved = self._resolve(v)
-            if self._verbose:
-                logger.debug(
-                    f"{v} -> {self._repo_name}:{resolved.var_name} "
-                    f"(matched by {resolved.rule})"
-                )
-            da = self._select_variable(resolved, time_sel)
-            squeeze_dims = [
-                dim
-                for dim, size in da.sizes.items()
-                if dim not in ("time", "lat", "lon") and size == 1
-            ]
-            if squeeze_dims:
-                da = da.squeeze(dim=squeeze_dims, drop=True)
-            arrays.append(da.transpose("time", "lat", "lon"))
-
-        out = xr.concat(arrays, dim="variable")
-        out = out.assign_coords(variable=variable_list).transpose(
-            "time", "variable", "lat", "lon"
-        )
-        return with_grid_metadata(await asyncio.to_thread(out.load), "latlon-0.25deg")
-
-
 @check_optional_dependencies()
-class EarthMoverBrightBandIFS_FX(_EarthMoverBase):
+class EarthMoverBrightBandIFS_FX(_EarthMoverForecast):
     """Brightband ECMWF IFS 0.1 degree (10km) 15-day forecast data source on Earthmover
     Arraylake.
 
@@ -920,6 +1149,7 @@ class EarthMoverBrightBandIFS_FX(_EarthMoverBase):
 
     MARKETPLACE_URL = "https://app.earthmover.io/marketplace/6971be98fc964a0d0fb66e04"
     DEFAULT_BRANCH = "main"
+    GRID = "latlon-0.25deg"
     ORG_ENV_VAR = "EARTHMOVER_ORGANIZATION"
     SUBSCRIPTION_REPO_NAME = "ecmwf-ifs-15-day-forecast-open-subscription"
     LEXICON = EarthMoverIFSLexicon
@@ -959,83 +1189,3 @@ class EarthMoverBrightBandIFS_FX(_EarthMoverBase):
             verbose=verbose,
             marketplace_url=self.MARKETPLACE_URL,
         )
-
-    def __call__(
-        self,
-        time: datetime | list[datetime] | TimeArray,
-        lead_time: timedelta | list[timedelta] | LeadTimeArray,
-        variable: str | list[str] | VariableArray,
-    ) -> xr.DataArray:
-        """Retrieve IFS forecast data for init times, lead times and variables.
-
-        Parameters
-        ----------
-        time : datetime | list[datetime] | TimeArray
-            Forecast initialization timestamps (UTC).
-        lead_time : timedelta | list[timedelta] | LeadTimeArray
-            Forecast lead times.
-        variable : str | list[str] | VariableArray
-            Earth2Studio variable id(s).
-
-        Returns
-        -------
-        xr.DataArray
-            Data array with dimensions ``[time, lead_time, variable, lat, lon]``.
-        """
-        return _sync_async(self.fetch, time, lead_time, variable)
-
-    async def fetch(
-        self,
-        time: datetime | list[datetime] | TimeArray,
-        lead_time: timedelta | list[timedelta] | LeadTimeArray,
-        variable: str | list[str] | VariableArray,
-    ) -> xr.DataArray:
-        """Retrieve IFS forecast data asynchronously.
-
-        Parameters
-        ----------
-        time : datetime | list[datetime] | TimeArray
-            Forecast initialization timestamps (UTC).
-        lead_time : timedelta | list[timedelta] | LeadTimeArray
-            Forecast lead times.
-        variable : str | list[str] | VariableArray
-            Earth2Studio variable id(s).
-
-        Returns
-        -------
-        xr.DataArray
-            Data array with dimensions ``[time, lead_time, variable, lat, lon]``.
-        """
-        time_list, lead_list, variable_list = prep_forecast_inputs(
-            time, lead_time, variable
-        )
-        await self._connect()
-        await self._validate_times(time_list)
-
-        time_sel = np.array(time_list, dtype="datetime64[ns]")
-        lead_sel = np.array(lead_list, dtype="timedelta64[ns]")
-
-        arrays = []
-        for v in variable_list:
-            resolved = self._resolve(v)
-            lead_coord = self._find_coord(resolved.dataset, _LEAD_NAMES)
-            if lead_coord is None:
-                raise ValueError(
-                    f"Repo '{self._repo_name}' has no lead-time/step coordinate."
-                )
-            if self._verbose:
-                logger.debug(
-                    f"{v} -> {self._repo_name}:{resolved.var_name} "
-                    f"(matched by {resolved.rule})"
-                )
-            da = self._select_variable(
-                resolved, time_sel, extra_sel={lead_coord: lead_sel}
-            )
-            da = da.rename({lead_coord: "lead_time"})
-            arrays.append(da.transpose("time", "lead_time", "lat", "lon"))
-
-        out = xr.concat(arrays, dim="variable")
-        out = out.assign_coords(variable=variable_list).transpose(
-            "time", "lead_time", "variable", "lat", "lon"
-        )
-        return with_grid_metadata(await asyncio.to_thread(out.load), "latlon-0.25deg")

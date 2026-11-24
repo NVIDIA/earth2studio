@@ -12,6 +12,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - `Pipeline` lead-time reductions per stream, such as weekly means with `LeadWindow`.
+- `EarthMoverCustomRepo` and `EarthMoverCustomRepo_FX` data sources for custom or
+  private Earthmover Arraylake repositories with an explicit `group` layout.
 
 ### Changed
 
