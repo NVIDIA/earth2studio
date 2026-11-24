@@ -133,33 +133,43 @@ def _stats_field(ds: xr.Dataset, e2s_name: str, shape: tuple[int, int]) -> np.nd
 
 
 class CAMulator(torch.nn.Module, AutoModelMixin, PrognosticMixin):
-    """CAMulator: NSF NCAR's autoregressive emulator of the CAM6 atmosphere,
-    trained in the CREDIT framework. A CrossFormer encoder-decoder advances a 1
-    degree (192x288), 32 hybrid-sigma-level atmospheric state by 6 hours given
-    prescribed sea-surface temperature, sea-ice fraction, TOA insolation and CO2
-    forcing, for climate-length rollouts. The inference-time post-processing of the
-    CREDIT toolbox is reproduced: tracer clipping, the jet wind-artifact filter and
-    the global dry-air mass, water and total-energy conservation fixers.
+    """CAMulator global climate emulator prognostic model. Consists of a single
+    CrossFormer model with a time-step size of 6 hours. CAMulator operates on the
+    1 degree (192x288) CESM finite-volume lat-lon grid with 130 prognostic
+    variables on 32 hybrid sigma-pressure levels and 17 output-only diagnostics,
+    driven by prescribed sea-surface temperature, sea-ice fraction, TOA insolation
+    and CO2 forcing that callers supply at the input valid time.
 
-    The 130 prognostic variables are the model input; the output additionally
-    holds 17 output-only diagnostics (precipitation, surface temperature, cloud
-    fractions, surface stresses, 10 m wind speed, evaporation and radiative/heat
-    fluxes). The iterator yields forecasts only, and only the prognostic slice is
-    fed back at each step. Vertical levels use the ``{var}{k}k`` naming with ``k``
-    the CAMulator hybrid level index (0 = top of model, 31 = lowest layer).
-    Fluxes CAMulator accumulates over the 6 h step (J m-2) are returned as mean
-    rates (W m-2); precipitation and evaporation are 6 h accumulations (m).
+    The inference-time post-processing of the CREDIT toolbox is reproduced:
+    tracer clipping, the jet wind-artifact filter and the global dry-air mass,
+    water and total-energy conservation fixers. The iterator yields forecasts
+    only, and only the prognostic slice is fed back at each step. Vertical
+    levels use the ``{var}{k}k`` naming with ``k`` the CAMulator hybrid level
+    index (0 = top of model, 31 = lowest layer). Fluxes CAMulator accumulates over
+    the 6 h step (J m-2) are returned as mean rates (W m-2); precipitation and
+    evaporation are 6 h accumulations (m). The CREDIT toolbox's ``Quick_Climate.py``
+    uses the forcing stored in its initial-condition tensor for the first step,
+    whereas this wrapper takes the supplied forcing at every step; with the same
+    forcing the two agree to float32 rounding. Outputs are stamped with their valid
+    time: ``time + lead_time`` of the output coordinates is the time the state is
+    valid for, 6 hours after the input that produced it, whereas older CREDIT
+    tooling stamps each output with its input time.
+
+    ``default_sources`` recommends ``forcing_data_source``, by default the cyclic
+    climatological year (1980-2014 mean seasonal cycle, CO2 fixed at its
+    year-2000 mean of 369 ppm), so a default rollout is a climatology run; no
+    published CAMulator result uses this forcing. Pass
+    ``CAMulatorForcing(mode="transient")`` for the 1980-2014 record. The wrapper
+    runs at PyTorch's default precision (TF32 matmul and cuDNN convolutions
+    enabled on Ampere and later GPUs), as did the published checkpoint-69 runs.
+    Reproducing the bitwise comparison against the CREDIT toolbox requires
+    disabling TF32 and enabling deterministic algorithms on both sides.
 
     Note
     ----
-    Callers supply forcing at the input valid time on the CAMulator grid.
-    ``default_sources`` recommends :class:`~earth2studio.data.CAMulatorForcing`, which
-    serves the shipped climatological (cyclic) year; the forcing files use a
-    365-day calendar, so leap days reuse the 28 February forcing.
-
-    Note
-    ----
-    For more information see:
+    This model is NSF NCAR's autoregressive emulator of the CAM6 atmosphere,
+    trained in the CREDIT framework. For more information see the following
+    references:
 
     - https://arxiv.org/abs/2504.06007
     - https://huggingface.co/willychap/camulator
@@ -194,17 +204,20 @@ class CAMulator(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         Surface geopotential (m^2 s-2), shape (lat, lon).
     forcing_data_source : DataSource, optional
         Data source providing ``mtdwswrf``, ``sst``, ``sic`` and
-        ``global_mean_co2`` on the CAMulator grid, by default
-        ``CAMulatorForcing()``.
+        ``global_mean_co2`` on the CAMulator grid, recommended to drivers through
+        ``default_sources``, by default ``CAMulatorForcing()``, which serves the
+        shipped climatological (cyclic) year: the 1980-2014 mean seasonal cycle
+        with CO2 fixed at its year-2000 mean of 369 ppm. The forcing files use a
+        365-day calendar, so leap days reuse the 28 February forcing
     conservation_fixers : bool, optional
-        Apply the global mass, water and energy fixers, by default True.
+        Apply the global mass, water and energy fixers, by default True
     wind_filter : bool, optional
-        Apply the wind-artifact filter, by default True.
+        Apply the wind-artifact filter, by default True
 
     Badges
     ------
     region:global class:climate product:wind product:precip product:temp
-    product:atmos year:2025 gpu:24gb provider:ncar backend:pytorch
+    product:atmos product:solar year:2025 gpu:24gb provider:ncar backend:pytorch
     """
 
     def __init__(
@@ -224,7 +237,7 @@ class CAMulator(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         forcing_data_source: DataSource | None = None,
         conservation_fixers: bool = True,
         wind_filter: bool = True,
-    ):
+    ) -> None:
         super().__init__()
         self.model = core_model
         # CREDIT applies the statistics in float32, except the gridded surface
@@ -285,7 +298,9 @@ class CAMulator(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         Returns
         -------
         CoordinateSystem
-            Allocation-free output signature six hours ahead.
+            Allocation-free output signature six hours ahead. ``time +
+            lead_time`` is the valid time of the output, 6 hours after the input
+            valid time.
         """
         handshake_time(input_coords, allow_dynamic=True)
         handshake_time(input_coords, "lead_time")
@@ -446,14 +461,18 @@ class CAMulator(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return None, self.forcing_data_source
 
     def _prepare_forcing(self, forcing: xr.DataArray) -> torch.Tensor:
+        # Normalized in float64 like CREDIT, then cast at the network input. The
+        # ppm -> mol mol-1 conversion is done in float64 as well: the data source
+        # scales the raw float32 mixing ratio by 1e6, and undoing that in float32
+        # loses one ulp for some values, which breaks bitwise agreement with the
+        # CREDIT toolbox after a few steps.
         forcing = (
-            forcing.e2s.to_torch()[0].to(self.device_buffer.device).float()[:, :, 0]
+            forcing.e2s.to_torch()[0].to(self.device_buffer.device).double()[:, :, 0]
         )
         forcing = torch.flip(forcing, dims=(-2,))
         forcing[:, :, 3] *= 1.0e-6  # ppm -> mol mol-1
-        # Normalized in float64 like CREDIT, then cast at the network input
         forcing = (
-            forcing.double() - self.forcing_center.view(1, -1, 1, 1)
+            forcing - self.forcing_center.view(1, -1, 1, 1)
         ) / self.forcing_scale.view(1, -1, 1, 1)
         return forcing.float()
 
