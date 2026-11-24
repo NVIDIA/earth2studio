@@ -144,7 +144,7 @@ class TrackingScorer:
         self._failed = False
 
     def begin_item(self, item: WorkItem) -> None:
-        """Start a batch.
+        """Start a batch with an empty tracker.
 
         Parameters
         ----------
@@ -153,19 +153,6 @@ class TrackingScorer:
         """
         self._seed = None
         self._failed = False
-
-    def attempt_started(self, item: WorkItem, attempt: int, seed: int) -> None:
-        """Discard the steps of an earlier attempt.
-
-        Parameters
-        ----------
-        item : WorkItem
-            The batch
-        attempt : int
-            Number of the attempt
-        seed : int
-            Seed of the attempt
-        """
         self.tracker.reset()
 
     def update(self, item: WorkItem, stream: str, x: xr.DataArray) -> None:

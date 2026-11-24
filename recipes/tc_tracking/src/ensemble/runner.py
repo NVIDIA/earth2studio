@@ -44,20 +44,6 @@ Step = Mapping[str, xr.DataArray]
 class BatchObserver(Protocol):
     """Follows the attempts of each batch of :class:`StableRunner`."""
 
-    def attempt_started(self, item: WorkItem, attempt: int, seed: int) -> None:
-        """A rollout of ``item`` starts, replacing the steps of an earlier attempt.
-
-        Parameters
-        ----------
-        item : WorkItem
-            The batch
-        attempt : int
-            Number of the attempt, 0 for the first
-        seed : int
-            Seed of the model's random state for this attempt
-        """
-        ...
-
     def batch_finished(self, item: WorkItem, seed: int | None, attempts: int) -> None:
         """An attempt of ``item`` is done.
 
@@ -192,9 +178,6 @@ class StableRunner(PrognosticRunner):
         self.attempt = attempt or (lambda item: 0)
         self.max_retries = max_retries
         self.observers = list(observers)
-        # NaN copy of the last step yielded, the template of the NaN steps of a
-        # failed batch; holds no field data, so no GPU memory between batches
-        self._last_step: Step = {}
 
     def batch_seed(self, item: WorkItem, attempt: int) -> int:
         """Seed of the model's random state for one attempt of a batch.
@@ -236,24 +219,26 @@ class StableRunner(PrognosticRunner):
         attempt = self.attempt(item)
         seed = self.batch_seed(item, attempt)
         logger.info(f"{name}: attempt {attempt}, seed {seed}")
+        unstable_step = yield from self._attempt(item, attempt)
+        stable_seed = seed if unstable_step is None else None
         for observer in self.observers:
-            observer.attempt_started(item, attempt, seed)
-
-        stable = yield from self._attempt(item, attempt)
-        template, self._last_step = self._last_step, {}
-        if stable:
-            self._notify_finished(item, seed, attempt + 1)
+            observer.batch_finished(item, stable_seed, attempt + 1)
+        if unstable_step is None:
             return
         if attempt < self.max_retries:
             logger.warning(f"{name}: unstable with seed {seed}, to be retried")
-            self._notify_finished(item, None, attempt + 1)
             return
         logger.error(f"{name}: unstable in all {attempt + 1} attempts, giving up")
-        self._notify_finished(item, None, attempt + 1)
-        yield from _nan_steps(template, self.output_coords(item.final_lead_time))
+        yield from _nan_steps(unstable_step, self.output_coords(item.final_lead_time))
 
-    def _attempt(self, item: WorkItem, attempt: int) -> Generator[Step, None, bool]:
-        """Yield the steps of one attempt until one is unstable, True if none is."""
+    def _attempt(
+        self, item: WorkItem, attempt: int
+    ) -> Generator[Step, None, Step | None]:
+        """Yield the steps of one attempt until one is unstable.
+
+        Returns the unstable step, which is not yielded, or None if all steps
+        were stable.
+        """
         if self.stability_check is not None:
             self.stability_check.reset()
         # PrognosticRunner seeds the model from self.seed when the rollout starts
@@ -266,35 +251,28 @@ class StableRunner(PrognosticRunner):
                 if self.stability_check is not None and not self.stability_check(
                     step["forecast"]
                 ):
-                    return False
-                self._last_step = {name: _nan_like(x) for name, x in step.items()}
+                    return step
                 yield step
         finally:
             # closes the model's iterator, also when the attempt is stopped
             steps.close()
             self.seed = self.base_seed
-        return True
-
-    def _notify_finished(self, item: WorkItem, seed: int | None, attempts: int) -> None:
-        for observer in self.observers:
-            observer.batch_finished(item, seed, attempts)
+        return None
 
 
 def _nan_like(x: xr.DataArray) -> xr.DataArray:
     """``x`` with its data replaced by NaN, keeping dims, coordinates and attrs.
 
     The data is a broadcast view of a single NaN on the host, so it takes no
-    memory until a backend writes it, and drops the reference to the fields.
+    memory until a backend writes it.
     """
     nan = np.broadcast_to(np.array(np.nan, dtype=x.dtype), x.shape)
     return x.copy(deep=False, data=nan)
 
 
-def _nan_steps(template: Step, schemas: Mapping[str, xr.DataArray]) -> Iterator[Step]:
-    """NaN steps for every lead time of each stream, shaped like ``template``.
-
-    ``template`` holds NaN fields, see :func:`_nan_like`.
-    """
+def _nan_steps(like: Step, schemas: Mapping[str, xr.DataArray]) -> Iterator[Step]:
+    """NaN steps for every lead time of each stream, shaped like the step ``like``."""
+    template = {stream: _nan_like(x) for stream, x in like.items()}
     leads = {stream: schemas[stream].coords["lead_time"].values for stream in template}
     for lead in np.unique(np.concatenate(list(leads.values()))):
         step = {}

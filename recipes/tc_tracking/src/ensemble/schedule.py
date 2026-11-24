@@ -290,19 +290,6 @@ class RetryScheduler:
         """Stop the retries on all ranks, because this rank failed."""
         self.queue.abort()
 
-    def attempt_started(self, item: WorkItem, attempt: int, seed: int) -> None:
-        """Nothing to note when an attempt starts.
-
-        Parameters
-        ----------
-        item : WorkItem
-            The batch
-        attempt : int
-            Number of the attempt
-        seed : int
-            Seed of the attempt
-        """
-
     def batch_finished(self, item: WorkItem, seed: int | None, attempts: int) -> None:
         """Note whether the attempt was unstable.
 
@@ -342,10 +329,18 @@ class RetryPipeline(Pipeline):
         Arguments of :class:`~earth2studio.run.Pipeline`
     **kwargs : Any
         Keyword arguments of :class:`~earth2studio.run.Pipeline`
+
+    Raises
+    ------
+    ValueError
+        If the pipeline has a ``sync`` hook, whose lockstep rounds need every
+        rank's batches up front
     """
 
     def __init__(self, scheduler: RetryScheduler, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
+        if self.sync is not None:
+            raise ValueError("retries on any rank cannot be combined with a sync hook")
         self.scheduler = scheduler
 
     def run_items(self, items: Iterable[WorkItem], rank: int) -> None:

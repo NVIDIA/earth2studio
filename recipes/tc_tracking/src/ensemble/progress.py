@@ -133,19 +133,6 @@ class BatchProgress(ProgressStore):
         """
         return self._attempts.get(_batch(item), 0)
 
-    def attempt_started(self, item: WorkItem, attempt: int, seed: int) -> None:
-        """Nothing to record before a batch is done.
-
-        Parameters
-        ----------
-        item : WorkItem
-            The batch
-        attempt : int
-            Number of the attempt
-        seed : int
-            Seed of the attempt
-        """
-
     def batch_finished(self, item: WorkItem, seed: int | None, attempts: int) -> None:
         """Note a failed attempt, recorded once the pipeline marks it done.
 

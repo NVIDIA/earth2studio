@@ -229,19 +229,6 @@ class SeedRecorder:
             )
         )
 
-    def attempt_started(self, item: WorkItem, attempt: int, seed: int) -> None:
-        """Nothing to record before a batch is done.
-
-        Parameters
-        ----------
-        item : WorkItem
-            The batch
-        attempt : int
-            Number of the attempt
-        seed : int
-            Seed of the attempt
-        """
-
     def batch_finished(self, item: WorkItem, seed: int | None, attempts: int) -> None:
         """Write the seed of the batch's members.
 
@@ -287,19 +274,6 @@ class AttemptFlush:
 
     def __init__(self, store: IOBackend) -> None:
         self.store = store
-
-    def attempt_started(self, item: WorkItem, attempt: int, seed: int) -> None:
-        """Nothing to flush before an attempt.
-
-        Parameters
-        ----------
-        item : WorkItem
-            The batch
-        attempt : int
-            Number of the attempt
-        seed : int
-            Seed of the attempt
-        """
 
     def batch_finished(self, item: WorkItem, seed: int | None, attempts: int) -> None:
         """Flush once an attempt was unstable, before any NaN steps.
