@@ -215,41 +215,44 @@ data = forecast(datetime(2024, 1, 1), [timedelta(hours=6)], ["t2m"])
 
 The repository must use a regular one-dimensional latitude/longitude grid and
 `datetime64` time coordinates; forecast repositories also need a lead-time dimension
-such as `lead_time` or `step`. Variables are resolved across all listed groups using
-GRIB parameter identifiers, short names, CF variable names, and CF standard names, and
-all requested variables must be on one grid. Earth2Studio raises an actionable
-`ValueError` if a requested variable cannot be resolved unambiguously.
+such as `lead_time` or `step`. All requested variables must be on one grid.
 
-Two optional arguments adapt repositories that do not fit these rules:
+Variables are resolved across all listed groups, in this order:
 
-- `variable_map` maps a variable id to a repository variable name, optionally with a
-  coordinate selection. It is tried before the metadata rules.
-- `preprocess` is a function applied lazily to each opened group, like `preprocess` in
-  `xarray.open_mfdataset`. Use it to rename coordinates, pick an ensemble member, sort
-  latitude, or convert a calendar.
+1. A repository variable named exactly like the requested id.
+2. GRIB parameter identifiers, short names, CF variable names, and CF standard names.
+   A height in the id, such as the 10 m of `u10m`, is matched against a height
+   coordinate on the variable.
 
-For example, regridded CMIP6 output with non-GRIB names, winds on several heights, a
-`noleap` calendar, and a `realization` dimension:
+Earth2Studio raises an actionable `ValueError` if a requested variable cannot be
+resolved unambiguously; it never guesses between levels or heights.
+
+`preprocess` adapts repositories that do not fit these rules. It is a function applied
+lazily to each opened group, like `preprocess` in `xarray.open_mfdataset`. Use it to
+name or derive variables, pick an ensemble member, sort latitude, or convert a
+calendar. For example, regridded CMIP6 output with a `noleap` calendar, a `realization`
+dimension, and a wind field that carries no usable metadata:
 
 ```python
+def preprocess(ds):
+    ds = ds.sel(realization="r1i1p1f1")
+    ds = ds.convert_calendar("standard", use_cftime=False)
+    # Choose a variable explicitly by giving it the requested name.
+    return ds.assign(u100m=ds["ua"].sel(height=100.0))
+
+
 cmip = EarthMoverCustomRepo(
     repo="my-org/cmip6-ssp585",
     group="daily",
-    variable_map={
-        "u10m": ("uas", {"height": 10.0}),
-        "u100m": ("uas", {"height": 100.0}),
-    },
-    preprocess=lambda ds: ds.sel(realization="r1i1p1f1").convert_calendar(
-        "standard", use_cftime=False
-    ),
+    preprocess=preprocess,
 )
-data = cmip(datetime(2050, 7, 1, 12), ["t2m", "u10m", "u100m", "msl"])
+data = cmip(datetime(2050, 7, 1, 12), ["t2m", "u100m", "msl"])
 ```
 
-Without the `sel` in `preprocess`, dimensions such as `realization` are kept in front
-of `variable`, giving `[time, realization, variable, lat, lon]`. That output does not
-follow the data source protocol shape, so select a single member before using the
-source with Earth2Studio models and workflows.
+Dimensions such as `realization` raise an error by default, because the output would
+not follow the data source protocol shape. Select one member as above, or pass
+`keep_extra_dims=True` to get `[time, realization, variable, lat, lon]` for use outside
+Earth2Studio models and workflows.
 
 ## Learn more
 
