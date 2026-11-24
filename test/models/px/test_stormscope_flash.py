@@ -922,6 +922,79 @@ def test_stormscope_flash_normalization(cls, is_flash, fill_nan):
     assert model.normalize_conditioning(None) is None
 
 
+@pytest.mark.parametrize("missing_case", ["complete", "missing_band", "isolated_nan"])
+def test_flash_goes_fills_raw_nan_before_normalization_and_patch_mask(
+    missing_case: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    model = _domain_wrapper(StormScopeGOES).with_region(Region.box(-110, 36, -108, 38))
+    model.means.fill_(10.0)
+    model.stds.fill_(2.0)
+    model.valid_mask[0, 0] = False
+    height, width = model.latitudes.shape
+    state = torch.full((1, 1, 6, 1, height, width), 12.0)
+    expected = torch.ones(1, 6, height, width)
+    if missing_case == "missing_band":
+        state[:, :, 0, 0] = torch.nan
+        expected[:, 0] = -5.0
+    elif missing_case == "isolated_nan":
+        state[0, 0, 0, 0, 2, 3] = torch.nan
+        expected[0, 0, 2, 3] = -5.0
+    expected[..., 0, 0] = 0.0
+    original = state.clone()
+
+    def sample(
+        wrapper: StormScopeGOES,
+        latents: torch.Tensor,
+        condition: torch.Tensor | None,
+    ) -> torch.Tensor:
+        assert condition is not None
+        torch.testing.assert_close(condition[:, :6], expected)
+        torch.testing.assert_close(
+            wrapper.stage_models[0].model.mask, ~model.valid_mask[None]
+        )
+        return torch.zeros_like(latents)
+
+    monkeypatch.setattr("earth2studio.models.nn.stormscope_flash.sample_flash", sample)
+    signature = coord_array_like(
+        model.input_coords(),
+        {"batch": np.arange(1), "time": np.array([np.datetime64("2026-11-16T20:00")])},
+    )
+    coords = OrderedDict((dim, signature[dim].values) for dim in signature.dims)
+    result = model._forward_tensor(state, coords)
+    assert torch.all(result[..., model.valid_mask] == 10.0)
+    assert torch.isnan(result[..., 0, 0]).all()
+    torch.testing.assert_close(state, original, equal_nan=True)
+
+
+@pytest.mark.parametrize(
+    "cls,is_flash,bad_value",
+    [
+        (StormScopeGOES, False, torch.nan),
+        (StormScopeMRMS, False, torch.nan),
+        (StormScopeMRMS, True, torch.nan),
+        (StormScopeGOES, True, torch.inf),
+    ],
+)
+def test_raw_nan_fill_leaves_other_variants_and_infinity_rejected(
+    cls: type[StormScopeGOES] | type[StormScopeMRMS],
+    is_flash: bool,
+    bad_value: float,
+) -> None:
+    model = _domain_wrapper(cls, is_flash=is_flash)
+    height, width = model.latitudes.shape
+    state = torch.ones(1, 1, 6, 1, height, width)
+    state[:, :, 0, 0] = bad_value
+    original = state.clone()
+    signature = coord_array_like(
+        model.input_coords(),
+        {"batch": np.arange(1), "time": np.array([np.datetime64("2026-11-16T20:00")])},
+    )
+    coords = OrderedDict((dim, signature[dim].values) for dim in signature.dims)
+    with pytest.raises(ValueError, match="Non-finite values found"):
+        model._forward_tensor(state, coords)
+    torch.testing.assert_close(state, original, equal_nan=True)
+
+
 def test_stormscope_flash_goes_missing_values():
     # Flash GOES zero-fills missing pixels and masks their tokens instead.
     class MaskModel:
