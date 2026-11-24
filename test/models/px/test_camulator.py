@@ -402,3 +402,16 @@ def test_camulator_package(device):
     handshake_dim(out_coords, "variable", 3)
     handshake_dim(out_coords, "lead_time", 2)
     handshake_dim(out_coords, "time", 1)
+
+
+def test_camulator_co2_round_trip():
+    """The ppm -> mol mol-1 conversion recovers the raw float32 mixing ratio that
+    the forcing source scaled by 1e6."""
+    p = build_model(PhooCamulatorNet())
+    x = random_input(p, np.array([np.datetime64("1995-01-02T12:00")]), "cpu")
+    forcing = forcing_input(p, x)
+    raw = np.float32(3.59257247e-4)
+    forcing.loc[{"variable": "global_mean_co2"}] = np.float32(raw * np.float32(1.0e6))
+    out = p._prepare_forcing(forcing.expand_dims(batch=[0]))
+    assert out.dtype == torch.float32
+    assert torch.all(out[:, :, 3] == torch.tensor(raw))
