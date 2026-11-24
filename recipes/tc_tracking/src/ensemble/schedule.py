@@ -96,7 +96,9 @@ class RetryQueue:
     def shared(cls, **kwargs: Any) -> "RetryQueue":
         """Queue in the store of the default process group, shared by all ranks.
 
-        Without a process group, the queue is local to the process.
+        Without a process group, the queue is local to the process. With one,
+        the queue serves a single run: its state stays in the group's store,
+        where a second queue would find it closed.
 
         Parameters
         ----------
