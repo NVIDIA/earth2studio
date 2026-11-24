@@ -50,14 +50,15 @@ def make_field(
     lead_time: np.ndarray = LEADS,
     variables: list[str] = VARIABLES,
     seed: int = 0,
+    time: np.ndarray = TIMES,
 ) -> xr.DataArray:
-    shape = (len(TIMES), len(lead_time), len(variables), *GRID.shape)
+    shape = (len(time), len(lead_time), len(variables), *GRID.shape)
     data = np.random.default_rng(seed).standard_normal(shape).astype(np.float32)
     return xr.DataArray(
         data,
         dims=("time", "lead_time", "variable", "lat", "lon"),
         coords={
-            "time": TIMES,
+            "time": time,
             "lead_time": lead_time,
             "variable": variables,
             "lat": GRID.latitude,
@@ -132,6 +133,30 @@ def test_zarr_file_store(tmp_path: str) -> None:
 
     with pytest.raises(ValueError, match="time"):
         reopened.add_array(make_template(time=TIMES + np.timedelta64(1, "h")))
+
+
+def test_zarr_out_of_range_times(tmp_path: str) -> None:
+    # Climate years and lead times nanoseconds cannot hold keep their own unit and
+    # survive reopening and resumed runs, instead of wrapping to other dates
+    times = np.array(["0311-01-01", "2311-07-01"], dtype="datetime64[s]")
+    leads = np.array([0, 400 * 365 * 24], dtype="timedelta64[h]")
+    file_name = str(tmp_path / "climate.zarr")
+    z = ZarrBackend(file_name=file_name)
+    z.add_array(make_template(time=times, lead_time=leads))
+    z.write(make_field(lead_time=leads, time=times))
+
+    # Compare in the given units: comparing to nanosecond labels would wrap both sides
+    reopened = ZarrBackend(file_name=file_name)
+    np.testing.assert_array_equal(reopened.coords["time"].astype(times.dtype), times)
+    np.testing.assert_array_equal(
+        reopened.coords["lead_time"].astype(leads.dtype), leads
+    )
+    reopened.add_array(make_template(time=times, lead_time=leads))
+    field = make_field(lead_time=leads, time=times, seed=1)
+    reopened.write(field)
+    selection = {"time": times[1:], "lead_time": leads, "variable": VARIABLES}
+    result = reopened.read({**selection, **GRID.coords()})
+    np.testing.assert_array_equal(result.values, field.values[1:])
 
 
 def test_zarr_overwrite(tmp_path: str) -> None:

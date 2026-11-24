@@ -347,12 +347,19 @@ def _field_dims(x: xr.DataArray) -> tuple[Hashable, ...]:
 
 
 def _normalize_labels(values: np.ndarray) -> np.ndarray:
-    """Store datetime and timedelta labels at nanosecond precision."""
-    if np.issubdtype(values.dtype, np.datetime64):
-        return values.astype("datetime64[ns]")
-    if np.issubdtype(values.dtype, np.timedelta64):
-        return values.astype("timedelta64[ns]")
-    return values
+    """Store datetime and timedelta labels at nanosecond precision when they fit.
+
+    Labels nanoseconds cannot hold, such as climate dates before 1678 or after 2262,
+    keep their own unit: casting them would silently wrap them to other dates.
+    """
+    if values.dtype.kind not in "mM":
+        return values
+    nanoseconds: np.ndarray = values.astype(f"{values.dtype.kind}8[ns]")
+    nat = np.isnat(values)
+    exact = np.array_equal(np.isnat(nanoseconds), nat) and bool(
+        np.all((nanoseconds.astype(values.dtype) == values) | nat)
+    )
+    return nanoseconds if exact else values
 
 
 def _same_variable(left: xr.Variable, right: xr.Variable) -> bool:
