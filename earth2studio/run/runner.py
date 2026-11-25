@@ -308,11 +308,14 @@ def _apply_windowed(
     Its output is labeled back to the item's time, with ``lead`` added to any
     output lead times, so valid times are unchanged.
     """
-    y = diagnostic(
-        x.assign_coords(
-            time=_offset_times(x["time"].values, lead),
-            lead_time=x["lead_time"].values - lead,
-        )
+    y = cast(
+        xr.DataArray,
+        diagnostic(
+            x.assign_coords(
+                time=_offset_times(x["time"].values, lead),
+                lead_time=x["lead_time"].values - lead,
+            )
+        ),
     )
     labels: dict[str, Any] = {}
     if "time" in y.coords:
@@ -840,7 +843,7 @@ class DiagnosticRunner:
                     self.source_member,
                 )
                 y = (
-                    diagnostic(x)
+                    cast(xr.DataArray, diagnostic(x))
                     if self._windows[name] is None
                     else _apply_windowed(diagnostic, x, lead)
                 )
