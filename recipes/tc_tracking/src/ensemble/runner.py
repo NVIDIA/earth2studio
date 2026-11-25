@@ -155,11 +155,12 @@ class StableRunner(PrognosticRunner):
     observers : Sequence[BatchObserver], optional
         Told about the attempts of each batch, by default none
     flush : Callable[[], None] | None, optional
-        Called before the NaN steps of a failed batch, to wait for the writes
-        of its last attempt, usually the ``flush`` of the output store. The NaN
-        steps write to the same store positions, and stores that write in
-        background threads, like the Zarr store, do not order writes to the
-        same position. By default None
+        Called once a batch is given up, before its observers are told and its
+        NaN steps are yielded, to wait for the writes of its last attempt;
+        usually the ``flush`` of the output store. The NaN steps write to the
+        same store positions, and stores that write in background threads,
+        like the Zarr store, do not order writes to the same position. By
+        default None
     seed : int, optional
         Base seed, by default 0
     **kwargs : Any
@@ -229,16 +230,18 @@ class StableRunner(PrognosticRunner):
         logger.info(f"{name}: attempt {attempt}, seed {seed}")
         unstable_step = yield from self._attempt(item, attempt)
         stable_seed = seed if unstable_step is None else None
+        given_up = unstable_step is not None and attempt >= self.max_retries
+        if given_up and self.flush is not None:
+            # before the observers and the NaN steps write the failed batch
+            self.flush()
         for observer in self.observers:
             observer.batch_finished(item, stable_seed, attempt + 1)
         if unstable_step is None:
             return
-        if attempt < self.max_retries:
+        if not given_up:
             logger.warning(f"{name}: unstable with seed {seed}, to be retried")
             return
         logger.error(f"{name}: unstable in all {attempt + 1} attempts, giving up")
-        if self.flush is not None:
-            self.flush()
         yield from _nan_steps(unstable_step, self.output_coords(item.final_lead_time))
 
     def _attempt(
