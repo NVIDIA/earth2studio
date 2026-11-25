@@ -43,11 +43,12 @@ def _batch(item: WorkItem) -> _Batch:
 class BatchProgress(ProgressStore):
     """Progress store that keeps failed batches open for a resumed run.
 
-    A batch that stayed unstable in all its attempts is recorded as failed
-    instead of done, with the number of attempts made. A resumed run therefore
-    runs it again, continuing with its next attempt; raise ``max_retries`` to
-    give it more. As a :class:`~src.ensemble.runner.BatchObserver` of the
-    runner, the store learns which batches failed.
+    A batch whose attempt was unstable is recorded as failed instead of done,
+    with the number of attempts made, until a later attempt is stable. A
+    resumed run therefore runs it again, continuing with its next attempt; raise
+    ``max_retries`` to give a batch more once it used all of them. As a
+    :class:`~src.ensemble.runner.BatchObserver` of the runner, the store learns
+    which attempts failed.
 
     Parameters
     ----------
@@ -132,28 +133,15 @@ class BatchProgress(ProgressStore):
         """
         return self._attempts.get(_batch(item), 0)
 
-    def attempt_started(self, item: WorkItem, attempt: int, seed: int) -> None:
-        """Nothing to record before a batch is done.
-
-        Parameters
-        ----------
-        item : WorkItem
-            The batch
-        attempt : int
-            Number of the attempt
-        seed : int
-            Seed of the attempt
-        """
-
     def batch_finished(self, item: WorkItem, seed: int | None, attempts: int) -> None:
-        """Note a failed batch, recorded once the pipeline marks it done.
+        """Note a failed attempt, recorded once the pipeline marks it done.
 
         Parameters
         ----------
         item : WorkItem
             The batch
         seed : int | None
-            Seed of the stable attempt, None if the batch failed
+            Seed of the attempt, None if it was unstable
         attempts : int
             Number of attempts made
         """

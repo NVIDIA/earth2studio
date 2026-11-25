@@ -125,8 +125,7 @@ class TrackingScorer:
     never skips a batch without tracks.
 
     As a :class:`~src.ensemble.runner.BatchObserver` of the runner, it
-    discards the steps of an unstable attempt and does not track a batch that
-    stayed unstable.
+    discards the steps of an unstable attempt and does not track it.
 
     Parameters
     ----------
@@ -139,13 +138,13 @@ class TrackingScorer:
     def __init__(self, tracker: TempestExtremes, batch_size: int) -> None:
         self.tracker = tracker
         self.batch_size = batch_size
-        # seed of the batch's stable attempt, None while it runs
+        # seed of the batch's attempt once it is stable, None while it runs
         self._seed: int | None = None
-        # set once all attempts of the batch were unstable
+        # set once the attempt was unstable
         self._failed = False
 
     def begin_item(self, item: WorkItem) -> None:
-        """Start a batch.
+        """Start a batch with an empty tracker.
 
         Parameters
         ----------
@@ -154,19 +153,6 @@ class TrackingScorer:
         """
         self._seed = None
         self._failed = False
-
-    def attempt_started(self, item: WorkItem, attempt: int, seed: int) -> None:
-        """Discard the steps of an earlier attempt.
-
-        Parameters
-        ----------
-        item : WorkItem
-            The batch
-        attempt : int
-            Number of the attempt
-        seed : int
-            Seed of the attempt
-        """
         self.tracker.reset()
 
     def update(self, item: WorkItem, stream: str, x: xr.DataArray) -> None:
@@ -190,14 +176,14 @@ class TrackingScorer:
         self.tracker.record_state(x)
 
     def batch_finished(self, item: WorkItem, seed: int | None, attempts: int) -> None:
-        """Note the seed of the stable attempt, or discard a failed batch.
+        """Note the seed of a stable attempt, or discard an unstable one.
 
         Parameters
         ----------
         item : WorkItem
             The batch
         seed : int | None
-            Seed of the stable attempt, None if the batch failed
+            Seed of the attempt, None if it was unstable
         attempts : int
             Number of attempts made
         """

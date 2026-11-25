@@ -14,13 +14,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Ensemble rollouts that retry unstable batches with new seeds.
+"""Ensemble rollouts that stop unstable batches early.
 
 :class:`StableRunner` extends Earth2Studio's
-:class:`~earth2studio.run.PrognosticRunner` with a stability check: a batch of
-members whose forecast drifts away from its initial state is rolled out again
-with the next seed. Other parts of the pipeline follow the attempts of each
-batch as a :class:`BatchObserver`.
+:class:`~earth2studio.run.PrognosticRunner` with a stability check: the rollout
+of a batch of members whose forecast drifts away from its initial state is
+stopped at the first unstable step. Each run of a batch is one attempt with its
+own seed; :class:`~src.ensemble.schedule.RetryScheduler` runs the next attempt
+on whichever rank is free. Other parts of the pipeline follow the attempts as a
+:class:`BatchObserver`.
 """
 
 from collections.abc import Callable, Generator, Iterator, Mapping, Sequence
@@ -42,32 +44,18 @@ Step = Mapping[str, xr.DataArray]
 class BatchObserver(Protocol):
     """Follows the attempts of each batch of :class:`StableRunner`."""
 
-    def attempt_started(self, item: WorkItem, attempt: int, seed: int) -> None:
-        """A rollout of ``item`` starts, replacing the steps of an earlier attempt.
-
-        Parameters
-        ----------
-        item : WorkItem
-            The batch
-        attempt : int
-            Number of the attempt, 0 for the first
-        seed : int
-            Seed of the model's random state for this attempt
-        """
-        ...
-
     def batch_finished(self, item: WorkItem, seed: int | None, attempts: int) -> None:
-        """All attempts of ``item`` are done.
+        """An attempt of ``item`` is done.
 
-        Called after the last step of a stable batch, and before the NaN steps
-        of a failed one.
+        Called after the last step of a stable attempt, once an unstable one is
+        stopped, and before the NaN steps of an unstable last attempt.
 
         Parameters
         ----------
         item : WorkItem
             The batch
         seed : int | None
-            Seed of the stable attempt, ``None`` if every attempt was unstable
+            Seed of the attempt if it was stable, ``None`` if it was unstable
         attempts : int
             Number of attempts made, including those of earlier runs
         """
@@ -142,16 +130,16 @@ class InstabilityDetection:
 
 
 class StableRunner(PrognosticRunner):
-    """Prognostic runner that rolls out unstable batches again with new seeds.
+    """Prognostic runner that stops the rollout of a batch once it is unstable.
 
-    Each step of an attempt is checked before it is yielded. Once a step is
-    unstable, the attempt is stopped and the batch starts again from its
-    initial condition, so the steps of the next attempt replace those already
-    written. Attempt ``n`` seeds the model like :class:`PrognosticRunner` with
-    base seed ``seed + n``, i.e. with
-    ``member_seed(seed + n, item.time, item.member_ids[0])``. If all attempts
-    are unstable, every step of every stream is yielded as NaN, so that the
-    outputs of a failed batch hold no data of an unstable attempt.
+    Each run of a batch is one attempt. Every step is checked before it is
+    yielded, and the attempt is stopped at the first unstable step; a later
+    attempt of the batch replaces the steps already written. Attempt ``n``
+    seeds the model like :class:`PrognosticRunner` with base seed ``seed + n``,
+    i.e. with ``member_seed(seed + n, item.time, item.member_ids[0])``.
+    Attempts from ``max_retries`` on are the last of a batch: if one is
+    unstable, every step of every stream is yielded as NaN, so that the outputs
+    of a failed batch hold no data of an unstable attempt.
 
     Parameters
     ----------
@@ -159,11 +147,20 @@ class StableRunner(PrognosticRunner):
         Model to roll out
     stability_check : InstabilityDetection | None
         Check of each step of stream ``"forecast"``, None to accept every step
-    attempts : Callable[[WorkItem], range], optional
-        Attempts to make for a batch, by default only the first, ``range(1)``.
-        An attempt number is the offset to the base seed, see above.
+    attempt : Callable[[WorkItem], int], optional
+        Number of the attempt to run for a batch, the offset to the base seed,
+        by default always the first, 0
+    max_retries : int, optional
+        Number of the last attempt, by default 0, i.e. no retries
     observers : Sequence[BatchObserver], optional
         Told about the attempts of each batch, by default none
+    flush : Callable[[], None] | None, optional
+        Called once a batch is given up, before its observers are told and its
+        NaN steps are yielded, to wait for the writes of its last attempt;
+        usually the ``flush`` of the output store. The NaN steps write to the
+        same store positions, and stores that write in background threads,
+        like the Zarr store, do not order writes to the same position. By
+        default None
     seed : int, optional
         Base seed, by default 0
     **kwargs : Any
@@ -175,8 +172,10 @@ class StableRunner(PrognosticRunner):
         self,
         prognostic: PrognosticModel,
         stability_check: InstabilityDetection | None,
-        attempts: Callable[[WorkItem], range] | None = None,
+        attempt: Callable[[WorkItem], int] | None = None,
+        max_retries: int = 0,
         observers: Sequence[BatchObserver] = (),
+        flush: Callable[[], None] | None = None,
         seed: int = 0,
         **kwargs: Any,
     ) -> None:
@@ -184,11 +183,10 @@ class StableRunner(PrognosticRunner):
         # PrognosticRunner seeds from self.seed, which each attempt offsets
         self.base_seed = seed
         self.stability_check = stability_check
-        self.attempts = attempts or (lambda item: range(1))
+        self.attempt = attempt or (lambda item: 0)
+        self.max_retries = max_retries
         self.observers = list(observers)
-        # NaN copy of the last step yielded, the template of the NaN steps of a
-        # failed batch; holds no field data, so no GPU memory between attempts
-        self._last_step: Step = {}
+        self.flush = flush
 
     def batch_seed(self, item: WorkItem, attempt: int) -> int:
         """Seed of the model's random state for one attempt of a batch.
@@ -209,7 +207,10 @@ class StableRunner(PrognosticRunner):
         return member_seed(self.base_seed + attempt, item.time, first_member)
 
     def run_item(self, item: WorkItem) -> Iterator[Step]:
-        """Yield the steps of the first stable attempt, or NaN steps if none is.
+        """Yield the steps of one attempt until one is unstable.
+
+        If the last attempt of the batch is unstable, all steps are then
+        yielded again as NaN.
 
         Parameters
         ----------
@@ -224,29 +225,33 @@ class StableRunner(PrognosticRunner):
         rank, _ = rank_info()
         ic = np.datetime_as_string(item.time, unit="s")
         name = f"rank {rank}: {ic} members {list(item.member_ids)}"
-        attempts = self.attempts(item)
-        for attempt in attempts:
-            seed = self.batch_seed(item, attempt)
-            logger.info(f"{name}: attempt {attempt}, seed {seed}")
-            for observer in self.observers:
-                observer.attempt_started(item, attempt, seed)
-            stable = yield from self._attempt(item, attempt)
-            if stable:
-                self._last_step = {}
-                self._notify_finished(item, seed, attempt + 1)
-                return
-            logger.warning(f"{name}: unstable with seed {seed}")
+        attempt = self.attempt(item)
+        seed = self.batch_seed(item, attempt)
+        logger.info(f"{name}: attempt {attempt}, seed {seed}")
+        unstable_step = yield from self._attempt(item, attempt)
+        stable_seed = seed if unstable_step is None else None
+        given_up = unstable_step is not None and attempt >= self.max_retries
+        if given_up and self.flush is not None:
+            # before the observers and the NaN steps write the failed batch
+            self.flush()
+        for observer in self.observers:
+            observer.batch_finished(item, stable_seed, attempt + 1)
+        if unstable_step is None:
+            return
+        if not given_up:
+            logger.warning(f"{name}: unstable with seed {seed}, to be retried")
+            return
+        logger.error(f"{name}: unstable in all {attempt + 1} attempts, giving up")
+        yield from _nan_steps(unstable_step, self.output_coords(item.final_lead_time))
 
-        logger.error(f"{name}: unstable in all {attempts.stop} attempts, giving up")
-        self._notify_finished(item, None, attempts.stop)
-        # no step without an attempt left: an earlier run wrote the NaN steps
-        template, self._last_step = self._last_step, {}
-        if template:
-            schemas = self.output_coords(item.final_lead_time)
-            yield from _nan_steps(template, schemas)
+    def _attempt(
+        self, item: WorkItem, attempt: int
+    ) -> Generator[Step, None, Step | None]:
+        """Yield the steps of one attempt until one is unstable.
 
-    def _attempt(self, item: WorkItem, attempt: int) -> Generator[Step, None, bool]:
-        """Yield the steps of one attempt until one is unstable, True if none is."""
+        Returns the unstable step, which is not yielded, or None if all steps
+        were stable.
+        """
         if self.stability_check is not None:
             self.stability_check.reset()
         # PrognosticRunner seeds the model from self.seed when the rollout starts
@@ -259,35 +264,28 @@ class StableRunner(PrognosticRunner):
                 if self.stability_check is not None and not self.stability_check(
                     step["forecast"]
                 ):
-                    return False
-                self._last_step = {name: _nan_like(x) for name, x in step.items()}
+                    return step
                 yield step
         finally:
             # closes the model's iterator, also when the attempt is stopped
             steps.close()
             self.seed = self.base_seed
-        return True
-
-    def _notify_finished(self, item: WorkItem, seed: int | None, attempts: int) -> None:
-        for observer in self.observers:
-            observer.batch_finished(item, seed, attempts)
+        return None
 
 
 def _nan_like(x: xr.DataArray) -> xr.DataArray:
     """``x`` with its data replaced by NaN, keeping dims, coordinates and attrs.
 
     The data is a broadcast view of a single NaN on the host, so it takes no
-    memory until a backend writes it, and drops the reference to the fields.
+    memory until a backend writes it.
     """
     nan = np.broadcast_to(np.array(np.nan, dtype=x.dtype), x.shape)
     return x.copy(deep=False, data=nan)
 
 
-def _nan_steps(template: Step, schemas: Mapping[str, xr.DataArray]) -> Iterator[Step]:
-    """NaN steps for every lead time of each stream, shaped like ``template``.
-
-    ``template`` holds NaN fields, see :func:`_nan_like`.
-    """
+def _nan_steps(like: Step, schemas: Mapping[str, xr.DataArray]) -> Iterator[Step]:
+    """NaN steps for every lead time of each stream, shaped like the step ``like``."""
+    template = {stream: _nan_like(x) for stream, x in like.items()}
     leads = {stream: schemas[stream].coords["lead_time"].values for stream in template}
     for lead in np.unique(np.concatenate(list(leads.values()))):
         step = {}

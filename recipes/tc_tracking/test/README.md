@@ -1,75 +1,75 @@
 # Tests
 
-## Test 1: Generate Ensemble Forecast with Cyclone Tracking
+Run the test scripts from `earth2studio/recipes/tc_tracking/test`. A test
+passed if its last message contains `all good, yay (:`.
 
-> [!Note]
-> `test_tc_hunt.sh` runs Tests 1 and 2 automatically, with FCN3 by default or
-> AIFS-ENS via `./test_tc_hunt.sh aifs` (`aifs-v2` for version 2). If, at the
-> end you see a message containing `all good, yay (:`, the test finished
-> successfully. The steps below describe the FCN3 test.
-
-This case tests whether the pipeline can generate an ensemble forecast and
-track tropical cyclones using TempestExtremes. Furthermore, it is tested if
-those exact tracks can be reproduced. For AIFS-ENS, this requires
-`deterministic=True` and, given its memory needs, `batch_size=1`, which the
-script sets.
-
-First, let us produce a five member ensemble of a 90h prediction of Hurricane Helene
+## Tests 1 and 2: Generate an Ensemble with Cyclone Tracking, Reproduce Members
 
 ```bash
-cd earth2studio/recipes/tc_tracking/test
-python ../main.py --config-path=$(pwd)/cfg --config-name=baseline_helene.yaml
+./test_tc_hunt.sh          # FCN3
+./test_tc_hunt.sh aifs     # AIFS-ENS v1 (aifs-v2 for version 2)
 ```
 
-### Expected Result: Generate Ensemble
+The script runs two steps:
 
-You can find the track files in `outputs_baseline_helene/cyclone_tracks_te`.
-The directory should contain five csv files with naming pattern according to
-`tracks_2024-09-24T00:00:00_mem_000X_seed_YYYYYYYYY_bs_2.csv`
-This pattern provides information about initial condition, ensemble member ID,
-random seed and batch size. The seed is the one the member was run with: if
-its batch became unstable and was retried (see the stability check in the main
-README), it is the seed of the retry. With field output (`store_type`
-`netcdf` or `zarr`), the same seed is stored in the array `random_seed`;
-NetCDF output is one file per batch.
+1. It generates a five-member ensemble of a 90 h forecast of Hurricane Helene
+   with `cfg/baseline_helene.yaml` and tracks the cyclones with
+   TempestExtremes.
+2. It reproduces members three and four with `cfg/reproduce_helene.yaml` and
+   checks that their track files are identical to those of the first step.
 
-## Test 2: Reproducibility of Helene Ensemble Members
+For AIFS-ENS, reproduction requires `deterministic=True` and, given its memory
+needs, `batch_size=1`, which the script sets.
 
-Next, reproduce members three and four of the previous run. Their seeds are
-in the names of their track files, `cfg/reproduce_helene.yaml` expects them
-in place of the `'???'` placeholders. Instead of editing the file, they can
-also be passed on the command line:
+### Expected Result: Generate and Reproduce
+
+`outputs_baseline_helene/cyclone_tracks_te` holds five track files named
+`tracks_2024-09-24T00:00:00_mem_000X_seed_YYYYYYYYY_bs_2.csv`, i.e. by initial
+condition, ensemble member, random seed and batch size. The seed is the one
+the member was run with: if its batch became unstable and was retried (see the
+stability check in the main README), it is the seed of the retry. With field
+output (`store_type` `netcdf` or `zarr`), the same seed is stored in the array
+`random_seed`; NetCDF output is one file per batch.
+
+`outputs_reproduce_helene/cyclone_tracks_te` holds three track files, identical
+in name and content to those of the baseline. There are three because members
+are reproduced as whole batches: the seeds of all batches are derived from
+`random_seed: 7777`, and member two shares its batch with member three. A
+reproduction therefore needs the batch size, ensemble size and random seed of
+the original run.
+
+To reproduce members by hand, take their seeds from the names of their track
+files and pass them in place of the `'???'` placeholders of
+`cfg/reproduce_helene.yaml`:
 
 ```bash
 python ../main.py --config-path=$(pwd)/cfg --config-name=reproduce_helene.yaml \
     reproduce_members.0.2=<seed of member 3> reproduce_members.1.2=<seed of member 4>
 ```
 
-Note that the baseline run was produced with batch size two and `random_seed: 7777`,
-from which the seeds of all batches are derived. For reproducibility, we need to
-apply the same batch size and random seed in the reproduction run and reproduce the full
-batch that contained the ensemble member in question. For the present case, this means
-that member two will also be reproduced, as it is in the same batch as member three.
-
-### Expected Result: Reproduce Helene
-
-There should now be three track files in `outputs_reproduce_helene/cyclone_tracks_te`,
-with file names identical to the associated files in `outputs_baseline_helene/cyclone_tracks_te`.
-Whether the content of the files (i.e., the generated tracks) is also identical can be tested through
-a simple `diff` call:
-
-<!-- markdownlint-disable MD013 -->
+## Test 3: Retries of Unstable Batches
 
 ```bash
-diff outputs_baseline_helene/cyclone_tracks_te/tracks_2024-09-24T00:00:00_mem_0002_seed_<seed>_bs_2.csv \
-     outputs_reproduce_helene/cyclone_tracks_te/tracks_2024-09-24T00:00:00_mem_0002_seed_<seed>_bs_2.csv
+./test_retries.sh          # FCN3
+./test_retries.sh aifs     # AIFS-ENS v1
 ```
 
-<!-- markdownlint-enable MD013 -->
+The script runs three batches of one member each on one GPU with stability
+thresholds no forecast can meet and `max_retries=1`, so every attempt of every
+batch is unstable. It checks that each batch was attempted twice and then ended
+as failed: recorded in `outputs_retries/retries_progress/failed-*.log`, with
+NaN fields, seed `-1` and no track files. The run takes one to two minutes,
+most of it loading the model.
 
-Repeat the diff call for all reproduced ensemble members, the return should always be empty.
+With several GPUs (`torchrun`), a retry runs on whichever rank is free, see
+the main README. How the ranks pass retries to each other is covered by unit
+tests, which need neither a GPU nor a model and run in seconds:
 
-## Test 3: Extracting individual storms from historic data
+```bash
+pytest test/test_schedule.py
+```
+
+## Test 4: Extracting individual storms from historic data
 
 > [!Note]
 > The test can be done manually following the steps below. Alternatively,

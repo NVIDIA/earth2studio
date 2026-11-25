@@ -75,7 +75,7 @@ docker build -t tc_tracking:1.0 .
 ```
 
 The image installs Earth2Studio from the latest commit of the
-`1.0.0-rc` branch; rebuild with `docker build --no-cache` to pick
+`main` branch; rebuild with `docker build --no-cache` to pick
 up newer commits. Building takes a few minutes, most of it for
 compiling torch-harmonics. The build can be adjusted with build arguments:
 
@@ -225,7 +225,11 @@ condition (IC) and `batch_size` members. Earth2Studio's
 `Pipeline` gives each rank a contiguous block of batches of
 nearly equal size, so the batches of an IC stay on few ranks.
 A batch that becomes unstable (see the stability check below)
-is retried on the same rank. If a rank fails with an error,
+is retried by the next rank that has finished its own
+batches, as soon as the unstable attempt is written. Retries
+are not taken from a rank that is busy: while every rank
+still runs its own batches, they wait. If a rank fails with
+an error,
 it stops, while the other ranks finish all their batches;
 then all ranks stop with the error. Stop the job yourself if
 you don't want to wait for them. Rerun with `resume: True` to
@@ -475,9 +479,12 @@ check has been implemented to detect and handle these cases:
   and a threshold for each. Global averages are computed at
   initialisation and at each time step. If any variable's
   global average exceeds its threshold, the rollout of the
-  batch is stopped and started again with the next seed. The
-  steps of the new attempt replace those already written, and
-  the output records the seed of the stable attempt.
+  batch is stopped, and the batch is queued to be run again
+  with the next seed by whichever rank is free (see above).
+  The steps of the new attempt replace those already written,
+  and the output records the seed of the stable attempt. All
+  members of a batch are rerun, so with a large `batch_size`
+  one unstable member costs the rollout of the whole batch.
 - **Retries**: At most `max_retries` (default 3) per batch.
   Attempt `n` of a batch is seeded with
   `member_seed(random_seed + n, ic, first_member)` (see
@@ -487,9 +494,7 @@ check has been implemented to detect and handle these cases:
   its fields are NaN with `random_seed = -1`.
 - **Limitation**: This is a basic implementation. More
   advanced detection methods that don't require 10 extra
-  simulation days, and handing retries to idle ranks when
-  many ensemble members become unstable, would be beneficial
-  improvements.
+  simulation days would be a beneficial improvement.
 
 ```yaml
 stability_check:
@@ -765,18 +770,22 @@ together:
 - `work_items`: one work item per batch, an IC and
   `batch_size` members.
 - `StableRunner` (`src/ensemble/runner.py`): Earth2Studio's
-  `PrognosticRunner` with a stability check. Rolls out a
-  batch and starts it again with the next seed if it becomes
-  unstable.
+  `PrognosticRunner` with a stability check. Rolls out one
+  attempt of a batch and stops it once it becomes unstable.
 - `TrackerInputs` (`src/ensemble/tracking.py`): diagnostic of
   the runner that selects the tracker's input fields into
   stream `tracking`.
 - `TrackingScorer` (`src/ensemble/tracking.py`): scorer that
   records stream `tracking` and runs TempestExtremes once a
   batch is done.
-- `Pipeline`: distributes the batches over the ranks, writes
-  stream `forecast` (only `out_vars`), and records finished
-  batches.
+- `RetryPipeline` (`src/ensemble/schedule.py`): Earth2Studio's
+  `Pipeline`, which distributes the batches over the ranks,
+  writes stream `forecast` (only `out_vars`) and records
+  finished batches. It overrides `Pipeline.run_items`, which
+  runs a rank's batches, to run the batches of a
+  `RetryScheduler`: the rank's own, then retries of unstable
+  batches of any rank, passed between the ranks by a
+  `RetryQueue` in a key-value store served by the root process.
 - `BatchNetCDFBackend`, `zarr_backend` and `SeedRecorder`
   (`src/ensemble/output.py`): field and seed output.
 - `BatchProgress` (`src/ensemble/progress.py`): Earth2Studio's
@@ -790,9 +799,10 @@ together:
 Each step of a batch flows from the runner through its
 diagnostics to the pipeline, which hands every stream to the
 scorer and writes the streams that have a store. The runner
-tells the scorer, the seed recorder and the progress store
-about every attempt of a batch (`BatchObserver`), so they can
-discard an unstable attempt and record failed batches.
+tells the scheduler, the scorer, the seed recorder and the
+progress store about every attempt of a batch
+(`BatchObserver`), so they can queue a retry, discard an
+unstable attempt and record failed batches.
 
 ## 3. Visualisation
 

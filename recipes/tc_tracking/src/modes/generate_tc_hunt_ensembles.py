@@ -20,17 +20,20 @@ The run is built from Earth2Studio's pipeline components:
 
 - the work items are batches of ``batch_size`` members of one initial
   condition (IC), see :func:`earth2studio.run.work_items`;
-- :class:`~src.ensemble.runner.StableRunner` rolls out a batch and retries it
-  with the next seed if it becomes unstable;
-- :class:`~earth2studio.run.Pipeline` distributes the batches over the ranks,
-  writes the fields of stream ``forecast`` and records finished batches, so an
-  interrupted run can resume;
+- :class:`~src.ensemble.runner.StableRunner` rolls out one attempt of a batch
+  and stops it if it becomes unstable;
+- :class:`~src.ensemble.schedule.RetryPipeline`, an Earth2Studio
+  :class:`~earth2studio.run.Pipeline`, distributes the batches over the ranks
+  and runs the retries of unstable ones, with the next seed, on whichever rank
+  is free; it writes the fields of stream ``forecast`` and records finished
+  batches, so an interrupted run can resume;
 - :class:`~src.ensemble.tracking.TrackingScorer` tracks cyclones in every batch.
 """
 
 import os
 import shutil
 from contextlib import ExitStack
+from typing import Any
 
 import numpy as np
 import torch
@@ -44,14 +47,10 @@ from earth2studio.models.px import PrognosticModel
 from earth2studio.run import Pipeline, WorkItem, work_items
 from earth2studio.run.work import barrier, broadcast, rank0_first, rank_info
 from src.data.tc_hunt_data_utils import CachedSource, data_source_from_config
-from src.ensemble.output import (
-    AttemptFlush,
-    BatchNetCDFBackend,
-    SeedRecorder,
-    zarr_backend,
-)
+from src.ensemble.output import BatchNetCDFBackend, SeedRecorder, zarr_backend
 from src.ensemble.progress import BatchProgress
 from src.ensemble.runner import BatchObserver, InstabilityDetection, StableRunner
+from src.ensemble.schedule import RetryPipeline, RetryQueue, RetryScheduler
 from src.ensemble.tracking import TRACKING_STREAM, TrackerInputs, TrackingScorer
 from src.tc_hunt_utils import set_initial_times
 from src.tempest_extremes import TempestExtremes
@@ -354,6 +353,7 @@ def run_ensemble(cfg: DictConfig) -> None:
     progress_dir = os.path.join(cfg.store_dir, f"{cfg.project}_progress")
     seed = base_seed(cfg, progress_dir)
 
+    # to make sure tracker.close() runs even if the run fails
     with ExitStack() as cleanup:
         # cyclone tracking: the tracker's input fields become stream "tracking"
         tracker = None
@@ -394,20 +394,23 @@ def run_ensemble(cfg: DictConfig) -> None:
         )
 
         # the attempts of each batch and the runner's observers depend on the
-        # work items, so they are set once the items are known
+        # work items, so they are set once the items are known; reproduced
+        # members rerun their attempt only, so they are not retried
         progress = None
+        scheduler = None
         if reproduce:
             attempts = reproduction_attempts(cfg, items, runner)
             items = [item for item in items if item in attempts]
-            runner.attempts = lambda item: range(attempts[item], attempts[item] + 1)
+            runner.attempt = attempts.__getitem__
         else:
             progress = BatchProgress(
                 progress_dir, progress_tags(cfg), overwrite=not resume
             )
-            retries = max_retries(cfg)
-            runner.attempts = lambda item: range(
-                progress.attempts_made(item), retries + 1
+            scheduler = RetryScheduler(
+                RetryQueue.shared(), max_retries(cfg), progress.attempts_made
             )
+            runner.attempt = scheduler.attempt
+            runner.max_retries = scheduler.max_retries
 
         forecast = runner.output_coords(final_lead_time)["forecast"]
         store = field_store(cfg, items, forecast["lead_time"].values, not resume)
@@ -417,23 +420,29 @@ def run_ensemble(cfg: DictConfig) -> None:
             raise ValueError("the run neither stores fields nor tracks cyclones")
 
         observers: list[BatchObserver] = []
+        if scheduler is not None:
+            observers.append(scheduler)
         if scorer is not None:
             observers.append(scorer)
         if store is not None:
             seeds = SeedRecorder(store, items)
             rank0_first(seeds.add_array)
-            observers += [AttemptFlush(store), seeds]
+            observers.append(seeds)
+            runner.flush = store.flush
         if progress is not None:
             observers.append(progress)
         runner.observers = observers
 
-        Pipeline(
-            runner,
-            output=None if store is None else {"forecast": store},
-            scorer=scorer,
-            output_variables=(
+        pipeline_kwargs: dict[str, Any] = {
+            "output": None if store is None else {"forecast": store},
+            "scorer": scorer,
+            "output_variables": (
                 None if store is None else {"forecast": list(cfg.out_vars)}
             ),
-            progress=progress,
-            device=DistributedManager().device,
-        ).run(items)
+            "progress": progress,
+            "device": DistributedManager().device,
+        }
+        if scheduler is None:
+            Pipeline(runner, **pipeline_kwargs).run(items)
+        else:
+            RetryPipeline(scheduler, runner, **pipeline_kwargs).run(items)

@@ -61,6 +61,10 @@ Documentation = "https://github.com/NVIDIA/earth2studio/blob/main/recipes/tc_tra
 Issues = "https://github.com/NVIDIA/earth2studio/issues"
 Changelog = "https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md"
 
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["test"]
+
 # ==== UV configuration ====
 [tool.uv]
 # the recipe is run from source (python main.py), only its dependencies are installed
@@ -81,9 +85,10 @@ natten = ["setuptools", "cmake", "torch"]
 # Git sources of earth2studio are not inherited by dependents, so the pins from
 # earth2studio's pyproject.toml that the extras above need are repeated here
 [tool.uv.sources]
-# Latest 1.0 release candidate; `docker build --no-cache` picks up newer commits.
-# TODO: switch to the earth2studio>=1.0.0 release once published
-earth2studio = { git = "https://github.com/NVIDIA/earth2studio.git", branch = "1.0.0-rc" }
+# Latest main, as the recipe uses `Pipeline.run_items` (after 1.0.0);
+# `docker build --no-cache` picks up newer commits.
+# TODO: switch to the earth2studio>=1.1.0 release once published
+earth2studio = { git = "https://github.com/NVIDIA/earth2studio.git", branch = "main" }
 cfgrib = { git = "https://github.com/NickGeneva/cfgrib.git", rev = "6a9af3173d7050b5fa5d221755f97e6ecb8c3433" }
 makani = { git = "https://github.com/NVIDIA/makani.git", rev = "b38fcb2799d7dbc146fa60459f3f9823394a8bf1" }
 torch-harmonics = { git = "https://github.com/NVIDIA/torch-harmonics.git", rev = "a632ca748a12bd9f74dbc1e00653317810991f74" }

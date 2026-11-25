@@ -12,6 +12,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - `Pipeline` lead-time reductions per stream, such as weekly means with `LeadWindow`.
+- `Pipeline.run_items`, which runs a rank's work items and can be overridden to run
+  items that become known during the run.
+- TC tracking recipe: unstable batches are retried by whichever rank is free, as soon
+  as the unstable attempt is written, instead of on the same rank.
 
 ### Changed
 
