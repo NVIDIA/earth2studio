@@ -21,6 +21,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Fixed `DiagnosticRunner` requesting a single input frame per step for diagnostics
+  that declare a multi-frame input `lead_time` window, such as `CorrDiffCMIP6`, which
+  could not run through the runner. Requests now carry the declared window at every
+  step, and fixed output lead times are offset by each step's lead time.
 - Fixed noisy StormScope Flash GOES forecasts when a missing input band masked
   every history patch; fill raw NaNs before normalization and patch masking.
 - `CAMulator` converts the CO2 forcing from ppm to mol mol-1 in float64; the

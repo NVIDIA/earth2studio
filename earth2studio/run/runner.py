@@ -34,7 +34,7 @@ import torch
 import xarray as xr
 
 from earth2studio.data import DataSource, ForecastSource, fetch_data
-from earth2studio.data.utils import _is_ensemble_source
+from earth2studio.data.utils import _is_ensemble_source, _offset_times
 from earth2studio.models.dx import DiagnosticModel
 from earth2studio.models.px import PrognosticModel
 from earth2studio.models.px.utils import initial_condition
@@ -264,13 +264,80 @@ def _signature_for_stream(
     )
 
 
+def _fixed_lead_times(signature: CoordinateSystem) -> np.ndarray | None:
+    """Fixed ``lead_time`` labels declared by ``signature``, or ``None``."""
+    dynamic = signature.attrs.get(E2S_DYNAMIC_DIMS, ())
+    if "lead_time" not in signature.dims or "lead_time" in dynamic:
+        return None
+    leads = signature["lead_time"].values
+    if not leads.size:
+        return None
+    if leads.dtype.kind != "m":
+        raise ValueError(
+            f"Fixed lead_time must have a timedelta64 dtype, got {leads.dtype}"
+        )
+    return leads
+
+
+def _windowed_stream_leads(
+    output_leads: np.ndarray, step_leads: np.ndarray
+) -> np.ndarray:
+    """Lead times a windowed diagnostic writes: its output leads offset by each step.
+
+    Raises when consecutive steps write overlapping lead times, which would
+    silently overwrite an earlier step's output.
+    """
+    leads = np.concatenate([output_leads + lead for lead in step_leads])
+    unique, counts = np.unique(leads, return_counts=True)
+    if unique.size != leads.size:
+        repeated = unique[counts > 1]
+        raise ValueError(
+            f"Diagnostic output lead times {output_leads} stepped across "
+            f"{step_leads} repeat lead times {repeated}; consecutive steps "
+            "must write distinct lead times"
+        )
+    return unique
+
+
+def _apply_windowed(
+    diagnostic: DiagnosticModel, x: xr.DataArray, lead: np.timedelta64
+) -> xr.DataArray:
+    """Apply a fixed-window diagnostic to a window fetched ``lead`` after the item time.
+
+    The diagnostic sees its declared relative window anchored at ``time + lead``.
+    Its output is labeled back to the item's time, with ``lead`` added to any
+    output lead times, so valid times are unchanged.
+    """
+    y = cast(
+        xr.DataArray,
+        diagnostic(
+            x.assign_coords(
+                time=_offset_times(x["time"].values, lead),
+                lead_time=x["lead_time"].values - lead,
+            )
+        ),
+    )
+    labels: dict[str, Any] = {}
+    if "time" in y.coords:
+        labels["time"] = x["time"].values
+    if "lead_time" in y.coords:
+        labels["lead_time"] = y["lead_time"].values + lead
+    return y.assign_coords(labels)
+
+
+def _diagnostic_output(
+    diagnostic: DiagnosticModel, signature: CoordinateSystem
+) -> CoordinateSystem:
+    """Output signature of ``diagnostic`` applied to fields like ``signature``."""
+    # Selects the diagnostic's variables and domain; never regrids.
+    return diagnostic.output_coords(map_field(signature, diagnostic.input_coords()))
+
+
 def _diagnostic_coords(
     diagnostic: DiagnosticModel, signature: CoordinateSystem, leads: np.ndarray
 ) -> CoordinateSystem:
     """Stream signature for ``diagnostic`` applied to fields like ``signature``."""
-    # Selects the diagnostic's variables and domain; never regrids.
-    output = diagnostic.output_coords(map_field(signature, diagnostic.input_coords()))
-    return _signature_for_stream(output, leads)
+    return _signature_for_stream(_diagnostic_output(diagnostic, signature), leads)
 
 
 def _variables(signature: Any) -> set[str]:
@@ -614,10 +681,16 @@ class DiagnosticRunner:
     """Apply diagnostics directly to source data, without a prognostic model.
 
     Step ``k`` fetches each diagnostic's inputs at the item's time plus
-    ``k * step`` and yields its output under the diagnostic's stream name, from
-    lead time zero through the item's final lead time. A
+    ``k * step`` and yields its output under the diagnostic's stream name. A
     :class:`~earth2studio.data.ForecastSource` supplies forecast lead times; a
-    :class:`~earth2studio.data.DataSource` supplies later valid times.
+    :class:`~earth2studio.data.DataSource` supplies valid times (required when a
+    window reaches negative lead times that forecasts do not carry). A diagnostic
+    declaring fixed input ``lead_time`` coordinates, such as
+    :class:`~earth2studio.models.dx.CorrDiffCMIP6`'s ``[-24h, 0h, 24h]``, fetches
+    that window offset by each step's lead time and sees it anchored at
+    ``time + k * step``; its fixed output lead times are offset by each step's
+    lead time, so the stream may hold lead times other than the steps', including
+    negative ones.
     Items with several members run as one batch on a leading ``ensemble``
     dimension, seeded once from the first member, so stochastic members depend on
     their batch; ``member_batch=1`` seeds each member alone.
@@ -653,6 +726,7 @@ class DiagnosticRunner:
             raise ValueError("DiagnosticRunner needs at least one diagnostic")
         self.diagnostics = dict(diagnostics)
         self.signatures: dict[str, CoordinateSystem] = {}
+        self._windows: dict[str, np.ndarray | None] = {}
         self.sources: dict[str, DataSource | ForecastSource] = {}
         for name, diagnostic in self.diagnostics.items():
             signature = diagnostic.input_coords()
@@ -660,6 +734,13 @@ class DiagnosticRunner:
                 raise ValueError("DiagnosticRunner supports single-input-slot models")
             if "variable" not in signature.dims or not signature.sizes["variable"]:
                 raise ValueError(f"Diagnostic {name!r} declares no input variables")
+            window = _fixed_lead_times(signature)
+            output = _diagnostic_output(diagnostic, signature)
+            if window is not None and _fixed_lead_times(output) is None:
+                raise ValueError(
+                    f"Diagnostic {name!r} declares fixed input lead_time "
+                    f"{window}, but its output lead_time is dynamic or absent"
+                )
             recommended = recommended_sources(diagnostic)
             if isinstance(recommended, tuple):
                 recommended = recommended[0]
@@ -667,6 +748,7 @@ class DiagnosticRunner:
             if chosen is None:
                 raise ValueError(f"Diagnostic {name!r} needs a source")
             self.signatures[name] = signature
+            self._windows[name] = window
             self.sources[name] = chosen
         self.seed = seed
         self.source_member = source_member
@@ -695,23 +777,41 @@ class DiagnosticRunner:
         Fixed dimensions are ``lead_time`` followed by the field dimensions;
         ``time`` and ``ensemble`` are part of the dynamic prefix.
         """
-        leads = self.lead_times(final_lead_time)
-        return {
-            name: _diagnostic_coords(diagnostic, self.signatures[name], leads)
-            for name, diagnostic in self.diagnostics.items()
-        }
+        step_leads = self.lead_times(final_lead_time)
+        coords: dict[str, CoordinateSystem] = {}
+        for name, diagnostic in self.diagnostics.items():
+            output = _diagnostic_output(diagnostic, self.signatures[name])
+            output_leads = _fixed_lead_times(output)
+            if self._windows[name] is not None:
+                assert output_leads is not None  # noqa: S101 - checked in __init__
+                stream_leads = _windowed_stream_leads(output_leads, step_leads)
+            elif output_leads is not None:
+                if step_leads.size > 1:
+                    raise ValueError(
+                        f"Diagnostic {name!r} declares fixed output lead times "
+                        f"{output_leads} without a fixed input lead_time window, "
+                        "so multiple steps may repeat the same lead times; the "
+                        "runner cannot plan the stream from the declaration alone"
+                    )
+                stream_leads = np.sort(output_leads)
+            else:
+                stream_leads = step_leads
+            coords[name] = _signature_for_stream(output, stream_leads)
+        return coords
 
     def _requests(self, item: WorkItem, lead: np.timedelta64) -> dict[str, DataRequest]:
-        return {
-            name: DataRequest(
+        requests: dict[str, DataRequest] = {}
+        for name, signature in self.signatures.items():
+            window = self._windows[name]
+            request_leads = np.array([lead]) if window is None else window + lead
+            requests[name] = DataRequest(
                 self.sources[name],
                 np.array([item.time]),
                 signature["variable"].values,
-                np.array([lead]),
+                request_leads,
                 _source_members(self.source_member, self.sources[name], item),
             )
-            for name, signature in self.signatures.items()
-        }
+        return requests
 
     def data_requests(self, item: WorkItem) -> tuple[DataRequest, ...]:
         """Describe every diagnostic's fetch at every step of ``item``."""
@@ -728,6 +828,9 @@ class DiagnosticRunner:
         member_id = item.member_ids[0] if item.member_ids else 0
         for diagnostic in self.diagnostics.values():
             _seed_model(self.seed, item.time, member_id, diagnostic)
+        seen_leads: dict[str, set[np.timedelta64]] = {
+            name: set() for name in self.diagnostics
+        }
         for lead in self.lead_times(item.final_lead_time):
             outputs = {}
             for name, request in self._requests(item, lead).items():
@@ -739,5 +842,27 @@ class DiagnosticRunner:
                     item,
                     self.source_member,
                 )
-                outputs[name] = diagnostic(x)
+                y = (
+                    cast(xr.DataArray, diagnostic(x))
+                    if self._windows[name] is None
+                    else _apply_windowed(diagnostic, x, lead)
+                )
+                if "lead_time" in y.coords:
+                    raw_leads = np.atleast_1d(y.coords["lead_time"].values)
+                    if raw_leads.dtype.kind != "m":
+                        raise ValueError(
+                            f"Diagnostic {name!r} yielded non-timedelta "
+                            f"lead_time dtype {raw_leads.dtype}"
+                        )
+                    emitted = raw_leads.astype("timedelta64[ns]")
+                    if (
+                        any(lt in seen_leads[name] for lt in emitted)
+                        or len(set(emitted)) != emitted.size
+                    ):
+                        raise ValueError(
+                            f"Diagnostic {name!r} yielded duplicate lead_time "
+                            f"labels within one work item: {y.coords['lead_time'].values}"
+                        )
+                    seen_leads[name].update(emitted)
+                outputs[name] = y
             yield outputs
