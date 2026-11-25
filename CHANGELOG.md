@@ -37,6 +37,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the same weighted denominator as the non-batched statistic.
 - Fixed asymmetric cyclic coordinate reorderings in map_coords bypassing the torch.roll
   path.
+- `CompositeForecastSource` accepts repeated initialization times when it has
+  analysis components.
 
 ### Security
 
