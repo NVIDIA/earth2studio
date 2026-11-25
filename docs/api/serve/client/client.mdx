@@ -1,0 +1,435 @@
+---
+layout: overview
+title: earth2studio.serve.client.client
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`Earth2StudioClient`](#earth2studio-serve-client-client-Earth2StudioClient) | Python client for Earth2Studio REST API. |
+
+### API
+
+<Anchor id="earth2studio-serve-client-client-Earth2StudioClient">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.serve.client.client.Earth2StudioClient(
+    base_url: str = 'http://localhost:8000',
+    workflow_name: str = 'deterministic_earth2_workf...,
+    timeout: float = 30.0,
+    max_retries: int = 3,
+    retry_backoff_factor: float = 0.3,
+    token: str | None = None
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Python client for Earth2Studio REST API.
+
+**Parameters:**
+
+<ParamField path="base_url" type="str" default="'http://localhost:8000'">
+Base URL of the Earth2Studio API server. Default is "http://localhost:8000".
+</ParamField>
+
+<ParamField path="workflow_name" type="str" default="'deterministic_earth2_workflow'">
+Name of the workflow to use. Default is "deterministic_earth2_workflow".
+</ParamField>
+
+<ParamField path="timeout" type="float" default="30.0">
+Request timeout in seconds. Default is 30.0.
+</ParamField>
+
+<ParamField path="max_retries" type="int" default="3">
+Maximum number of retries for failed requests. Default is 3.
+</ParamField>
+
+<ParamField path="retry_backoff_factor" type="float" default="0.3">
+Backoff factor for retries. Default is 0.3.
+</ParamField>
+
+<ParamField path="token" type="str" default="None">
+Optional authentication token (sent as Bearer token in Authorization header).
+</ParamField>
+
+**Examples:**
+
+<CodeBlock showLineNumbers={false}>
+
+```python
+>>> client = Earth2StudioClient(base_url="http://localhost:8000")
+>>> health = client.health_check()
+```
+
+</CodeBlock>
+
+<CodeBlock showLineNumbers={false}>
+
+```python
+With authentication:
+```
+
+</CodeBlock>
+
+<CodeBlock showLineNumbers={false}>
+
+```python
+>>> client = Earth2StudioClient(base_url="http://localhost:8000", token="your-token")
+```
+
+</CodeBlock>
+
+<Anchor id="earth2studio-serve-client-client-Earth2StudioClient-__enter__">
+
+<CodeBlock links={{"earth2studio.serve.client.client.Earth2StudioClient":"#earth2studio-serve-client-client-Earth2StudioClient"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.client.client.Earth2StudioClient.__enter__() -> earth2studio.serve.client.client.Earth2StudioClient
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Context manager entry.
+
+**Returns:** [`Earth2StudioClient`](#earth2studio-serve-client-client-Earth2StudioClient)
+
+self.
+
+</Indent>
+<Anchor id="earth2studio-serve-client-client-Earth2StudioClient-__exit__">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.client.client.Earth2StudioClient.__exit__(
+    exc_type: type[BaseException] | None,
+    exc_val: BaseException | None,
+    exc_tb: object
+) -> None
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Context manager exit. Closes the HTTP session.
+
+</Indent>
+<Anchor id="earth2studio-serve-client-client-Earth2StudioClient-close">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.client.client.Earth2StudioClient.close() -> None
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Close the underlying HTTP session.
+
+</Indent>
+<Anchor id="earth2studio-serve-client-client-Earth2StudioClient-download_result">
+
+<CodeBlock links={{"earth2studio.serve.client.models.InferenceRequestResults":"./models.mdx#earth2studio-serve-client-models-InferenceRequestResults"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.client.client.Earth2StudioClient.download_result(
+    result: earth2studio.serve.client.models.InferenceRequestResults,
+    path: str,
+    timeout: float | None = None
+) -> io.BytesIO
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Download a result file from the server or S3.
+
+**Parameters:**
+
+<ParamField path="result" type="InferenceRequestResults">
+[`InferenceRequestResults`](./models.mdx#earth2studio-serve-client-models-InferenceRequestResults) — Result object containing request metadata.
+</ParamField>
+
+<ParamField path="path" type="str">
+Relative path to the result file (as returned in result_paths).
+</ParamField>
+
+<ParamField path="timeout" type="float" default="None">
+Timeout in seconds for the download. If None, uses client default.
+</ParamField>
+
+**Returns:** `io.BytesIO`
+
+In-memory buffer containing the downloaded file content.
+
+**Raises:**
+
+- `Earth2StudioAPIError`: If the download fails or other API errors occur.
+
+</Indent>
+<Anchor id="earth2studio-serve-client-client-Earth2StudioClient-get_request_results">
+
+<CodeBlock links={{"earth2studio.serve.client.models.InferenceRequestResults":"./models.mdx#earth2studio-serve-client-models-InferenceRequestResults"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.client.client.Earth2StudioClient.get_request_results(
+    request_id: str,
+    timeout: float | None = None
+) -> earth2studio.serve.client.models.InferenceRequestResults
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Get the results of a completed inference request by downloading the results.
+
+**Parameters:**
+
+<ParamField path="request_id" type="str">
+Unique identifier for the inference request.
+</ParamField>
+
+<ParamField path="timeout" type="float" default="None">
+Timeout in seconds for the download request. If None, uses client default.
+</ParamField>
+
+**Returns:** [`InferenceRequestResults`](./models.mdx#earth2studio-serve-client-models-InferenceRequestResults)
+
+Results with output file paths. Use result_paths() to get paths.
+
+**Raises:**
+
+- `InferenceRequestNotFoundError`: If the request ID is not found.
+- `Earth2StudioAPIError`: For other API errors (including 202 if request is still processing).
+
+<Note>
+
+If the request is still processing, the API returns 202 and this method
+raises Earth2StudioAPIError. Use get_request_status() to check completion first.
+
+</Note>
+
+</Indent>
+<Anchor id="earth2studio-serve-client-client-Earth2StudioClient-get_request_status">
+
+<CodeBlock links={{"earth2studio.serve.client.models.InferenceRequestStatus":"./models.mdx#earth2studio-serve-client-models-InferenceRequestStatus"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.client.client.Earth2StudioClient.get_request_status(
+    request_id: str
+) -> earth2studio.serve.client.models.InferenceRequestStatus
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Get the current status of an inference request.
+
+**Parameters:**
+
+<ParamField path="request_id" type="str">
+Unique identifier for the inference request.
+</ParamField>
+
+**Returns:** [`InferenceRequestStatus`](./models.mdx#earth2studio-serve-client-models-InferenceRequestStatus)
+
+Current progress and status.
+
+**Raises:**
+
+- `InferenceRequestNotFoundError`: If the request ID is not found.
+- `Earth2StudioAPIError`: For other API errors.
+
+</Indent>
+<Anchor id="earth2studio-serve-client-client-Earth2StudioClient-health_check">
+
+<CodeBlock links={{"earth2studio.serve.client.models.HealthStatus":"./models.mdx#earth2studio-serve-client-models-HealthStatus"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.client.client.Earth2StudioClient.health_check() -> earth2studio.serve.client.models.HealthStatus
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Check if the API is running and healthy.
+
+**Returns:** [`HealthStatus`](./models.mdx#earth2studio-serve-client-models-HealthStatus)
+
+Object with status and timestamp.
+
+**Raises:**
+
+- `Earth2StudioAPIError`: If the API is not accessible.
+
+</Indent>
+<Anchor id="earth2studio-serve-client-client-Earth2StudioClient-result_root_path">
+
+<CodeBlock links={{"earth2studio.serve.client.models.InferenceRequestResults":"./models.mdx#earth2studio-serve-client-models-InferenceRequestResults"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.client.client.Earth2StudioClient.result_root_path(
+    result: earth2studio.serve.client.models.InferenceRequestResults
+) -> str
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Get the root URL path for accessing result files.
+
+**Parameters:**
+
+<ParamField path="result" type="InferenceRequestResults">
+[`InferenceRequestResults`](./models.mdx#earth2studio-serve-client-models-InferenceRequestResults) — Result object returned by the request.
+</ParamField>
+
+**Returns:** `str`
+
+Root path URL for result files (e.g. "/v1/infer/workflow_name/exec_123/results/").
+
+</Indent>
+<Anchor id="earth2studio-serve-client-client-Earth2StudioClient-run_inference_sync">
+
+<CodeBlock links={{"earth2studio.serve.client.models.InferenceRequest":"./models.mdx#earth2studio-serve-client-models-InferenceRequest","earth2studio.serve.client.models.InferenceRequestResults":"./models.mdx#earth2studio-serve-client-models-InferenceRequestResults"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.client.client.Earth2StudioClient.run_inference_sync(
+    request: earth2studio.serve.client.models.InferenceRequest,
+    poll_interval: float = 5.0,
+    timeout: float | None = None
+) -> earth2studio.serve.client.models.InferenceRequestResults
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Submit an inference request and wait for it to complete.
+
+Convenience method that combines submit_inference_request() and
+wait_for_completion().
+
+**Parameters:**
+
+<ParamField path="request" type="InferenceRequest">
+[`InferenceRequest`](./models.mdx#earth2studio-serve-client-models-InferenceRequest) — InferenceRequest object with workflow configuration.
+</ParamField>
+
+<ParamField path="poll_interval" type="float" default="5.0">
+How often to check status in seconds. Default is 5.0.
+</ParamField>
+
+<ParamField path="timeout" type="float" default="None">
+Maximum time to wait in seconds. None for no timeout.
+</ParamField>
+
+**Returns:** [`InferenceRequestResults`](./models.mdx#earth2studio-serve-client-models-InferenceRequestResults)
+
+Results when the request completes successfully.
+
+</Indent>
+<Anchor id="earth2studio-serve-client-client-Earth2StudioClient-submit_inference_request">
+
+<CodeBlock links={{"earth2studio.serve.client.models.InferenceRequest":"./models.mdx#earth2studio-serve-client-models-InferenceRequest","earth2studio.serve.client.models.InferenceRequestResponse":"./models.mdx#earth2studio-serve-client-models-InferenceRequestResponse"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.client.client.Earth2StudioClient.submit_inference_request(
+    request: earth2studio.serve.client.models.InferenceRequest
+) -> earth2studio.serve.client.models.InferenceRequestResponse
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Submit an inference request to be processed.
+
+**Parameters:**
+
+<ParamField path="request" type="InferenceRequest">
+[`InferenceRequest`](./models.mdx#earth2studio-serve-client-models-InferenceRequest) — InferenceRequest object with workflow configuration.
+</ParamField>
+
+**Returns:** [`InferenceRequestResponse`](./models.mdx#earth2studio-serve-client-models-InferenceRequestResponse)
+
+Response with execution ID and initial status.
+
+**Raises:**
+
+- `BadRequestError`: If the request parameters are invalid.
+- `Earth2StudioAPIError`: For other API errors.
+
+</Indent>
+<Anchor id="earth2studio-serve-client-client-Earth2StudioClient-wait_for_completion">
+
+<CodeBlock links={{"earth2studio.serve.client.models.InferenceRequestResults":"./models.mdx#earth2studio-serve-client-models-InferenceRequestResults"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.client.client.Earth2StudioClient.wait_for_completion(
+    request_id: str,
+    poll_interval: float = 5.0,
+    timeout: float | None = None
+) -> earth2studio.serve.client.models.InferenceRequestResults
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Wait for an inference request to complete and return results.
+
+**Parameters:**
+
+<ParamField path="request_id" type="str">
+Unique identifier for the inference request.
+</ParamField>
+
+<ParamField path="poll_interval" type="float" default="5.0">
+How often to check status in seconds. Default is 5.0.
+</ParamField>
+
+<ParamField path="timeout" type="float" default="None">
+Maximum time to wait in seconds. None for no timeout.
+</ParamField>
+
+**Returns:** [`InferenceRequestResults`](./models.mdx#earth2studio-serve-client-models-InferenceRequestResults)
+
+Results when the request completes successfully.
+
+**Raises:**
+
+- `RequestTimeoutError`: If timeout is reached.
+- `Earth2StudioAPIError`: If the request fails or other API errors occur.
+
+</Indent>
+</Indent>

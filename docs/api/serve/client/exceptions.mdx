@@ -1,0 +1,185 @@
+---
+layout: overview
+title: earth2studio.serve.client.exceptions
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`APIConnectionError`](#earth2studio-serve-client-exceptions-APIConnectionError) | Exception raised when connection to the API fails. |
+| [`BadRequestError`](#earth2studio-serve-client-exceptions-BadRequestError) | Exception raised for HTTP 400 Bad Request errors. |
+| [`Earth2StudioAPIError`](#earth2studio-serve-client-exceptions-Earth2StudioAPIError) | Base exception for Earth2Studio API errors. |
+| [`InferenceRequestNotFoundError`](#earth2studio-serve-client-exceptions-InferenceRequestNotFoundError) | Exception raised for HTTP 404 Not Found errors when inference request is not found. |
+| [`InternalServerError`](#earth2studio-serve-client-exceptions-InternalServerError) | Exception raised for HTTP 500 Internal Server errors. |
+| [`RequestTimeoutError`](#earth2studio-serve-client-exceptions-RequestTimeoutError) | Exception raised when a request times out. |
+
+### API
+
+<Anchor id="earth2studio-serve-client-exceptions-APIConnectionError">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.serve.client.exceptions.APIConnectionError(
+    message: str = 'Failed to connect to Earth...
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** [Earth2StudioAPIError](#earth2studio-serve-client-exceptions-Earth2StudioAPIError)
+
+Exception raised when connection to the API fails.
+
+</Indent>
+
+<Anchor id="earth2studio-serve-client-exceptions-BadRequestError">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.serve.client.exceptions.BadRequestError(
+    message: str,
+    details: str | None = None
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** [Earth2StudioAPIError](#earth2studio-serve-client-exceptions-Earth2StudioAPIError)
+
+Exception raised for HTTP 400 Bad Request errors.
+
+</Indent>
+
+<Anchor id="earth2studio-serve-client-exceptions-Earth2StudioAPIError">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.serve.client.exceptions.Earth2StudioAPIError(
+    message: str,
+    status_code: int | None = None,
+    details: str | None = None
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>Exception</Badge>
+
+**Bases:** `Exception`
+
+Base exception for Earth2Studio API errors.
+
+**Parameters:**
+
+<ParamField path="message" type="str">
+Human-readable error message.
+</ParamField>
+
+<ParamField path="status_code" type="int" default="None">
+HTTP status code if the error came from an API response.
+</ParamField>
+
+<ParamField path="details" type="str" default="None">
+Additional error details.
+</ParamField>
+
+<Anchor id="earth2studio-serve-client-exceptions-Earth2StudioAPIError-__str__">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.client.exceptions.Earth2StudioAPIError.__str__() -> str
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Return a human-readable error string.
+
+**Returns:** `str`
+
+Error string including message, status code (if set), and details (if set).
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-serve-client-exceptions-InferenceRequestNotFoundError">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.serve.client.exceptions.InferenceRequestNotFoundError(
+    message: str,
+    details: str | None = None
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** [Earth2StudioAPIError](#earth2studio-serve-client-exceptions-Earth2StudioAPIError)
+
+Exception raised for HTTP 404 Not Found errors when inference request is not found.
+
+</Indent>
+
+<Anchor id="earth2studio-serve-client-exceptions-InternalServerError">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.serve.client.exceptions.InternalServerError(
+    message: str,
+    details: str | None = None
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** [Earth2StudioAPIError](#earth2studio-serve-client-exceptions-Earth2StudioAPIError)
+
+Exception raised for HTTP 500 Internal Server errors.
+
+</Indent>
+
+<Anchor id="earth2studio-serve-client-exceptions-RequestTimeoutError">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.serve.client.exceptions.RequestTimeoutError(
+    message: str = 'Request timed out'
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** [Earth2StudioAPIError](#earth2studio-serve-client-exceptions-Earth2StudioAPIError)
+
+Exception raised when a request times out.
+
+</Indent>

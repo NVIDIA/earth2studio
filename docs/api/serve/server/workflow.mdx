@@ -1,0 +1,940 @@
+---
+layout: overview
+title: earth2studio.serve.server.workflow
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`Workflow`](#earth2studio-serve-server-workflow-Workflow) | Base class for custom workflows. |
+| [`WorkflowArgsBase`](#earth2studio-serve-server-workflow-WorkflowArgsBase) | Base parameters for workflow execution. |
+| [`WorkflowConfig`](#earth2studio-serve-server-workflow-WorkflowConfig) | Specialize in case we want to differentiate parameters and config handling later. |
+| [`WorkflowParameters`](#earth2studio-serve-server-workflow-WorkflowParameters) | Base class for workflow parameters with common validation. |
+| [`WorkflowProgress`](#earth2studio-serve-server-workflow-WorkflowProgress) | Base class for workflow progress tracking. |
+| [`WorkflowRegistry`](#earth2studio-serve-server-workflow-WorkflowRegistry) | Registry for managing custom workflows. |
+| [`WorkflowResult`](#earth2studio-serve-server-workflow-WorkflowResult) | Base result structure for workflow execution. |
+| [`WorkflowStatus`](#earth2studio-serve-server-workflow-WorkflowStatus) | Workflow execution status constants. |
+
+### Functions
+
+| Name | Description |
+|------|-------------|
+| [`json_serial`](#earth2studio-serve-server-workflow-json_serial) | JSON serializer for objects not serializable by default json code. |
+| [`parse_workflow_directories_from_env`](#earth2studio-serve-server-workflow-parse_workflow_directories_from_env) | Parse workflow directories from environment variables. |
+| [`register_all_workflows`](#earth2studio-serve-server-workflow-register_all_workflows) | Register all workflows (built-in and user-provided). |
+
+### API
+
+<Anchor id="earth2studio-serve-server-workflow-Workflow">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.serve.server.workflow.Workflow()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>Abstract</Badge>
+
+Base class for custom workflows.
+
+Users should subclass this class and implement the run() method
+to create custom workflows that will be exposed as FastAPI endpoints.
+
+<Anchor id="earth2studio-serve-server-workflow-Workflow-get_output_path">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.server.workflow.Workflow.get_output_path(
+    execution_id: str
+) -> pathlib.Path
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Get output path for storing results.
+
+This method can be called by workflow implementations to get the standard
+output directory path for a specific execution. The directory is automatically
+created if it doesn't exist.
+
+**Parameters:**
+
+<ParamField path="execution_id" type="str">
+Unique execution identifier.
+</ParamField>
+
+**Returns:** `Path`
+
+Path object pointing to the output directory.
+
+</Indent>
+<Anchor id="earth2studio-serve-server-workflow-Workflow-run">
+
+<CodeBlock links={{"earth2studio.serve.server.workflow.WorkflowParameters":"#earth2studio-serve-server-workflow-WorkflowParameters"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.server.workflow.Workflow.run(
+    parameters: dict[str, typing.Any] | earth2studio.serve.server.workflow.WorkflowParameters,
+    execution_id: str
+) -> dict[str, typing.Any]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>abstract</Badge>
+
+Execute the workflow with given parameters.
+
+This method should implement the actual workflow logic.
+It will be called when a POST request is made to /v1/infer/&#123;workflow_name&#125;.
+
+**Parameters:**
+
+<ParamField path="parameters" type="dict or WorkflowParameters">
+`dict or` [`WorkflowParameters`](#earth2studio-serve-server-workflow-WorkflowParameters) — Input parameters for the workflow.
+</ParamField>
+
+<ParamField path="execution_id" type="str">
+Unique execution identifier.
+</ParamField>
+
+**Returns:** `dict`
+
+Dictionary containing workflow results.
+
+</Indent>
+<Anchor id="earth2studio-serve-server-workflow-Workflow-set_redis_client">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.server.workflow.Workflow.set_redis_client(
+    redis_client: redis.Redis
+) -> None
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Set Redis client for state management.
+
+</Indent>
+<Anchor id="earth2studio-serve-server-workflow-Workflow-update_execution_data">
+
+<CodeBlock links={{"earth2studio.serve.server.workflow.WorkflowProgress":"#earth2studio-serve-server-workflow-WorkflowProgress"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.server.workflow.Workflow.update_execution_data(
+    execution_id: str,
+    updates: dict[str, typing.Any] | earth2studio.serve.server.workflow.WorkflowProgress
+) -> None
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Update execution data in Redis with dict updates or WorkflowProgress object.
+
+This method can be called by workflow implementations to update specific
+fields in the execution data without replacing the entire record.
+
+**Parameters:**
+
+<ParamField path="execution_id" type="str">
+Unique execution identifier.
+</ParamField>
+
+<ParamField path="updates" type="dict or WorkflowProgress">
+`dict or` [`WorkflowProgress`](#earth2studio-serve-server-workflow-WorkflowProgress) — Dictionary of fields to update, or WorkflowProgress instance.
+If a WorkflowProgress object is provided, it will update the
+'progress' field of WorkflowResult. Dict updates can include
+any WorkflowResult fields including 'progress', 'metadata', etc.
+</ParamField>
+
+**Raises:**
+
+- `RuntimeError`: If Redis client is not set.
+
+**Examples:**
+
+<CodeBlock showLineNumbers={false}>
+
+```python
+Using dict for general updates:
+```
+
+</CodeBlock>
+
+<CodeBlock showLineNumbers={false}>
+
+```python
+>>> self.update_execution_data(execution_id, {
+...     "metadata": {"custom_field": "value"}
+... })
+```
+
+</CodeBlock>
+
+<CodeBlock showLineNumbers={false}>
+
+```python
+Using WorkflowProgress for progress updates:
+```
+
+</CodeBlock>
+
+<CodeBlock showLineNumbers={false}>
+
+```python
+>>> progress = WorkflowProgress(
+...     progress="Processing data...",
+...     current_step=3,
+...     total_steps=10
+... )
+>>> self.update_execution_data(execution_id, progress)
+```
+
+</CodeBlock>
+
+<CodeBlock showLineNumbers={false}>
+
+```python
+Using custom WorkflowProgress subclass:
+```
+
+</CodeBlock>
+
+<CodeBlock showLineNumbers={false}>
+
+```python
+>>> class MyProgress(WorkflowProgress):
+...     data_processed_gb: float = 0.0
+>>> progress = MyProgress(
+...     progress="Batch processing",
+...     current_step=5,
+...     total_steps=20,
+...     data_processed_gb=150.5
+... )
+>>> self.update_execution_data(execution_id, progress)
+```
+
+</CodeBlock>
+
+</Indent>
+<Anchor id="earth2studio-serve-server-workflow-Workflow-validate_parameters">
+
+<CodeBlock links={{"earth2studio.serve.server.workflow.WorkflowParameters":"#earth2studio-serve-server-workflow-WorkflowParameters"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.server.workflow.Workflow.validate_parameters(
+    parameters: dict[str, typing.Any] | earth2studio.serve.server.workflow.WorkflowParameters
+) -> earth2studio.serve.server.workflow.WorkflowParameters
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge> <Badge>abstract</Badge>
+
+Validate and convert input parameters to the workflow-specific parameter type.
+
+This method should use the WorkflowParameters.validate() method to perform
+Pydantic field validation and model validation. Subclasses should implement
+this method to specify their parameter type.
+
+**Parameters:**
+
+<ParamField path="parameters" type="dict or WorkflowParameters">
+`dict or` [`WorkflowParameters`](#earth2studio-serve-server-workflow-WorkflowParameters) — Input parameters as dict or WorkflowParameters instance.
+</ParamField>
+
+**Returns:** [`WorkflowParameters`](#earth2studio-serve-server-workflow-WorkflowParameters)
+
+Validated WorkflowParameters instance of the workflow-specific type.
+
+**Raises:**
+
+- `ValueError`: If validation fails.
+
+**Examples:**
+
+<CodeBlock showLineNumbers={false}>
+
+```python
+>>> @classmethod
+... def validate_parameters(cls, parameters):
+...     return MyWorkflowParameters.validate(parameters)
+```
+
+</CodeBlock>
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-serve-server-workflow-WorkflowArgsBase">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.serve.server.workflow.WorkflowArgsBase()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** `BaseModel`
+
+Base parameters for workflow execution.
+
+<Anchor id="earth2studio-serve-server-workflow-WorkflowArgsBase-validate">
+
+<CodeBlock links={{"earth2studio.serve.server.workflow.WorkflowArgsBase":"#earth2studio-serve-server-workflow-WorkflowArgsBase"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.server.workflow.WorkflowArgsBase.validate(
+    data: dict[str, typing.Any] | earth2studio.serve.server.workflow.WorkflowArgsBase
+) -> earth2studio.serve.server.workflow.WorkflowArgsBase
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Validate and convert parameters to the correct type.
+
+This method performs both field validation and model validation using Pydantic.
+It ensures that all required fields are present, types are correct, and any
+custom validators defined in the parameter class are executed.
+
+**Parameters:**
+
+<ParamField path="data" type="dict or WorkflowArgsBase">
+`dict or` [`WorkflowArgsBase`](#earth2studio-serve-server-workflow-WorkflowArgsBase) — Input data as dict or WorkflowArgsBase instance.
+</ParamField>
+
+**Returns:** [`WorkflowArgsBase`](#earth2studio-serve-server-workflow-WorkflowArgsBase)
+
+Validated WorkflowArgsBase instance.
+
+**Raises:**
+
+- `ValueError`: If validation fails.
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-serve-server-workflow-WorkflowConfig">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.serve.server.workflow.WorkflowConfig()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** [WorkflowArgsBase](#earth2studio-serve-server-workflow-WorkflowArgsBase)
+
+Specialize in case we want to differentiate parameters and config handling later.
+
+</Indent>
+
+<Anchor id="earth2studio-serve-server-workflow-WorkflowParameters">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.serve.server.workflow.WorkflowParameters()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** [WorkflowArgsBase](#earth2studio-serve-server-workflow-WorkflowArgsBase)
+
+Base class for workflow parameters with common validation.
+
+This class provides centralized validation for common workflow parameters
+like forecast_times (ISO 8601 datetime format validation).
+
+<Anchor id="earth2studio-serve-server-workflow-WorkflowParameters-validate_datetime_list">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.server.workflow.WorkflowParameters.validate_datetime_list(
+    v: list[str] | list[datetime.datetime] | str | datetime.datetime | None,
+    info: pydantic.ValidationInfo
+) -> list[str] | list[datetime.datetime] | str | datetime.datetime | None
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Validate that forecast_times and start_time are in valid ISO 8601 datetime format.
+
+This validator handles both string lists (forecast_times) and can validate
+datetime objects or ISO 8601 strings (start_time).
+Requires full datetime format with 'T' separator (not just date) for strings.
+
+**Parameters:**
+
+<ParamField path="v" type="list of str or datetime, or single value, or None">
+The value (can be list of strings/datetime objects, single value, or None).
+</ParamField>
+
+<ParamField path="info" type="ValidationInfo">
+Pydantic validation context (e.g. field name).
+</ParamField>
+
+**Returns:** `list of str or list of datetime or str or datetime or None`
+
+The validated value (same shape as input).
+
+**Raises:**
+
+- `ValueError`: If any value is not in valid ISO 8601 datetime format.
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-serve-server-workflow-WorkflowProgress">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.serve.server.workflow.WorkflowProgress()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** `BaseModel`
+
+Base class for workflow progress tracking.
+
+This class provides standard progress tracking fields that can be extended
+by custom workflows to include additional tracking information.
+
+**Examples:**
+
+<CodeBlock showLineNumbers={false}>
+
+```python
+Basic usage:
+```
+
+</CodeBlock>
+
+<CodeBlock showLineNumbers={false}>
+
+```python
+>>> progress = WorkflowProgress(
+...     progress="Processing data...",
+...     current_step=3,
+...     total_steps=10
+... )
+```
+
+</CodeBlock>
+
+<CodeBlock showLineNumbers={false}>
+
+```python
+Error reporting:
+```
+
+</CodeBlock>
+
+<CodeBlock showLineNumbers={false}>
+
+```python
+>>> progress = WorkflowProgress(
+...     progress="Failed!",
+...     error_message="Connection timeout: Could not reach data source"
+... )
+```
+
+</CodeBlock>
+
+<CodeBlock showLineNumbers={false}>
+
+```python
+Extended for custom workflow:
+```
+
+</CodeBlock>
+
+<CodeBlock showLineNumbers={false}>
+
+```python
+>>> class MyCustomProgress(WorkflowProgress):
+...     data_processed_gb: float = 0.0
+...     error_count: int = 0
+>>> progress = MyCustomProgress(
+...     progress="Processing batch 5",
+...     current_step=5,
+...     total_steps=20,
+...     data_processed_gb=150.5,
+...     error_count=2
+... )
+```
+
+</CodeBlock>
+
+<ParamField path="current_step" type="int | None = None">
+Current step number in the workflow.
+</ParamField>
+
+<ParamField path="error_message" type="str | None = None">
+Error message to report specific errors when workflow fails.
+
+</ParamField>
+
+<ParamField path="progress" type="str | None = None">
+Human-readable progress message.
+</ParamField>
+
+<ParamField path="total_steps" type="int | None = None">
+Total number of steps in the workflow.
+</ParamField>
+</Indent>
+
+<Anchor id="earth2studio-serve-server-workflow-WorkflowRegistry">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.serve.server.workflow.WorkflowRegistry(
+    config: typing.Any = {}
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Registry for managing custom workflows.
+
+<Anchor id="earth2studio-serve-server-workflow-WorkflowRegistry-auto_register_workflows">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.server.workflow.WorkflowRegistry.auto_register_workflows(
+    redis_client: redis.Redis
+) -> None
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Auto-discover and register all workflows, then set Redis client.
+
+This is the main entry point for workflow registration during server startup.
+
+**Parameters:**
+
+<ParamField path="redis_client" type="redis.Redis">
+Redis client instance to set on registered workflows.
+</ParamField>
+
+</Indent>
+<Anchor id="earth2studio-serve-server-workflow-WorkflowRegistry-discover_and_register_from_directories">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.server.workflow.WorkflowRegistry.discover_and_register_from_directories(
+    workflow_dirs: list,
+    include_builtin: bool = True
+) -> tuple
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Discover and register workflows from specified directories.
+
+**Parameters:**
+
+<ParamField path="workflow_dirs" type="list">
+List of directory paths to search for workflow modules.
+</ParamField>
+
+<ParamField path="include_builtin" type="bool" default="True">
+Whether to automatically include built-in example_workflows. Default is True.
+</ParamField>
+
+**Returns:** `tuple`
+
+(successful_imports, failed_imports) counts.
+
+</Indent>
+<Anchor id="earth2studio-serve-server-workflow-WorkflowRegistry-get">
+
+<CodeBlock links={{"earth2studio.serve.server.workflow.Workflow":"#earth2studio-serve-server-workflow-Workflow"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.server.workflow.WorkflowRegistry.get(
+    name: str,
+    redis_client: redis.Redis | None = None
+) -> earth2studio.serve.server.workflow.Workflow | None
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Get a cached instance of a workflow by name.
+
+Creates a new instance on first call and caches it for subsequent calls.
+The instance is automatically initialized with the registered name and description.
+
+**Parameters:**
+
+<ParamField path="name" type="str">
+Name of the workflow.
+</ParamField>
+
+<ParamField path="redis_client" type="redis.Redis or None" default="None">
+Optional Redis client to set on the instance.
+</ParamField>
+
+**Returns:** [`Workflow`](#earth2studio-serve-server-workflow-Workflow) `or None`
+
+Cached workflow instance or None if not found.
+
+</Indent>
+<Anchor id="earth2studio-serve-server-workflow-WorkflowRegistry-get_workflow_class">
+
+<CodeBlock links={{"earth2studio.serve.server.workflow.Workflow":"#earth2studio-serve-server-workflow-Workflow"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.server.workflow.WorkflowRegistry.get_workflow_class(
+    name: str
+) -> type[earth2studio.serve.server.workflow.Workflow] | None
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Get a workflow class by name.
+
+**Parameters:**
+
+<ParamField path="name" type="str">
+Name of the workflow.
+</ParamField>
+
+**Returns:** `type[` [`Workflow`](#earth2studio-serve-server-workflow-Workflow) `] or None`
+
+Workflow class or None if not found.
+
+</Indent>
+<Anchor id="earth2studio-serve-server-workflow-WorkflowRegistry-instance">
+
+<CodeBlock links={{"earth2studio.serve.server.workflow.WorkflowRegistry":"#earth2studio-serve-server-workflow-WorkflowRegistry"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.server.workflow.WorkflowRegistry.instance() -> earth2studio.serve.server.workflow.WorkflowRegistry
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Return the singleton WorkflowRegistry, creating it on first call.
+
+</Indent>
+<Anchor id="earth2studio-serve-server-workflow-WorkflowRegistry-is_workflow_exposed">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.server.workflow.WorkflowRegistry.is_workflow_exposed(
+    workflow_name: str
+) -> bool
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Check if a workflow is exposed via API.
+
+A workflow is exposed if:
+- The exposed_workflows list is empty (all workflows exposed by default), OR
+- The workflow name is in the exposed_workflows list, OR
+- The workflow name is in the warmup_workflows list (accessible for warmup)
+
+**Parameters:**
+
+<ParamField path="workflow_name" type="str">
+Name of the workflow to check
+</ParamField>
+
+**Returns:** `bool`
+
+True if workflow should be exposed, False otherwise
+
+</Indent>
+<Anchor id="earth2studio-serve-server-workflow-WorkflowRegistry-list_workflows">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.server.workflow.WorkflowRegistry.list_workflows(
+    exposed_only: bool = True
+) -> dict[str, str]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+List registered workflows.
+
+**Parameters:**
+
+<ParamField path="exposed_only" type="bool" default="True">
+If True, only return workflows that are in exposed_workflows
+(warmup-only workflows are excluded from public listing).
+If False, return all registered workflows.
+</ParamField>
+
+**Returns:** `dict`
+
+Dictionary mapping workflow names to descriptions
+
+</Indent>
+<Anchor id="earth2studio-serve-server-workflow-WorkflowRegistry-register">
+
+<CodeBlock links={{"earth2studio.serve.server.workflow.Workflow":"#earth2studio-serve-server-workflow-Workflow"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.server.workflow.WorkflowRegistry.register(
+    workflow_class: type[earth2studio.serve.server.workflow.Workflow]
+) -> type[earth2studio.serve.server.workflow.Workflow]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Register a workflow class.
+
+**Parameters:**
+
+<ParamField path="workflow_class" type="type[Workflow]">
+`type[` [`Workflow`](#earth2studio-serve-server-workflow-Workflow) `]` — Workflow class (not instance) to register.
+</ParamField>
+
+**Returns:** `type[` [`Workflow`](#earth2studio-serve-server-workflow-Workflow) `]`
+
+workflow_class (enabling the use of ``register`` as a decorator).
+
+**Raises:**
+
+- `TypeError`: If workflow_class is not a class or not a Workflow subclass.
+- `ValueError`: If workflow name is already registered.
+
+</Indent>
+<Anchor id="earth2studio-serve-server-workflow-WorkflowRegistry-unregister">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.server.workflow.WorkflowRegistry.unregister(
+    name: str
+) -> None
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Unregister a workflow.
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-serve-server-workflow-WorkflowResult">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.serve.server.workflow.WorkflowResult(
+    workflow_name: str,
+    execution_id: str,
+    status: str,
+    kwargs: typing.Any = {}
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** `BaseModel`
+
+Base result structure for workflow execution.
+
+</Indent>
+
+<Anchor id="earth2studio-serve-server-workflow-WorkflowStatus">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.serve.server.workflow.WorkflowStatus()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Workflow execution status constants.
+
+</Indent>
+
+<Anchor id="earth2studio-serve-server-workflow-json_serial">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.server.workflow.json_serial(
+    obj: typing.Any
+) -> typing.Any
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+JSON serializer for objects not serializable by default json code.
+
+</Indent>
+
+<Anchor id="earth2studio-serve-server-workflow-parse_workflow_directories_from_env">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.server.workflow.parse_workflow_directories_from_env() -> list[str]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Parse workflow directories from environment variables.
+
+Supports WORKFLOW_DIR environment variable which can contain:
+- Single directory path
+- Comma-separated list of directories
+- Colon-separated list of directories
+
+**Returns:** `list of str`
+
+List of directory paths to search for workflows.
+
+</Indent>
+
+<Anchor id="earth2studio-serve-server-workflow-register_all_workflows">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.server.workflow.register_all_workflows(
+    redis_client: redis.Redis
+) -> None
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Register all workflows (built-in and user-provided).
+
+This is a convenience function that calls the registry's auto_register_workflows method.
+It auto-discovers workflows from:
+1. Built-in example_workflows directory (always included)
+2. User directories specified via WORKFLOW_DIR environment variable
+
+**Parameters:**
+
+<ParamField path="redis_client" type="redis.Redis">
+Redis client instance to set on registered workflows.
+</ParamField>
+
+**Examples:**
+
+<CodeBlock showLineNumbers={false}>
+
+```python
+>>> import redis
+>>> from earth2studio.serve.server.workflow import register_all_workflows
+>>> redis_client = redis.Redis(host='localhost', port=6379)
+>>> register_all_workflows(redis_client)
+```
+
+</CodeBlock>
+
+</Indent>

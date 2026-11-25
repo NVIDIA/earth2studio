@@ -1,0 +1,77 @@
+---
+layout: overview
+title: earth2studio.lexicon.goes
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`GOESLexicon`](#earth2studio-lexicon-goes-GOESLexicon) | GOES ABI lexicon for mapping standardized variable names to GOES ABI NetCDF variable names. |
+
+### API
+
+<Anchor id="earth2studio-lexicon-goes-GOESLexicon">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.lexicon.goes.GOESLexicon()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+GOES ABI lexicon for mapping standardized variable names to GOES ABI NetCDF variable names.
+
+This lexicon maps our standardized spectral band names (e.g., 'abi01c') to the actual
+variable names used in GOES ABI NetCDF files on AWS. It also includes any necessary
+data transformations or modifiers for each band. For more information on the GOES ABI
+data, see the GOES Beginners Guide or the GOES ABI data documentation:
+https://noaa-goes16.s3.amazonaws.com/Beginners_Guide_to_GOES-R_Series_Data.pdf
+https://www.goes-r.gov/spacesegment/ABI-tech-summary.html
+
+**Parameters:**
+
+<ParamField path="val" type="str">
+Standardized variable name (e.g., 'abi01c')
+</ParamField>
+
+<ParamField path="VOCAB" type="dict[str, tuple[str, Callable[[Any], Any]]]">
+</ParamField>
+<Anchor id="earth2studio-lexicon-goes-GOESLexicon-get_item">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.lexicon.goes.GOESLexicon.get_item(
+    val: str
+) -> tuple[str, collections.abc.Callable[[Any], typing.Any]]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Get GOES ABI variable name and modifier for a standardized variable name.
+
+**Parameters:**
+
+<ParamField path="val" type="str">
+Standardized variable name (e.g., 'abi01c')
+</ParamField>
+
+**Returns:** `tuple[str, Callable]`
+
+Tuple containing:
+- GOES ABI variable name (e.g., 'CMI_C01')
+- Modifier function for data transformation
+
+</Indent>
+</Indent>

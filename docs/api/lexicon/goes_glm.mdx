@@ -1,0 +1,138 @@
+---
+layout: overview
+title: earth2studio.lexicon.goes_glm
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`GOESGLMLexicon`](#earth2studio-lexicon-goes_glm-GOESGLMLexicon) | Lexicon for GOES Geostationary Lightning Mapper (GLM) L2 LCFA data. |
+
+### API
+
+<Anchor id="earth2studio-lexicon-goes_glm-GOESGLMLexicon">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.lexicon.goes_glm.GOESGLMLexicon()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Lexicon for GOES Geostationary Lightning Mapper (GLM) L2 LCFA data.
+
+Maps Earth2Studio variable names to a ``&#123;level&#125;::&#123;field&#125;`` key, where
+``level`` selects one of the three tiers of the GLM detection hierarchy
+stored in each L2 Lightning Cluster-Filter Algorithm NetCDF file and
+``field`` is the native NetCDF variable name within it:
+
+- ``event`` — individual illuminated pixels in a single 2 ms frame
+- ``group`` — spatially adjacent events within one frame
+- ``flash`` — groups clustered in space and time
+
+Variable names follow the instrument-agnostic
+``lightning_&#123;level&#125;_&#123;quantity&#125;`` convention shared with
+`MeteosatLILexicon`.
+
+- ``*_energy`` is the native GLM optical energy of the detection
+  (Joules).
+- ``*_area`` is the native GLM footprint area of the detection
+  (m2), i.e. the area the detection illuminated, which lets a
+  caller grid detections as an extent density rather than as
+  centroid counts. Only groups and flashes have one: an event is a
+  single pixel, so LCFA stores no event-level area.
+- ``*_count`` is synthetic: the data source fills it with 1.0 per
+  record so users can sum or histogram to obtain per-cell event,
+  group or flash density during downstream regridding.
+
+<Note>
+
+Variable reference:
+
+- GLM Product Definition and User's Guide:
+  https://www.goes-r.gov/products/baseline-lightning-detection.html
+
+</Note>
+
+<Anchor id="earth2studio-lexicon-goes_glm-GOESGLMLexicon-get_item">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.lexicon.goes_glm.GOESGLMLexicon.get_item(
+    val: str
+) -> tuple[str, collections.abc.Callable]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Return the GLM field name and modifier function for a variable.
+
+**Parameters:**
+
+<ParamField path="val" type="str">
+Earth2Studio variable id.
+</ParamField>
+
+**Returns:** `tuple[str, Callable]`
+
+``(key, modifier)`` where ``key`` is ``'&#123;level&#125;::&#123;field&#125;'``.
+``field`` is the native GLM NetCDF variable name for the
+``*_energy`` and ``*_area`` variables and the synthetic
+sentinel ``"_count"`` for the ``*_count`` variables.
+``modifier`` is the identity function; values are returned in
+their physical units (Joules for ``*_energy``, m2 for
+``*_area``, dimensionless 1.0 for ``*_count``).
+
+</Indent>
+<Anchor id="earth2studio-lexicon-goes_glm-GOESGLMLexicon-resolve_alias">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.lexicon.goes_glm.GOESGLMLexicon.resolve_alias(
+    val: str
+) -> str
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Map a deprecated variable id onto its canonical replacement.
+
+Non-deprecated ids are returned unchanged, so this is safe to call on
+every requested variable.
+
+**Parameters:**
+
+<ParamField path="val" type="str">
+Earth2Studio variable id, possibly a deprecated alias.
+</ParamField>
+
+**Returns:** `str`
+
+The canonical variable id.
+
+<Warning>
+
+[&lt;griffe._internal.docstrings.models.DocstringWarn object at 0x733ef8d32480&gt;]
+
+</Warning>
+
+</Indent>
+</Indent>

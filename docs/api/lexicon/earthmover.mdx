@@ -1,0 +1,147 @@
+---
+layout: overview
+title: earth2studio.lexicon.earthmover
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`EarthMoverERA5Lexicon`](#earth2studio-lexicon-earthmover-EarthMoverERA5Lexicon) | Earthmover ERA5 Marketplace lexicon. |
+| [`EarthMoverIFSInitialConditionLexicon`](#earth2studio-lexicon-earthmover-EarthMoverIFSInitialConditionLexicon) | Earthmover Brightband IFS initial-condition Marketplace lexicon. |
+| [`EarthMoverIFSLexicon`](#earth2studio-lexicon-earthmover-EarthMoverIFSLexicon) | Earthmover Brightband IFS forecast Marketplace lexicon. |
+| [`VariableSpec`](#earth2studio-lexicon-earthmover-VariableSpec) | Earthmover descriptor for a dataset variable. |
+
+### Functions
+
+| Name | Description |
+|------|-------------|
+| [`make_modifier`](#earth2studio-lexicon-earthmover-make_modifier) | Return a modifier that aligns source values to Earth2Studio units. |
+| [`normalize_units`](#earth2studio-lexicon-earthmover-normalize_units) | Normalize common CF/GRIB units spellings. |
+
+### API
+
+<Anchor id="earth2studio-lexicon-earthmover-EarthMoverERA5Lexicon">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.lexicon.earthmover.EarthMoverERA5Lexicon()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** [_EarthMoverLexiconBase](#earth2studio-lexicon-earthmover-_EarthMoverLexiconBase)
+
+Earthmover ERA5 Marketplace lexicon.
+
+</Indent>
+
+<Anchor id="earth2studio-lexicon-earthmover-EarthMoverIFSInitialConditionLexicon">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.lexicon.earthmover.EarthMoverIFSInitialConditionLexicon()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** [_EarthMoverLexiconBase](#earth2studio-lexicon-earthmover-_EarthMoverLexiconBase)
+
+Earthmover Brightband IFS initial-condition Marketplace lexicon.
+
+</Indent>
+
+<Anchor id="earth2studio-lexicon-earthmover-EarthMoverIFSLexicon">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.lexicon.earthmover.EarthMoverIFSLexicon()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** [_EarthMoverLexiconBase](#earth2studio-lexicon-earthmover-_EarthMoverLexiconBase)
+
+Earthmover Brightband IFS forecast Marketplace lexicon.
+
+</Indent>
+
+<Anchor id="earth2studio-lexicon-earthmover-VariableSpec">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.lexicon.earthmover.VariableSpec(
+    e2s: str,
+    short_name: str,
+    param_id: int | None,
+    standard_name: str,
+    level_type: str,
+    level: float | None,
+    canonical_units: str,
+    aliases: tuple[str, ...] = ()
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>Dataclass</Badge>
+
+Earthmover descriptor for a dataset variable.
+
+</Indent>
+
+<Anchor id="earth2studio-lexicon-earthmover-make_modifier">
+
+<CodeBlock links={{"earth2studio.lexicon.earthmover.VariableSpec":"#earth2studio-lexicon-earthmover-VariableSpec"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.lexicon.earthmover.make_modifier(
+    spec: earth2studio.lexicon.earthmover.VariableSpec,
+    src_units: str | None
+) -> collections.abc.Callable
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Return a modifier that aligns source values to Earth2Studio units.
+
+</Indent>
+
+<Anchor id="earth2studio-lexicon-earthmover-normalize_units">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.lexicon.earthmover.normalize_units(
+    units: str | None
+) -> str
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Normalize common CF/GRIB units spellings.
+
+</Indent>

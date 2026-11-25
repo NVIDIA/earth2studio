@@ -1,0 +1,303 @@
+---
+layout: overview
+title: earth2studio.models.px.aurora1p5
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`Aurora1p5`](#earth2studio-models-px-aurora1p5-Aurora1p5) | Aurora v1.5 0.25 degree global forecast model with hourly output. |
+| [`Aurora1p5Ensemble`](#earth2studio-models-px-aurora1p5-Aurora1p5Ensemble) | Aurora v1.5 ensemble 0.25 degree global forecast model. Identical to |
+| [`Aurora1p5Ensemble_6h`](#earth2studio-models-px-aurora1p5-Aurora1p5Ensemble_6h) | Aurora v1.5 ensemble global forecast model with six-hourly output. |
+| [`Aurora1p5_6h`](#earth2studio-models-px-aurora1p5-Aurora1p5_6h) | Aurora v1.5 0.25 degree global forecast model with six-hourly output. |
+
+### Functions
+
+| Name | Description |
+|------|-------------|
+
+### API
+
+<Anchor id="earth2studio-models-px-aurora1p5-Aurora1p5">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.models.px.aurora1p5.Aurora1p5()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** [_Aurora](#earth2studio-models-px-aurora1p5-_Aurora)
+
+Aurora v1.5 0.25 degree global forecast model with hourly output.
+
+The underlying 6-hour auto-regressive model is queried at t+1h through
+t+6h from the same input pair before advancing the AR state. Inputs are
+two states six hours apart on a (720, 1440) grid, with 5 atmospheric
+variables across 13 pressure levels and 18 surface variables. Outputs
+include 7 additional diagnostic variables.
+
+**Badges:** `region:global` `class:medium-range` `product:wind` `product:temp` `product:atmos` `product:precip` `product:land` `product:ocean` `product:solar` `year:2026` `gpu:48gb` `provider:microsoft` `backend:pytorch`
+
+**Parameters:**
+
+<ParamField path="core_model" type="torch.nn.Module">
+Core Aurora1p5 model
+</ParamField>
+
+<ParamField path="static_vars" type="dict[str, torch.Tensor]">
+Static field tensors, each with shape (720, 1440).
+</ParamField>
+
+<Note>
+
+This model uses the checkpoints from the microsoft/aurora HuggingFace
+repository. For additional information see:
+
+- https://arxiv.org/abs/2405.13063
+- https://github.com/microsoft/aurora
+- https://huggingface.co/microsoft/aurora
+- https://microsoft.github.io/aurora/example_v1p5.html
+
+Aurora v1.5 was pretrained on ERA5 and fine-tuned on IFS operational
+analyses and is recommended to be initialized with IFS analyses.
+The open-data IFS does not publish sea ice concentration (``sic``).
+`earth2studio.data.NCAR_ERA5` or `earth2studio.data.ARCO_ERA5`
+may be used instead. GFS is not supported due to missing surface variables.
+
+The iterator yields the initial condition first. Its output-only variables
+(``i10fg``, ``blh``, ``uvb1h``, ``ssrd1h``, ``ttr1h``, ``tp1h``, ``sf1h``)
+contain ``NaN`` at that step; subsequent steps contain model predictions.
+Use `Aurora1p5_6h` for six-hourly output.
+
+</Note>
+
+<Warning>
+
+We encourage users to familiarize themselves with the license restrictions
+of this model's checkpoints.
+
+</Warning>
+
+</Indent>
+
+<Anchor id="earth2studio-models-px-aurora1p5-Aurora1p5Ensemble">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.models.px.aurora1p5.Aurora1p5Ensemble(
+    core_model: torch.nn.Module,
+    static_vars: dict[str, torch.Tensor],
+    seed: int | None = None
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** [_Aurora](#earth2studio-models-px-aurora1p5-_Aurora)
+
+Aurora v1.5 ensemble 0.25 degree global forecast model. Identical to
+`Aurora1p5` except it uses the stochastic ensemble checkpoint, where
+each forward pass injects fresh Gaussian noise into the backbone conditioning
+context. Calling the model N times (or with a batch of N copies of the same
+initial condition) therefore produces N statistically independent members.
+
+Like `Aurora1p5`, this wrapper produces hourly output using six
+lead-time queries per 6-hour AR cycle. Use `Aurora1p5Ensemble_6h`
+for six-hourly output. The two cadences consume the RNG stream differently,
+so the same seed does not produce matching trajectories between variants.
+
+**Badges:** `region:global` `class:medium-range` `product:wind` `product:temp` `product:atmos` `product:precip` `product:land` `product:ocean` `product:solar` `year:2026` `gpu:48gb` `provider:microsoft` `backend:pytorch`
+
+**Parameters:**
+
+<ParamField path="core_model" type="torch.nn.Module">
+Core Aurora1p5Ensemble model (stochastic=True)
+</ParamField>
+
+<ParamField path="static_vars" type="dict[str, torch.Tensor]">
+Dictionary of static field tensors (e.g., lsm, z, slt_*, tvh_*, tvl_*, ...).
+Each tensor should have shape (720, 1440).
+</ParamField>
+
+<ParamField path="seed" type="int | None" default="None">
+If specified, sets the random seed via `set_rng` at the start of
+each `create_iterator` call for reproducible stochastic noise.
+By default None (non-reproducible).
+</ParamField>
+
+<Note>
+
+This model uses the ensemble checkpoint from the microsoft/aurora
+HuggingFace repository. For additional information see the following resources:
+
+- https://arxiv.org/abs/2405.13063
+- https://github.com/microsoft/aurora
+- https://huggingface.co/microsoft/aurora
+- https://microsoft.github.io/aurora/example_v1p5.html
+
+Aurora v1.5 was pretrained on ERA5 and fine-tuned on IFS operational
+analyses. See `Aurora1p5` for data source recommendations.
+
+</Note>
+
+<Warning>
+
+We encourage users to familiarize themselves with the license restrictions of
+this model's checkpoints.
+
+</Warning>
+
+<Anchor id="earth2studio-models-px-aurora1p5-Aurora1p5Ensemble-set_rng">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.aurora1p5.Aurora1p5Ensemble.set_rng(
+    seed: int | None
+) -> None
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Seed the global RNG and reset the model's internal noise cache.
+
+**Parameters:**
+
+<ParamField path="seed" type="int | None">
+Seed for `torch.manual_seed`. If None, only resets the noise cache.
+</ParamField>
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-models-px-aurora1p5-Aurora1p5Ensemble_6h">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.models.px.aurora1p5.Aurora1p5Ensemble_6h(
+    core_model: torch.nn.Module,
+    static_vars: dict[str, torch.Tensor],
+    seed: int | None = None
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** [_Aurora](#earth2studio-models-px-aurora1p5-_Aurora)
+
+Aurora v1.5 ensemble global forecast model with six-hourly output.
+
+Uses the stochastic checkpoint of `Aurora1p5Ensemble`, querying
+only t+6h per AR cycle. Inputs and variables match `Aurora1p5`.
+Diagnostic variables suffixed ``1h`` retain their one-hour accumulation
+windows; they are not six-hour totals. The iterator uses a single-entry
+noise cache, so seeds do not give matching trajectories with the hourly
+ensemble variant.
+
+See `Aurora1p5Ensemble` for checkpoint references, data source
+recommendations and license information. Initial-condition diagnostic
+handling is described in `Aurora1p5`.
+
+**Badges:** `region:global` `class:medium-range` `product:wind` `product:temp` `product:atmos` `product:precip` `product:land` `product:ocean` `product:solar` `year:2026` `gpu:48gb` `provider:microsoft` `backend:pytorch`
+
+**Parameters:**
+
+<ParamField path="core_model" type="torch.nn.Module">
+Core Aurora1p5Ensemble model (stochastic=True)
+</ParamField>
+
+<ParamField path="static_vars" type="dict[str, torch.Tensor]">
+Static field tensors, each with shape (720, 1440).
+</ParamField>
+
+<ParamField path="seed" type="int | None" default="None">
+Seed applied at the start of each iterator for reproducible stochastic
+noise, by default None
+</ParamField>
+
+<ParamField path="_STEP_HOURS" type="= 6">
+</ParamField>
+<Anchor id="earth2studio-models-px-aurora1p5-Aurora1p5Ensemble_6h-set_rng">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.aurora1p5.Aurora1p5Ensemble_6h.set_rng(
+    seed: int | None
+) -> None
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Seed the global RNG and reset the model's internal noise cache.
+
+**Parameters:**
+
+<ParamField path="seed" type="int | None">
+Seed for `torch.manual_seed`. If None, only resets the noise cache.
+</ParamField>
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-models-px-aurora1p5-Aurora1p5_6h">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.models.px.aurora1p5.Aurora1p5_6h()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** [_Aurora](#earth2studio-models-px-aurora1p5-_Aurora)
+
+Aurora v1.5 0.25 degree global forecast model with six-hourly output.
+
+Uses the same checkpoint, input history and variables as `Aurora1p5`,
+but queries only t+6h per AR cycle. Both single-step calls and the iterator
+advance six hours. Diagnostic variables suffixed ``1h`` retain their
+one-hour accumulation windows; they are not six-hour totals.
+
+See `Aurora1p5` for checkpoint references, data source recommendations,
+license information and initial-condition diagnostic handling.
+
+**Badges:** `region:global` `class:medium-range` `product:wind` `product:temp` `product:atmos` `product:precip` `product:land` `product:ocean` `product:solar` `year:2026` `gpu:48gb` `provider:microsoft` `backend:pytorch`
+
+**Parameters:**
+
+<ParamField path="core_model" type="torch.nn.Module">
+Core Aurora1p5 model
+</ParamField>
+
+<ParamField path="static_vars" type="dict[str, torch.Tensor]">
+Static field tensors, each with shape (720, 1440).
+</ParamField>
+
+<ParamField path="_STEP_HOURS" type="= 6">
+</ParamField>
+</Indent>

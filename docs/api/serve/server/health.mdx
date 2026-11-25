@@ -1,0 +1,88 @@
+---
+layout: overview
+title: earth2studio.serve.server.health
+---
+In-process health check for all earth2studio serve services.
+
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`HealthResult`](#earth2studio-serve-server-health-HealthResult) | Aggregated health status across all monitored services. |
+| [`ServiceStatus`](#earth2studio-serve-server-health-ServiceStatus) | Status of an individual service (process presence and connectivity). |
+
+### Functions
+
+| Name | Description |
+|------|-------------|
+| [`check_all_services`](#earth2studio-serve-server-health-check_all_services) | Run all health checks and return a structured result. |
+
+### API
+
+<Anchor id="earth2studio-serve-server-health-HealthResult">
+
+<CodeBlock links={{"earth2studio.serve.server.health.ServiceStatus":"#earth2studio-serve-server-health-ServiceStatus"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.serve.server.health.HealthResult(
+    redis: earth2studio.serve.server.health.ServiceStatus = ServiceStatus(),
+    api_workers: earth2studio.serve.server.health.ServiceStatus = ServiceStatus(),
+    rq_workers: dict[str, earth2studio.serve.server.health.ServiceStatus] = dict(),
+    cleanup_daemon: earth2studio.serve.server.health.ServiceStatus = ServiceStatus()
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>Dataclass</Badge>
+
+Aggregated health status across all monitored services.
+
+</Indent>
+
+<Anchor id="earth2studio-serve-server-health-ServiceStatus">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.serve.server.health.ServiceStatus(
+    running: bool = False,
+    pids: list[int] = list(),
+    details: dict[str, typing.Any] = dict()
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>Dataclass</Badge>
+
+Status of an individual service (process presence and connectivity).
+
+</Indent>
+
+<Anchor id="earth2studio-serve-server-health-check_all_services">
+
+<CodeBlock links={{"earth2studio.serve.server.health.HealthResult":"#earth2studio-serve-server-health-HealthResult"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.server.health.check_all_services(
+    redis_client: typing.Any | None = None
+) -> earth2studio.serve.server.health.HealthResult
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Run all health checks and return a structured result.
+
+</Indent>

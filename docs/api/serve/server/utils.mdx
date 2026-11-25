@@ -1,0 +1,288 @@
+---
+layout: overview
+title: earth2studio.serve.server.utils
+---
+## Module Contents
+
+### Functions
+
+| Name | Description |
+|------|-------------|
+| [`create_file_stream`](#earth2studio-serve-server-utils-create_file_stream) | Create an async generator that streams a file with optional range support. |
+| [`get_inference_request_metadata_key`](#earth2studio-serve-server-utils-get_inference_request_metadata_key) | Get Redis key for storing pending metadata (before object storage upload). |
+| [`get_inference_request_output_path_key`](#earth2studio-serve-server-utils-get_inference_request_output_path_key) | Get Redis key for storing output path for a request. |
+| [`get_inference_request_zip_key`](#earth2studio-serve-server-utils-get_inference_request_zip_key) | Get Redis key for storing zip file path for a request. |
+| [`get_results_zip_dir_key`](#earth2studio-serve-server-utils-get_results_zip_dir_key) | Get Redis key for storing results zip directory path. |
+| [`get_signed_url_key`](#earth2studio-serve-server-utils-get_signed_url_key) | Get Redis key for storing signed URL. |
+| [`parse_azure_blob_container_url`](#earth2studio-serve-server-utils-parse_azure_blob_container_url) | Parse an HTTPS Azure Blob container URL into storage account and container name. |
+| [`parse_range_header`](#earth2studio-serve-server-utils-parse_range_header) | Parse Range header and return start, end, content_length, and status_code. |
+| [`queue_next_stage`](#earth2studio-serve-server-utils-queue_next_stage) | Queue the next pipeline stage based on configuration. |
+
+### API
+
+<Anchor id="earth2studio-serve-server-utils-create_file_stream">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.server.utils.create_file_stream(
+    file_path: pathlib.Path,
+    start: int,
+    content_length: int,
+    file_description: str = 'file'
+) -> collections.abc.AsyncGenerator[bytes, None]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Create an async generator that streams a file with optional range support.
+
+**Parameters:**
+
+<ParamField path="file_path" type="Path">
+Path to the file to stream
+</ParamField>
+
+<ParamField path="start" type="int">
+Starting byte position (0 for full file, or range start)
+</ParamField>
+
+<ParamField path="content_length" type="int">
+Number of bytes to stream
+</ParamField>
+
+<ParamField path="file_description" type="str" default="'file'">
+Description for error logging
+</ParamField>
+
+</Indent>
+
+<Anchor id="earth2studio-serve-server-utils-get_inference_request_metadata_key">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.server.utils.get_inference_request_metadata_key(
+    request_id: str
+) -> str
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Get Redis key for storing pending metadata (before object storage upload).
+
+</Indent>
+
+<Anchor id="earth2studio-serve-server-utils-get_inference_request_output_path_key">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.server.utils.get_inference_request_output_path_key(
+    request_id: str
+) -> str
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Get Redis key for storing output path for a request.
+
+</Indent>
+
+<Anchor id="earth2studio-serve-server-utils-get_inference_request_zip_key">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.server.utils.get_inference_request_zip_key(
+    request_id: str
+) -> str
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Get Redis key for storing zip file path for a request.
+
+</Indent>
+
+<Anchor id="earth2studio-serve-server-utils-get_results_zip_dir_key">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.server.utils.get_results_zip_dir_key(
+    request_id: str
+) -> str
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Get Redis key for storing results zip directory path.
+
+</Indent>
+
+<Anchor id="earth2studio-serve-server-utils-get_signed_url_key">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.server.utils.get_signed_url_key(
+    request_id: str
+) -> str
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Get Redis key for storing signed URL.
+
+</Indent>
+
+<Anchor id="earth2studio-serve-server-utils-parse_azure_blob_container_url">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.server.utils.parse_azure_blob_container_url(
+    url: str
+) -> tuple[str, str]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Parse an HTTPS Azure Blob container URL into storage account and container name.
+
+**Parameters:**
+
+<ParamField path="url" type="str">
+``https://&lt;account&gt;.blob.core.windows.net/&lt;container&gt;`` with optional extra path
+segments after the container.
+</ParamField>
+
+**Returns:** `tuple[str, str]`
+
+``(account_name, container_name)``.
+
+**Raises:**
+
+- `ValueError`: If the URL is not a valid Azure Blob container HTTPS URL.
+
+</Indent>
+
+<Anchor id="earth2studio-serve-server-utils-parse_range_header">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.server.utils.parse_range_header(
+    range_header: str | None,
+    file_size: int
+) -> tuple[int, int, int, int]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Parse Range header and return start, end, content_length, and status_code.
+
+**Parameters:**
+
+<ParamField path="range_header" type="str | None">
+The Range header value from the request, or None
+</ParamField>
+
+<ParamField path="file_size" type="int">
+Total size of the file in bytes
+</ParamField>
+
+**Returns:** `tuple[int, int, int, int]`
+
+Tuple of (start, end, content_length, status_code)
+
+**Raises:**
+
+- `HTTPException`: If the range is invalid (416 status)
+
+</Indent>
+
+<Anchor id="earth2studio-serve-server-utils-queue_next_stage">
+
+<CodeBlock links={{"earth2studio.serve.server.utils.Stage":"#earth2studio-serve-server-utils-Stage"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.server.utils.queue_next_stage(
+    redis_client: redis.Redis,
+    current_stage: earth2studio.serve.server.utils.Stage,
+    workflow_name: str,
+    execution_id: str,
+    output_path_str: str,
+    results_zip_dir_str: str | None = None
+) -> str | None
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Queue the next pipeline stage based on configuration.
+
+Pipeline flow:
+- If result_zip_enabled: inference -&gt; result_zip -&gt; object_storage (if enabled) -&gt; [geocatalog_ingestion (if request had geo_catalog_url)] -&gt; finalize
+- If not result_zip_enabled: inference -&gt; object_storage (if enabled) -&gt; [geocatalog_ingestion (if request had geo_catalog_url)] -&gt; finalize
+
+**Parameters:**
+
+<ParamField path="redis_client" type="redis.Redis">
+Redis client for queue connection
+</ParamField>
+
+<ParamField path="current_stage" type="Stage">
+[`Stage`](#earth2studio-serve-server-utils-Stage) — The stage that just completed ("inference", "result_zip", "object_storage", "geocatalog_ingestion")
+</ParamField>
+
+<ParamField path="workflow_name" type="str">
+Name of the workflow
+</ParamField>
+
+<ParamField path="execution_id" type="str">
+Execution ID of the workflow
+</ParamField>
+
+<ParamField path="output_path_str" type="str">
+Path to the output files
+</ParamField>
+
+<ParamField path="results_zip_dir_str" type="str | None" default="None">
+Directory for result zips (required when queuing result_zip)
+</ParamField>
+
+**Returns:** `str | None`
+
+The RQ job ID if queued successfully, None on error
+
+</Indent>

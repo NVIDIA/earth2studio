@@ -1,0 +1,237 @@
+---
+layout: overview
+title: earth2studio.io.icechunk
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`IceChunkBackend`](#earth2studio-io-icechunk-IceChunkBackend) | A backend that writes to an [Icechunk](https://icechunk.io/) repository. |
+
+### API
+
+<Anchor id="earth2studio-io-icechunk-IceChunkBackend">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.io.icechunk.IceChunkBackend(
+    storage: icechunk.Storage | str | None = None,
+    branch: str = 'main',
+    repo_kwargs: dict[str, typing.Any] = {},
+    chunks: dict[str, int] = {'ensemble': 1, 'time': 1, ...,
+    backend_kwargs: dict[str, typing.Any] = {'overwrite': False},
+    zarr_codecs: zarr.core.array.CompressorsLike = None,
+    blocking: bool = False,
+    pool_size: int = 8
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** [ZarrBackend](./zarr.mdx#earth2studio-io-zarr-ZarrBackend)
+
+A backend that writes to an [Icechunk](https://icechunk.io/) repository.
+
+Icechunk is a transactional storage engine for Zarr that adds version control
+(commits, branches, tags) on top of a regular object store. This backend
+behaves identically to `earth2studio.io.ZarrBackend`
+for ``add_array`` / ``write`` / ``read``, using an Icechunk writable session's
+store in place of a plain Zarr store. Since Icechunk snapshots are immutable,
+call `commit` to persist accumulated writes; uncommitted writes are still
+visible to this backend but are lost if the process exits before committing
+(a warning is logged if the backend is destroyed with pending writes).
+
+By default, ``write`` is non-blocking: the actual store write for a call runs in
+a background thread so the inference loop can move on to the next step while the
+previous step's write is still in flight. ``read``, ``__getitem__`` and
+``commit`` all flush pending writes first, so they always observe the latest
+data; pass ``blocking=True`` to write synchronously instead, e.g. if a `commit`
+on every step makes the flush unconditional anyway.
+
+**Parameters:**
+
+<ParamField path="storage" type="icechunk.Storage | str" default="None">
+Icechunk storage backend to open/create the repository with. If a string is
+provided, it is treated as a path for
+`icechunk.local_filesystem_storage`. If None, an in-memory Icechunk
+repository is created, by default None
+</ParamField>
+
+<ParamField path="branch" type="str" default="'main'">
+Branch to open a writable session on. Created (from the tip of "main") if it
+does not already exist, by default "main"
+</ParamField>
+
+<ParamField path="repo_kwargs" type="dict[str, Any]" default="&#123;&#125;">
+Key word arguments passed to `icechunk.Repository.open_or_create`,
+by default &#123;&#125;
+</ParamField>
+
+<ParamField path="chunks" type="dict[str, int]" default="&#123;'ensemble': 1, 'time': 1, 'lead_time': 1, 'variable': 1&#125;">
+An ordered dict of chunks to use with the data passed through data/coords, by
+default &#123;&#125;
+</ParamField>
+
+<ParamField path="backend_kwargs" type="dict[str, Any]" default="&#123;'overwrite': False&#125;">
+Key word arguments for zarr.Group root object, by default &#123;"overwrite": False&#125;
+</ParamField>
+
+<ParamField path="zarr_codecs" type="CompressorsLike" default="None">
+Compression codec to use when creating any new arrays. Only effects Zarr 3.0.
+If None, will use no compressor, by default None
+</ParamField>
+
+<ParamField path="blocking" type="bool" default="False">
+If False (default), ``write`` submits the store write to a background thread
+and returns immediately instead of waiting for it to complete. If True,
+``write`` blocks until the store write finishes, by default False
+</ParamField>
+
+<ParamField path="pool_size" type="int" default="8">
+Number of background threads used for non-blocking writes, ignored if
+``blocking`` is True, by default 8
+</ParamField>
+
+<Note>
+
+For more information about Icechunk see: https://icechunk.io/en/latest/
+
+</Note>
+
+<Warning>
+
+In non-blocking mode, writing overlapping regions of the same array back to
+back before a flush point (``read``/``__getitem__``/``commit``) races: the
+background threads may apply in either order. This is not a concern for the
+typical inference-loop pattern of writing disjoint time/lead_time slices.
+
+</Warning>
+
+<Anchor id="earth2studio-io-icechunk-IceChunkBackend-__getitem__">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.io.icechunk.IceChunkBackend.__getitem__(
+    item: str
+) -> zarr.core.array.Array
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Gets item in Zarr Group, flushing pending non-blocking writes first.
+
+**Parameters:**
+
+<ParamField path="item" type="str">
+
+</ParamField>
+
+</Indent>
+<Anchor id="earth2studio-io-icechunk-IceChunkBackend-commit">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.io.icechunk.IceChunkBackend.commit(
+    message: str,
+    kwargs: typing.Any = {}
+) -> str
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Commit all writes since the last commit to the Icechunk repository,
+creating a new immutable snapshot. A new writable session is opened
+immediately afterwards so this backend remains usable.
+
+**Parameters:**
+
+<ParamField path="message" type="str">
+Commit message describing the changes being persisted.
+</ParamField>
+
+<ParamField path="kwargs" type="Any" default="&#123;&#125;">
+Additional key word arguments passed to `icechunk.Session.commit`,
+such as `allow_empty` or `rebase_with`.
+</ParamField>
+
+**Returns:** `str`
+
+The ID of the newly created snapshot.
+
+**Raises:**
+
+- `icechunk.IcechunkError`: If no writes were made since the last commit (pass
+``allow_empty=True`` to commit anyway).
+- `icechunk.ConflictError`: If another writer committed to the branch first (pass
+``rebase_with`` to resolve).
+
+</Indent>
+<Anchor id="earth2studio-io-icechunk-IceChunkBackend-flush">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.io.icechunk.IceChunkBackend.flush() -> None
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Wait for all in-flight non-blocking writes to complete.
+
+Re-raises the first exception encountered by a background write, if any.
+No-op in blocking mode or if there are no in-flight writes.
+
+</Indent>
+<Anchor id="earth2studio-io-icechunk-IceChunkBackend-read">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.io.icechunk.IceChunkBackend.read(
+    coords: earth2studio.utils.type.CoordSystem,
+    array_name: str,
+    device: torch.device = 'cpu'
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Read data from the current zarr group, flushing pending non-blocking
+writes first.
+
+**Parameters:**
+
+<ParamField path="coords" type="OrderedDict">
+Coordinates of the data to be read.
+</ParamField>
+
+<ParamField path="array_name" type="str | list[str]">
+Name(s) of the array(s) to read from.
+</ParamField>
+
+<ParamField path="device" type="torch.device" default="'cpu'">
+device to place the read data from, by default 'cpu'
+</ParamField>
+
+</Indent>
+</Indent>

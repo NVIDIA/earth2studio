@@ -1,0 +1,3843 @@
+---
+layout: overview
+title: earth2studio.models.dx
+---
+## Submodules
+
+- **[`earth2studio.models.dx.base`](./base.mdx)**
+- **[`earth2studio.models.dx.cbottle_infill`](./cbottle_infill.mdx)**
+- **[`earth2studio.models.dx.cbottle_sr`](./cbottle_sr.mdx)**
+- **[`earth2studio.models.dx.cbottle_tc`](./cbottle_tc.mdx)**
+- **[`earth2studio.models.dx.climatenet`](./climatenet.mdx)**
+- **[`earth2studio.models.dx.corrdiff`](./corrdiff.mdx)**
+- **[`earth2studio.models.dx.corrdiff_cmip6`](./corrdiff_cmip6.mdx)**
+- **[`earth2studio.models.dx.corrdiff_cosmo_era5`](./corrdiff_cosmo_era5.mdx)**
+- **[`earth2studio.models.dx.corrdiff_era5_hrrr`](./corrdiff_era5_hrrr.mdx)**
+- **[`earth2studio.models.dx.derived`](./derived.mdx)**
+- **[`earth2studio.models.dx.dlesym_v0_isccp_era5_precip`](./dlesym_v0_isccp_era5_precip.mdx)**
+- **[`earth2studio.models.dx.identity`](./identity.mdx)**
+- **[`earth2studio.models.dx.orbit2_precip`](./orbit2_precip.mdx)**
+- **[`earth2studio.models.dx.precipitation_afno`](./precipitation_afno.mdx)**
+- **[`earth2studio.models.dx.precipitation_afno_v2`](./precipitation_afno_v2.mdx)**
+- **[`earth2studio.models.dx.solarradiation_afno`](./solarradiation_afno.mdx)**
+- **[`earth2studio.models.dx.stormscope_dx_nsrdb`](./stormscope_dx_nsrdb.mdx)**
+- **[`earth2studio.models.dx.tc_tracking`](./tc_tracking.mdx)**
+- **[`earth2studio.models.dx.wind_gust`](./wind_gust.mdx)**
+
+## Package Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`ClimateNet`](#earth2studio-models-dx-climatenet-ClimateNet) | Climate Net diagnostic model, built into Earth2Studio. This model can be used to |
+| [`CorrDiff`](#earth2studio-models-dx-corrdiff-CorrDiff) | CorrDiff is a Corrector Diffusion model that learns mappings between |
+| [`CorrDiffCMIP6`](#earth2studio-models-dx-corrdiff_cmip6-CorrDiffCMIP6) | CMIP6 to ERA5 downscaling model based on the CorrDiff architecture. This model |
+| [`CorrDiffCosmoEra5`](#earth2studio-models-dx-corrdiff_cosmo_era5-CorrDiffCosmoEra5) | COSMO-REA downscaling model: ERA5 -&gt; high-resolution COSMO-REA. |
+| [`CorrDiffEra5Hrrr`](#earth2studio-models-dx-corrdiff_era5_hrrr-CorrDiffEra5Hrrr) | Generative downscaling from 0.25-degree ERA5 to 3 km HRRR over CONUS. |
+| [`CorrDiffTaiwan`](#earth2studio-models-dx-corrdiff-CorrDiffTaiwan) | CorrDiff is a Corrector Diffusion model that learns mappings between |
+| [`DLESyMv0_ISCCP_ERA5Precip`](#earth2studio-models-dx-dlesym_v0_isccp_era5_precip-DLESyMv0_ISCCP_ERA5Precip) | Precipitation diagnostic for the DLESyMv0_ISCCP_ERA5 climate model. |
+| [`OrbitGlobalPrecip`](#earth2studio-models-dx-orbit2_precip-OrbitGlobalPrecip) | ORBIT-2 precipitation downscaling model supporting both 9.5m and 126m parameter |
+| [`PrecipitationAFNO`](#earth2studio-models-dx-precipitation_afno-PrecipitationAFNO) | Precipitation AFNO diagnsotic model. Predicts the total precipation parameter |
+| [`PrecipitationAFNOv2`](#earth2studio-models-dx-precipitation_afno_v2-PrecipitationAFNOv2) | Improved Precipitation AFNO diagnostic model. Predicts the total precipitation |
+| [`SolarRadiationAFNO1H`](#earth2studio-models-dx-solarradiation_afno-SolarRadiationAFNO1H) | Solar Radiation AFNO diagnostic model for 1-hour frequency predictions. |
+| [`SolarRadiationAFNO6H`](#earth2studio-models-dx-solarradiation_afno-SolarRadiationAFNO6H) | Solar Radiation AFNO diagnostic model for 6-hour frequency predictions. |
+| [`StormScopeDxNSRDB`](#earth2studio-models-dx-stormscope_dx_nsrdb-StormScopeDxNSRDB) | Estimate Global Horizontal Irradiance from GOES imagery. |
+| [`WindgustAFNO`](#earth2studio-models-dx-wind_gust-WindgustAFNO) | Wind gust AFNO diagnsotic model. Predicts the maximum wind gust during the |
+
+### API
+
+<Anchor id="earth2studio-models-dx-climatenet-ClimateNet">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.models.dx.ClimateNet(
+    core_model: torch.nn.Module,
+    center: torch.Tensor,
+    scale: torch.Tensor
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** `Module`, [AutoModelMixin](../auto/mixin.mdx#earth2studio-models-auto-mixin-AutoModelMixin)
+
+Climate Net diagnostic model, built into Earth2Studio. This model can be used to
+create prediction labels for tropical cyclones and atmospheric rivers from a set of
+three atmospheric variables on a quater degree resolution equirectangular grid. It
+produces three non-standard output channels climnet_bg, climnet_tc and climnet_ar
+representing background label, tropical cyclone and atmospheric river labels.
+
+**Badges:** `region:global` `class:medium-range` `product:atmos` `year:2021` `gpu:40gb` `provider:nvidia` `backend:pytorch`
+
+**Parameters:**
+
+<ParamField path="core_model" type="torch.nn.Module">
+Core pytorch model
+</ParamField>
+
+<ParamField path="center" type="torch.Tensor">
+Model center normalization tensor of size [20,1,1]
+</ParamField>
+
+<ParamField path="scale" type="torch.Tensor">
+Model scale normalization tensor of size [20,1,1]
+</ParamField>
+
+<Note>
+
+This model and checkpoint are from Prabhat et al. 2021. For more information see the
+following references:
+
+- https://doi.org/10.5194/gmd-14-107-2021
+- https://github.com/andregraubner/ClimateNet
+
+</Note>
+
+<Anchor id="earth2studio-models-dx-climatenet-ClimateNet-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.ClimateNet.__call__(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Forward pass of diagnostic
+
+</Indent>
+<Anchor id="earth2studio-models-dx-climatenet-ClimateNet-input_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.ClimateNet.input_coords() -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Input coordinate system of diagnostic model
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Coordinate system dictionary
+
+</Indent>
+<Anchor id="earth2studio-models-dx-climatenet-ClimateNet-load_default_package">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.ClimateNet.load_default_package() -> earth2studio.models.auto.Package
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Default pre-trained climatenet model package from Nvidia model registry
+
+</Indent>
+<Anchor id="earth2studio-models-dx-climatenet-ClimateNet-load_model">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package","earth2studio.models.dx.base.DiagnosticModel":"./base.mdx#earth2studio-models-dx-base-DiagnosticModel"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.ClimateNet.load_model(
+    package: earth2studio.models.auto.Package
+) -> earth2studio.models.dx.base.DiagnosticModel
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Load diagnostic from package
+
+</Indent>
+<Anchor id="earth2studio-models-dx-climatenet-ClimateNet-output_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.ClimateNet.output_coords(
+    input_coords: earth2studio.utils.type.CoordSystem
+) -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Output coordinate system of diagnostic model
+
+**Parameters:**
+
+<ParamField path="input_coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system to transform into output_coords
+by default None, will use self.input_coords.
+</ParamField>
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Coordinate system dictionary
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-models-dx-corrdiff-CorrDiff">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.models.dx.CorrDiff(
+    input_variables: collections.abc.Sequence[str],
+    output_variables: collections.abc.Sequence[str],
+    residual_model: torch.nn.Module,
+    regression_model: torch.nn.Module,
+    lat_input_grid: torch.Tensor,
+    lon_input_grid: torch.Tensor,
+    lat_output_grid: torch.Tensor,
+    lon_output_grid: torch.Tensor,
+    in_center: torch.Tensor,
+    in_scale: torch.Tensor,
+    out_center: torch.Tensor,
+    out_scale: torch.Tensor,
+    invariants: collections.OrderedDict | None = None,
+    invariant_center: torch.Tensor | None = None,
+    invariant_scale: torch.Tensor | None = None,
+    number_of_samples: int = 1,
+    number_of_steps: int = 18,
+    solver: typing.Literal['euler', 'heun'] = 'euler',
+    sampler_type: typing.Literal['deterministic', 'stochastic'] = 'stochastic',
+    inference_mode: typing.Literal['regression', 'diffusion', 'both'] = 'both',
+    hr_mean_conditioning: bool = True,
+    seed: int | None = None,
+    grid_spacing_tolerance: float = 1e-05,
+    grid_bounds_margin: float = 0.0,
+    sigma_min: float | None = None,
+    sigma_max: float | None = None
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** `Module`, [AutoModelMixin](../auto/mixin.mdx#earth2studio-models-auto-mixin-AutoModelMixin)
+
+CorrDiff is a Corrector Diffusion model that learns mappings between
+low- and high-resolution weather data with high fidelity. This model combines
+regression and diffusion steps to generate high-resolution predictions.
+
+**Badges:** `region:global` `class:downscaling` `product:wind` `product:precip` `product:temp` `product:atmos` `year:2023` `gpu:80gb` `provider:nvidia` `backend:pytorch`
+
+**Parameters:**
+
+<ParamField path="input_variables" type="Sequence[str]">
+List of input variable names
+</ParamField>
+
+<ParamField path="output_variables" type="Sequence[str]">
+List of output variable names
+</ParamField>
+
+<ParamField path="residual_model" type="torch.nn.Module">
+Core pytorch model for diffusion step
+</ParamField>
+
+<ParamField path="regression_model" type="torch.nn.Module">
+Core pytorch model for regression step
+</ParamField>
+
+<ParamField path="lat_input_grid" type="torch.Tensor">
+Input latitude grid of size [in_lat, in_lon]
+</ParamField>
+
+<ParamField path="lon_input_grid" type="torch.Tensor">
+Input longitude grid of size [in_lat, in_lon]
+</ParamField>
+
+<ParamField path="lat_output_grid" type="torch.Tensor">
+Output latitude grid of size [out_lat, out_lon]
+</ParamField>
+
+<ParamField path="lon_output_grid" type="torch.Tensor">
+Output latitude grid of size [out_lat, out_lon]
+</ParamField>
+
+<ParamField path="in_center" type="torch.Tensor">
+Model input center normalization tensor of size [in_var]
+</ParamField>
+
+<ParamField path="in_scale" type="torch.Tensor">
+Model input scale normalization tensor of size [in_var]
+</ParamField>
+
+<ParamField path="out_center" type="torch.Tensor">
+Model output center normalization tensor of size [out_var]
+</ParamField>
+
+<ParamField path="out_scale" type="torch.Tensor">
+Model output scale normalization tensor of size [out_var]
+</ParamField>
+
+<ParamField path="invariants" type="OrderedDict | None" default="None">
+Dictionary of invariant features, by default None
+</ParamField>
+
+<ParamField path="invariant_center" type="torch.Tensor | None" default="None">
+Model invariant center normalization tensor of size [len(invariants)], by default None
+</ParamField>
+
+<ParamField path="invariant_scale" type="torch.Tensor | None" default="None">
+Model invariant scale normalization tensor of size [len(invariants)], by default None
+</ParamField>
+
+<ParamField path="number_of_samples" type="int" default="1">
+Number of high resolution samples to draw from diffusion model, by default 1
+</ParamField>
+
+<ParamField path="number_of_steps" type="int" default="18">
+Number of langevin diffusion steps during sampling algorithm, by default 18
+</ParamField>
+
+<ParamField path="solver" type="Literal['euler', 'heun']" default="'euler'">
+Discretization of diffusion process, by default "euler"
+</ParamField>
+
+<ParamField path="sampler_type" type="Literal['deterministic', 'stochastic']" default="'stochastic'">
+Type of sampler to use, by default "stochastic"
+</ParamField>
+
+<ParamField path="inference_mode" type="Literal['regression', 'diffusion', 'both']" default="'both'">
+Which inference mode to use, by default "both"
+</ParamField>
+
+<ParamField path="hr_mean_conditioning" type="bool" default="True">
+Whether to use high-res mean conditioning, by default True
+</ParamField>
+
+<ParamField path="seed" type="Optional[int]" default="None">
+Random seed for reproducibility, by default None
+</ParamField>
+
+<ParamField path="grid_spacing_tolerance" type="float" default="1e-05">
+Relative tolerance for checking regular grid spacing. Allows for slight variations
+in grid spacing (e.g., for Gaussian grids). For 1D grids, raises ValueError if
+spacing variations exceed this tolerance; use of a 2D curvilinear grid is suggested then.
+Default is 1e-5 (0.001%).
+</ParamField>
+
+<ParamField path="grid_bounds_margin" type="float" default="0.0">
+Fraction of input grid range to allow for extrapolation beyond input grid bounds.
+For example, 0.05 allows output grid to extend 5% beyond input grid range.
+Useful for Gaussian grids that don't include poles. For 1D grids, raises ValueError
+if the output grid extends beyond the allowed bounds. Default is 0.0 (no extrapolation).
+</ParamField>
+
+<ParamField path="sigma_min" type="float | None" default="None">
+Minimum noise level for diffusion process. If None, uses sampler-specific defaults
+By default None.
+</ParamField>
+
+<ParamField path="sigma_max" type="float | None" default="None">
+Maximum noise level for diffusion process. If None, uses sampler-specific defaults
+By default None.
+</ParamField>
+
+<Note>
+
+For more information on the model architecture and training, please refer to:
+
+- https://arxiv.org/html/2309.15214v
+- https://catalog.ngc.nvidia.com/orgs/nvidia/teams/modulus/models/corrdiff_inference_package
+
+</Note>
+
+<Anchor id="earth2studio-models-dx-corrdiff-CorrDiff-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.CorrDiff.__call__(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Execute the model on input data.
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Input tensor
+</ParamField>
+
+<ParamField path="coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system. May optionally contain a ``"time"`` key with an
+array-like of numpy datetime64 values (or a ``list[datetime]``) representing
+the validity time of each sample (i.e., when the atmospheric state is
+valid, not the forecast initialization time). If present, each value is
+passed to ``preprocess_input`` as ``valid_time`` for time-dependent
+preprocessing (e.g., computing solar zenith angle). If absent, ``None`` is
+passed.
+</ParamField>
+
+**Returns:** `tuple[torch.Tensor,` [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) `]`
+
+Output tensor and coordinate system
+
+<Note>
+
+Subclass usage: The base class passes ``valid_time`` to ``preprocess_input``
+but does not use it. Subclasses can override ``preprocess_input`` to compute
+time-dependent features like solar zenith angle (SZA). The ``coords["time"]``
+array must have length equal to the batch size (first dimension of x).
+
+</Note>
+
+</Indent>
+<Anchor id="earth2studio-models-dx-corrdiff-CorrDiff-input_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.CorrDiff.input_coords() -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Get the input coordinate system for the model.
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Dictionary containing the input coordinate system
+
+</Indent>
+<Anchor id="earth2studio-models-dx-corrdiff-CorrDiff-load_default_package">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.CorrDiff.load_default_package() -> earth2studio.models.auto.Package
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Default pre-trained corrdiff model package from Nvidia model registry
+
+</Indent>
+<Anchor id="earth2studio-models-dx-corrdiff-CorrDiff-load_model">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package","earth2studio.models.dx.base.DiagnosticModel":"./base.mdx#earth2studio-models-dx-base-DiagnosticModel"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.CorrDiff.load_model(
+    package: earth2studio.models.auto.Package,
+    device: str | None = None,
+    sigma_min: float | None = None,
+    sigma_max: float | None = None
+) -> earth2studio.models.dx.base.DiagnosticModel
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Load CorrDiff model from package.
+
+**Parameters:**
+
+<ParamField path="package" type="Package">
+[`Package`](../auto/package.mdx#earth2studio-models-auto-package-Package) — Package containing model weights and configuration
+</ParamField>
+
+<ParamField path="device" type="str | None" default="None">
+Device to load model onto (e.g., "cuda:0", "cpu"). By default None.
+</ParamField>
+
+<ParamField path="sigma_min" type="float | None" default="None">
+Minimum noise level for diffusion process. Priority order: (1) this argument,
+(2) metadata.json, (3) sampler internal defaults. By default None.
+</ParamField>
+
+<ParamField path="sigma_max" type="float | None" default="None">
+Maximum noise level for diffusion process. Priority order: (1) this argument,
+(2) metadata.json, (3) sampler internal defaults. By default None.
+</ParamField>
+
+**Returns:** [`DiagnosticModel`](./base.mdx#earth2studio-models-dx-base-DiagnosticModel)
+
+Initialized CorrDiff model
+
+**Raises:**
+
+- `ImportError`: If required dependencies are not installed
+
+</Indent>
+<Anchor id="earth2studio-models-dx-corrdiff-CorrDiff-normalize_input">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.CorrDiff.normalize_input(
+    x: torch.Tensor
+) -> torch.Tensor
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Normalize input tensor using model's center and scale parameters.
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Input tensor to normalize [B, C, H, W]
+</ParamField>
+
+**Returns:** `torch.Tensor`
+
+Normalized input tensor (x - center) / scale
+
+</Indent>
+<Anchor id="earth2studio-models-dx-corrdiff-CorrDiff-output_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.CorrDiff.output_coords(
+    input_coords: earth2studio.utils.type.CoordSystem
+) -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Get the output coordinate system for the model.
+
+**Parameters:**
+
+<ParamField path="input_coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system to transform into output_coords
+</ParamField>
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Dictionary containing the output coordinate system
+
+</Indent>
+<Anchor id="earth2studio-models-dx-corrdiff-CorrDiff-postprocess_output">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.CorrDiff.postprocess_output(
+    x: torch.Tensor
+) -> torch.Tensor
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Denormalize output tensor using model's center and scale parameters.
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Normalized output tensor to denormalize
+</ParamField>
+
+**Returns:** `torch.Tensor`
+
+Denormalized output tensor x * scale + center
+
+</Indent>
+<Anchor id="earth2studio-models-dx-corrdiff-CorrDiff-preprocess_input">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.CorrDiff.preprocess_input(
+    x: torch.Tensor,
+    valid_time: datetime.datetime | None = None
+) -> torch.Tensor
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Complete input preprocessing pipeline.
+
+Performs interpolation to output grid, ensures a batch dimension,
+concatenates invariants if available, and normalizes the input.
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Input tensor of shape ``[C, H_in, W_in]`` or ``[B, C, H_in, W_in]``.
+If a batch dimension is not present, one will be added.
+</ParamField>
+
+<ParamField path="valid_time" type="datetime | None" default="None">
+Validity time for this sample (when the atmospheric state is valid).
+The base class ignores this parameter. Subclasses can override this
+method to compute time-dependent features such as solar zenith angle
+(SZA). Default is None.
+</ParamField>
+
+**Returns:** `torch.Tensor`
+
+Preprocessed and normalized input tensor ``[B, C+C_inv, H_out, W_out]``.
+
+<Note>
+
+For subclass implementers: ``valid_time`` is provided as an optional hook for
+time-dependent preprocessing (e.g., solar zenith angle). The base
+implementation ignores it; override this method if your model needs it.
+
+</Note>
+
+</Indent>
+<Anchor id="earth2studio-models-dx-corrdiff-CorrDiff-to">
+
+<CodeBlock links={{"earth2studio.models.dx.corrdiff.CorrDiff":"#earth2studio-models-dx-corrdiff-CorrDiff"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.CorrDiff.to(
+    device: torch.device
+) -> earth2studio.models.dx.corrdiff.CorrDiff
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Move the model to a device.
+
+**Parameters:**
+
+<ParamField path="device" type="torch.device">
+Device to move the model to
+</ParamField>
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-models-dx-corrdiff_cmip6-CorrDiffCMIP6">
+
+<CodeBlock links={{"earth2studio.utils.type.LeadTimeArray":"../../utils/type.mdx#earth2studio-utils-type-LeadTimeArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.models.dx.CorrDiffCMIP6(
+    input_variables: collections.abc.Sequence[str],
+    output_variables: collections.abc.Sequence[str],
+    residual_model: torch.nn.Module,
+    regression_model: torch.nn.Module,
+    lat_input_grid: torch.Tensor,
+    lon_input_grid: torch.Tensor,
+    lat_output_grid: torch.Tensor,
+    lon_output_grid: torch.Tensor,
+    in_center: torch.Tensor,
+    in_scale: torch.Tensor,
+    out_center: torch.Tensor,
+    out_scale: torch.Tensor,
+    invariants: collections.OrderedDict | None = None,
+    invariant_center: torch.Tensor | None = None,
+    invariant_scale: torch.Tensor | None = None,
+    number_of_samples: int = 1,
+    number_of_steps: int = 18,
+    solver: typing.Literal['euler', 'heun'] = 'euler',
+    sampler_type: typing.Literal['deterministic', 'stochastic'] = 'stochastic',
+    inference_mode: typing.Literal['regression', 'diffusion', 'both'] = 'both',
+    hr_mean_conditioning: bool = True,
+    seed: int | None = None,
+    grid_spacing_tolerance: float = 1e-05,
+    grid_bounds_margin: float = 0.0,
+    sigma_min: float | None = None,
+    sigma_max: float | None = None,
+    time_feature_center: torch.Tensor | None = None,
+    time_feature_scale: torch.Tensor | None = None,
+    output_lead_times: earth2studio.utils.type.LeadTimeArray = np.array([np.timedelta64(-1...
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** [CorrDiff](./corrdiff.mdx#earth2studio-models-dx-corrdiff-CorrDiff)
+
+CMIP6 to ERA5 downscaling model based on the CorrDiff architecture. This model
+can be used to downscale both in the spatial and temporal dimensions.
+This model works with the `earth2studio.data.CMIP6MultiRealm` data source.
+
+**Badges:** `region:global` `class:downscaling` `class:climate` `product:wind` `product:precip` `product:temp` `product:atmos` `year:2026` `gpu:80gb` `provider:nvidia` `backend:pytorch`
+
+**Parameters:**
+
+<ParamField path="input_variables" type="Sequence[str]">
+List of input variable names
+</ParamField>
+
+<ParamField path="output_variables" type="Sequence[str]">
+List of output variable names
+</ParamField>
+
+<ParamField path="residual_model" type="torch.nn.Module">
+Core pytorch model for diffusion step
+</ParamField>
+
+<ParamField path="regression_model" type="torch.nn.Module">
+Core pytorch model for regression step
+</ParamField>
+
+<ParamField path="lat_input_grid" type="torch.Tensor">
+Input latitude grid of size [in_lat]
+</ParamField>
+
+<ParamField path="lon_input_grid" type="torch.Tensor">
+Input longitude grid of size [in_lon]
+</ParamField>
+
+<ParamField path="lat_output_grid" type="torch.Tensor">
+Output latitude grid of size [out_lat]
+</ParamField>
+
+<ParamField path="lon_output_grid" type="torch.Tensor">
+Output longitude grid of size [out_lon]
+</ParamField>
+
+<ParamField path="in_center" type="torch.Tensor">
+Model input center normalization tensor of size [in_var]
+</ParamField>
+
+<ParamField path="in_scale" type="torch.Tensor">
+Model input scale normalization tensor of size [in_var]
+</ParamField>
+
+<ParamField path="out_center" type="torch.Tensor">
+Model output center normalization tensor of size [out_var]
+</ParamField>
+
+<ParamField path="out_scale" type="torch.Tensor">
+Model output scale normalization tensor of size [out_var]
+</ParamField>
+
+<ParamField path="invariants" type="OrderedDict | None" default="None">
+Dictionary of invariant features, by default None
+</ParamField>
+
+<ParamField path="invariant_center" type="torch.Tensor | None" default="None">
+Model invariant center normalization tensor, by default None
+</ParamField>
+
+<ParamField path="invariant_scale" type="torch.Tensor | None" default="None">
+Model invariant scale normalization tensor, by default None
+</ParamField>
+
+<ParamField path="number_of_samples" type="int" default="1">
+Number of high resolution samples to draw from diffusion model, by default 1
+</ParamField>
+
+<ParamField path="number_of_steps" type="int" default="18">
+Number of langevin diffusion steps during sampling algorithm, by default 18
+</ParamField>
+
+<ParamField path="solver" type="Literal['euler', 'heun']" default="'euler'">
+Discretization of diffusion process, by default "euler"
+</ParamField>
+
+<ParamField path="sampler_type" type="Literal['deterministic', 'stochastic']" default="'stochastic'">
+Type of sampler to use, by default "stochastic"
+</ParamField>
+
+<ParamField path="inference_mode" type="Literal['regression', 'both']" default="'both'">
+Which inference mode to use ("both" or "regression"); diffusion-only
+is not supported in CorrDiffCMIP6. Default is "both".
+</ParamField>
+
+<ParamField path="hr_mean_conditioning" type="bool" default="True">
+Whether to use high-res mean conditioning, by default True
+</ParamField>
+
+<ParamField path="seed" type="int | None" default="None">
+Random seed for reproducibility, by default None
+</ParamField>
+
+<ParamField path="grid_spacing_tolerance" type="float" default="1e-05">
+Relative tolerance for checking regular grid spacing, by default 1e-5
+</ParamField>
+
+<ParamField path="grid_bounds_margin" type="float" default="0.0">
+Fraction of input grid range to allow for extrapolation, by default 0.0
+</ParamField>
+
+<ParamField path="sigma_min" type="float | None" default="None">
+Minimum noise level for diffusion process, by default None
+</ParamField>
+
+<ParamField path="sigma_max" type="float | None" default="None">
+Maximum noise level for diffusion process, by default None
+</ParamField>
+
+<ParamField path="time_feature_center" type="torch.Tensor | None" default="None">
+Normalization center for time features (sza, hod) of size [2], by default None
+</ParamField>
+
+<ParamField path="time_feature_scale" type="torch.Tensor | None" default="None">
+Normalization scale for time features (sza, hod) of size [2], by default None
+</ParamField>
+
+<ParamField path="output_lead_times" type="LeadTimeArray" default="np.array([np.timedelta64(-12, 'h')])">
+[`LeadTimeArray`](../../utils/type.mdx#earth2studio-utils-type-LeadTimeArray) — Output lead times to sample at within the input time window. The default package
+is trained to support lead times between [-12, +11] hours at hourly intervals.
+This constraint ensures the input data remains aligned with the temporal features
+(SZA, HOD) calculated at the valid time. By default np.array([np.timedelta64(-12, "h")])
+</ParamField>
+
+**Examples:**
+
+<CodeBlock showLineNumbers={false}>
+
+```python
+Run a single forward pass to predict CMIP6->ERA5 at two lead times within input window
+```
+
+</CodeBlock>
+
+<CodeBlock showLineNumbers={false}>
+
+```python
+>>> device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+>>> model = CorrDiffCMIP6.load_model(
+...     CorrDiffCMIP6.load_default_package(),
+...     output_lead_times=np.array([np.timedelta64(-12, "h"), np.timedelta64(-6, "h")]),
+... )
+>>> model.seed = 1 # Set seed for reprod
+>>> model.number_of_samples = 1 # Modify number of samples if needed
+>>> model = model.to(device)
+>>>
+>>> # Build CMIP6 multi-realm data source, about 60 Gbs of data will be fetched
+>>> cmip6_kwargs = dict(
+...     experiment_id="ssp585",
+...     source_id="CanESM5",
+...     variant_label="r1i1p2f1",
+...     exact_time_match=True,
+... )
+>>> data = CMIP6MultiRealm([CMIP6(table_id=t, **cmip6_kwargs) for t in ("day", "Eday", "SIday")])
+>>>
+>>> x, coords = fetch_data(
+...     source=data,
+...     time=np.array([np.datetime64("2037-09-06T12:00")]), # Time must be 12:00 UTC
+...     lead_time=model.input_coords()["lead_time"],
+...     variable=model.input_coords()["variable"],
+...     device=device,
+... )
+>>>
+>>> # Run model forward pass
+>>> out, out_coords = model(x, coords)
+>>> da = xr.DataArray(data=out.cpu().numpy(), coords=out_coords, dims=list(out_coords.keys()))
+```
+
+</CodeBlock>
+
+<Note>
+
+For more information see the following references:
+
+- https://huggingface.co/nvidia/corrdiff-cmip6-era5
+
+</Note>
+
+<Anchor id="earth2studio-models-dx-corrdiff_cmip6-CorrDiffCMIP6-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.CorrDiffCMIP6.__call__(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Forward pass of diagnostic
+
+</Indent>
+<Anchor id="earth2studio-models-dx-corrdiff_cmip6-CorrDiffCMIP6-input_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.CorrDiffCMIP6.input_coords() -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Input coordinate system
+
+</Indent>
+<Anchor id="earth2studio-models-dx-corrdiff_cmip6-CorrDiffCMIP6-load_default_package">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.CorrDiffCMIP6.load_default_package() -> earth2studio.models.auto.Package
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Load diagnostic package
+
+</Indent>
+<Anchor id="earth2studio-models-dx-corrdiff_cmip6-CorrDiffCMIP6-load_model">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package","earth2studio.utils.type.LeadTimeArray":"../../utils/type.mdx#earth2studio-utils-type-LeadTimeArray","earth2studio.models.dx.base.DiagnosticModel":"./base.mdx#earth2studio-models-dx-base-DiagnosticModel"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.CorrDiffCMIP6.load_model(
+    package: earth2studio.models.auto.Package,
+    output_lead_times: earth2studio.utils.type.LeadTimeArray = np.array([np.timedelta64(-1...,
+    device: str = 'cpu'
+) -> earth2studio.models.dx.base.DiagnosticModel
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Load diagnostic from package
+
+**Parameters:**
+
+<ParamField path="package" type="Package">
+[`Package`](../auto/package.mdx#earth2studio-models-auto-package-Package) — Package containing model weights and configuration
+</ParamField>
+
+<ParamField path="output_lead_times" type="LeadTimeArray" default="np.array([np.timedelta64(-12, 'h')])">
+[`LeadTimeArray`](../../utils/type.mdx#earth2studio-utils-type-LeadTimeArray) — Output lead times to sample at, by default np.array([np.timedelta64(-12, "h")])
+</ParamField>
+
+<ParamField path="device" type="str" default="'cpu'">
+Device to load model on, by default "cpu"
+</ParamField>
+
+**Returns:** [`DiagnosticModel`](./base.mdx#earth2studio-models-dx-base-DiagnosticModel)
+
+Diagnostic model
+
+</Indent>
+<Anchor id="earth2studio-models-dx-corrdiff_cmip6-CorrDiffCMIP6-output_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.CorrDiffCMIP6.output_coords(
+    input_coords: earth2studio.utils.type.CoordSystem
+) -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Output coordinate system of diagnostic model
+
+**Parameters:**
+
+<ParamField path="input_coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system to transform into output_coords
+</ParamField>
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Coordinate system dictionary
+
+</Indent>
+<Anchor id="earth2studio-models-dx-corrdiff_cmip6-CorrDiffCMIP6-postprocess_output">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.CorrDiffCMIP6.postprocess_output(
+    x: torch.Tensor
+) -> torch.Tensor
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Denormalize output tensor using model's center and scale parameters.
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Normalized output tensor to denormalize
+</ParamField>
+
+**Returns:** `torch.Tensor`
+
+Denormalized output tensor x * scale + center
+
+</Indent>
+<Anchor id="earth2studio-models-dx-corrdiff_cmip6-CorrDiffCMIP6-preprocess_input">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.CorrDiffCMIP6.preprocess_input(
+    x: torch.Tensor,
+    valid_time: datetime.datetime | None = None
+) -> torch.Tensor
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Input preprocessing pipeline with optional time information.
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-models-dx-corrdiff_cosmo_era5-CorrDiffCosmoEra5">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.models.dx.CorrDiffCosmoEra5(
+    era5_variables: collections.abc.Sequence[str],
+    output_variables: collections.abc.Sequence[str],
+    regression_model: torch.nn.Module | None,
+    diffusion_model: torch.nn.Module | None,
+    resolution: typing.Literal['rea6', 'rea2'],
+    mode: typing.Literal['mean', 'diffusion'],
+    lat_input_grid: torch.Tensor,
+    lon_input_grid: torch.Tensor,
+    lat_output_grid: torch.Tensor,
+    lon_output_grid: torch.Tensor,
+    era5_center: torch.Tensor,
+    era5_scale: torch.Tensor,
+    out_center: torch.Tensor,
+    out_scale: torch.Tensor,
+    static_invariants: collections.OrderedDict[str, torch.Tensor],
+    pre_invariant_variables: collections.abc.Sequence[str],
+    post_invariant_variables: collections.abc.Sequence[str],
+    channel_transforms: dict | None = None,
+    constraints: dict | None = None,
+    number_of_samples: int = 1,
+    physical_clamp: bool = True,
+    number_of_steps: int = 18,
+    sigma_min: float = 0.002,
+    sigma_max: float = 800.0,
+    rho: float = 7.0,
+    solver: typing.Literal['heun', 'euler'] = 'heun',
+    seed: int | None = None,
+    amp: bool = False,
+    hub_heights: collections.abc.Sequence[float] | None = None,
+    hub_interp: typing.Literal['linear', 'log'] = 'linear',
+    wind_levels: dict | None = None
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** `Module`, [AutoModelMixin](../auto/mixin.mdx#earth2studio-models-auto-mixin-AutoModelMixin)
+
+COSMO-REA downscaling model: ERA5 -&gt; high-resolution COSMO-REA.
+
+Diagnostic model that downscales a global ERA5 state to high-resolution
+COSMO-REA regional reanalysis over Europe -- COSMO-REA6 (~6 km) or COSMO-REA2
+(~2.2 km), selected with ``resolution``. The input is an ERA5 state, so it can
+downscale an ERA5 analysis directly or run behind a global forecast model
+(e.g. SFNO -&gt; CorrDiffCosmoEra5).
+
+``mode`` selects one of two networks trained per resolution:
+
+* ``"mean"`` -- a deterministic regression predicting the conditional mean
+  ``E[y | x]``: a single smooth field in one forward pass. Fast; a good first
+  high-resolution look or a deterministic conditional-mean baseline.
+* ``"diffusion"`` -- a generative model sampling the conditional distribution
+  ``p(y | x)``: an ensemble of ``number_of_samples`` realizations (seeded for
+  reproducibility) that also captures the spread the mean cannot represent.
+
+Both networks are PhysicsNeMo DiTs at a fixed grid resolution but crop-size
+agnostic, so `set_domain` returns an instance restricted to any lat/lon
+sub-region without retraining (bounded to the trained footprint). Each
+resolution ships an extended grid beyond its native footprint; for COSMO-REA2
+-- whose native footprint is central-European -- the extended grid reaches a
+broad European domain, enabling 2.2 km downscaling across it. Outputs are
+surface and model-level (3D) fields -- winds,
+temperature, humidity, precipitation, cloud cover, fluxes, TKE, PBL height;
+variables with a canonical Earth2Studio name are relabelled via
+[`CosmoLexicon`](../../lexicon/cosmo.mdx#earth2studio-lexicon-cosmo-CosmoLexicon) and COSMO-specific fields keep a
+descriptive name. Optionally emits derived hub-height wind components (see
+``hub_heights``).
+
+**Badges:** `region:eu` `class:downscaling` `product:wind` `product:precip` `product:temp` `product:atmos` `year:2026` `gpu:80gb` `provider:nvidia` `backend:pytorch`
+
+**Parameters:**
+
+<ParamField path="era5_variables" type="Sequence[str]">
+ERA5 input variable names (canonical Earth2Studio lexicon), in network order.
+</ParamField>
+
+<ParamField path="output_variables" type="Sequence[str]">
+Output (COSMO-REA) variable names, in network output-channel order.
+</ParamField>
+
+<ParamField path="regression_model" type="torch.nn.Module | None">
+Network for ``mode="mean"`` (an upstream physicsnemo RoPE-NATTEN ``DiT``).
+</ParamField>
+
+<ParamField path="diffusion_model" type="torch.nn.Module | None">
+Network for ``mode="diffusion"`` (an upstream physicsnemo
+``EDMPreconditioner(ConcatConditionWrapper(DiT))``).
+</ParamField>
+
+<ParamField path="resolution" type="(rea6, rea2)" default="'rea6'">
+Which COSMO-REA resolution this package targets.
+</ParamField>
+
+<ParamField path="mode" type="(mean, diffusion)" default="'mean'">
+Which model to run.
+</ParamField>
+
+<ParamField path="lat_input_grid" type="torch.Tensor">
+1D increasing regular ERA5 input grid (the native default footprint).
+</ParamField>
+
+<ParamField path="lon_input_grid" type="torch.Tensor">
+1D increasing regular ERA5 input grid (the native default footprint).
+</ParamField>
+
+<ParamField path="lat_output_grid" type="torch.Tensor">
+2D curvilinear native (rotated-pole) target grid [out_lat, out_lon].
+</ParamField>
+
+<ParamField path="lon_output_grid" type="torch.Tensor">
+2D curvilinear native (rotated-pole) target grid [out_lat, out_lon].
+</ParamField>
+
+<ParamField path="era5_center" type="torch.Tensor">
+ERA5 input normalization (mean/std), size [n_era5].
+</ParamField>
+
+<ParamField path="era5_scale" type="torch.Tensor">
+ERA5 input normalization (mean/std), size [n_era5].
+</ParamField>
+
+<ParamField path="out_center" type="torch.Tensor">
+Output normalization (mean/std) in transformed space, size [n_out].
+</ParamField>
+
+<ParamField path="out_scale" type="torch.Tensor">
+Output normalization (mean/std) in transformed space, size [n_out].
+</ParamField>
+
+<ParamField path="static_invariants" type="OrderedDict[str, torch.Tensor]">
+Native, already-normalized static invariant channels (non-position),
+each [out_lat, out_lon] — e.g. ``elevation_norm``, ``land_fraction``,
+``z0_lu``, ``slope_east``, ``slope_north``. Position channels (sin/cos
+lat/lon) and ``cos_zenith`` are computed, not stored here.
+</ParamField>
+
+<ParamField path="pre_invariant_variables" type="Sequence[str]">
+Names of the invariant channels before / after ``cos_zenith`` in the
+background channel order.
+</ParamField>
+
+<ParamField path="post_invariant_variables" type="Sequence[str]">
+Names of the invariant channels before / after ``cos_zenith`` in the
+background channel order.
+</ParamField>
+
+<ParamField path="channel_transforms" type="dict | None" default="None">
+Per-output-channel nonlinear transform spec (from the package metadata),
+used to invert after de-normalizing.
+</ParamField>
+
+<ParamField path="constraints" type="dict | None" default="None">
+Physical-constraint spec (``metadata["constraints"]``): per-channel
+``bounds`` (min/max clamps) and a shortwave ``sza_gate`` (the dawn/dusk
+solar gate), applied in physical space in postprocess for both modes.
+</ParamField>
+
+<ParamField path="number_of_samples" type="int" default="1">
+Number of samples (diffusion); the ``sample`` dim is kept (size 1) for
+``mode="mean"`` so both modes share an output contract. The constructor
+value is the default; it is settable at runtime between calls
+(``model.number_of_samples = N``).
+</ParamField>
+
+<ParamField path="physical_clamp" type="bool" default="True">
+Apply physical-bounds + the shortwave dawn/dusk solar gate to outputs.
+</ParamField>
+
+<ParamField path="number_of_steps" type="int" default="18">
+Diffusion sampler step count (EDM Heun). Defaults to 18.
+</ParamField>
+
+<ParamField path="sigma_min" type="float" default="0.002">
+Diffusion noise-schedule bounds. Default to 0.002 / 800.0.
+</ParamField>
+
+<ParamField path="sigma_max" type="float" default="0.002">
+Diffusion noise-schedule bounds. Default to 0.002 / 800.0.
+</ParamField>
+
+<ParamField path="rho" type="float" default="7.0">
+Karras noise-schedule exponent. Defaults to 7.0.
+</ParamField>
+
+<ParamField path="solver" type="(heun, euler)" default="'heun'">
+Diffusion ODE solver: ``"heun"`` (2nd-order, default) or ``"euler"``
+(1st-order).
+</ParamField>
+
+<ParamField path="seed" type="int | None" default="None">
+Base RNG seed for diffusion sampling (a per-sample offset is added).
+``None`` (default) leaves sampling unseeded.
+</ParamField>
+
+<ParamField path="amp" type="bool" default="False">
+Run the network forward passes (regression patches and the diffusion
+denoiser) under ``torch.autocast`` bf16. Roughly halves inference time
+on Ampere+ GPUs at a negligible accuracy cost; the sampler bookkeeping
+stays in fp64. Defaults to ``False`` (full precision).
+</ParamField>
+
+<ParamField path="hub_heights" type="Sequence[float]" default="None">
+Optional list of above-ground heights (m) at which to emit interpolated
+wind components ``u&#123;H&#125;m``/``v&#123;H&#125;m`` (e.g. ``[100]`` -&gt; ``u100m``,
+``v100m``), vertically interpolated from the model's 3D wind levels. Wind
+speed is obtained by composing the stock ``DerivedWS(levels=["&#123;H&#125;m"])``
+diagnostic on the output. ``None`` (default) -&gt; no derived outputs and
+behavior/``output_variables`` are unchanged. Requires ``wind_levels``.
+Names follow the lexicon ``m``-suffix convention (m above surface, as
+``u100m``); arbitrary ``H`` need not be pre-registered in the lexicon
+(outputs are produced, not fetched). A height outside the levels' range
+is clamped (not extrapolated) and warns.
+</ParamField>
+
+<ParamField path="hub_interp" type="(linear, log)" default="'linear'">
+Interpolation method for the hub-height wind components: ``"linear"`` (in
+geometric height) or ``"log"`` (in ``ln(height)``). Both are
+roughness-free between levels. Defaults to ``"linear"``.
+</ParamField>
+
+<ParamField path="wind_levels" type="dict" default="None">
+Package metadata describing the 3D wind levels for hub-height derivation:
+each level's ``&#123;u, v&#125;`` output channels + its ``a, b`` height coefficients
+(``height = a + b*elevation_invariant``) and the elevation invariant name.
+Supplied by the package; required when ``hub_heights`` is set.
+</ParamField>
+
+<Note>
+
+The diffusion sampler controls (``number_of_steps``, ``sigma_min``,
+``sigma_max``, ``rho``, ``solver``) default to the package metadata but are
+exposed for inference tuning rather than fixed: as with any diffusion sampler,
+these settings can shape the sampled output distribution (e.g. ensemble spread
+and the representation of extremes).
+
+The models are trained on ERA5 (global input) paired with COSMO-REA regional
+reanalysis (high-resolution target) over Europe:
+
+- COSMO-REA6 (~6 km), DWD: https://reanalysis.meteo.uni-bonn.de/?COSMO-REA6
+- COSMO-REA2 (~2.2 km), DWD: https://reanalysis.meteo.uni-bonn.de/?COSMO-REA2
+- ERA5, ECMWF: https://www.ecmwf.int/en/forecasts/dataset/ecmwf-reanalysis-v5
+- https://huggingface.co/nvidia/corrdiff-cosmo-era5
+
+</Note>
+
+<ParamField path="_identity_output_indices" type="tuple[int, ...]">
+Indices of the trained output channels that use plain linear
+normalization only -- no value transform and unit scale 1.0.
+
+These are the channels an observation can be assimilated into directly: the
+conversion into the model's internal (normalized) units is just
+``(obs - center) / scale``, which is only valid for such "plain" channels. A
+value transform (e.g. log/logit) bends the values non-linearly, and a unit
+scale != 1.0 (e.g. precip's mm-&gt;m) rescales them, so neither can be mapped
+that way.
+
+A channel is left out if it has any non-empty entry in ``channel_transforms``
+-- so a new transform added later is excluded automatically, without updating
+this list -- or a lexicon unit scale != 1.0. Only the trained
+``output_variables`` are considered, so the derived hub-height wind channels
+(e.g. ``u100m``) are naturally excluded. Postprocess clamps / day-night gates
+are intentionally ignored here: they run later (postprocessing) and are a
+separate concern. Consumed by ``CorrDiffCosmoEra5SDA``.
+</ParamField>
+
+<Anchor id="earth2studio-models-dx-corrdiff_cosmo_era5-CorrDiffCosmoEra5-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.CorrDiffCosmoEra5.__call__(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Run the model. ``x`` is [batch, time, variable, lat, lon]; ``coords``
+carries a ``time`` axis (validity times) driving the solar-zenith channel.
+
+</Indent>
+<Anchor id="earth2studio-models-dx-corrdiff_cosmo_era5-CorrDiffCosmoEra5-input_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.CorrDiffCosmoEra5.input_coords() -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Input coordinate system. ``time`` is a dynamic leading dim; lat/lon
+are the native ERA5 footprint (regrid the ERA5 input onto this grid).
+
+</Indent>
+<Anchor id="earth2studio-models-dx-corrdiff_cosmo_era5-CorrDiffCosmoEra5-load_default_package">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.CorrDiffCosmoEra5.load_default_package() -> earth2studio.models.auto.Package
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Default pre-trained COSMO-REA downscaling package (combined rea6/rea2).
+
+Returns the hosted package; pick the model within it via
+``load_model(..., mode=, resolution=)`` (or rely on the ``mean``/``rea6``
+defaults through ``from_pretrained``).
+
+</Indent>
+<Anchor id="earth2studio-models-dx-corrdiff_cosmo_era5-CorrDiffCosmoEra5-load_model">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package","earth2studio.models.dx.base.DiagnosticModel":"./base.mdx#earth2studio-models-dx-base-DiagnosticModel"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.CorrDiffCosmoEra5.load_model(
+    package: earth2studio.models.auto.Package,
+    device: str | None = None,
+    mode: typing.Literal['mean', 'diffusion'] = 'mean',
+    resolution: typing.Literal['rea6', 'rea2'] = 'rea6',
+    hub_heights: collections.abc.Sequence[float] | None = None,
+    hub_interp: typing.Literal['linear', 'log'] = 'linear'
+) -> earth2studio.models.dx.base.DiagnosticModel
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Load a COSMO-REA downscaling model from a package.
+
+``mode`` (&#123;"mean", "diffusion"&#125;) and ``resolution`` (&#123;"rea6", "rea2"&#125;)
+select the checkpoint within one package. All other
+configuration (sampler, normalization, transforms) comes from the package
+metadata.
+
+``hub_heights``/``hub_interp`` opt into derived hub-height wind components
+(``u&#123;H&#125;m``/``v&#123;H&#125;m``; compose ``DerivedWS`` for speed); they require the
+package to carry a ``wind_levels`` metadata block (else requesting
+``hub_heights`` raises). See the constructor.
+
+</Indent>
+<Anchor id="earth2studio-models-dx-corrdiff_cosmo_era5-CorrDiffCosmoEra5-output_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.CorrDiffCosmoEra5.output_coords(
+    input_coords: earth2studio.utils.type.CoordSystem
+) -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Output coordinate system on the rotated-pole target grid.
+
+The input must be on the native ERA5 grid (`input_coords`); for a
+sub-region use `set_domain` (which gives a new instance with its own
+native grid). Arbitrary/flexible domains are not supported.
+
+</Indent>
+<Anchor id="earth2studio-models-dx-corrdiff_cosmo_era5-CorrDiffCosmoEra5-postprocess_output">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.CorrDiffCosmoEra5.postprocess_output(
+    x: torch.Tensor,
+    valid_time: datetime.datetime,
+    lat2d: numpy.ndarray,
+    lon2d: numpy.ndarray
+) -> torch.Tensor
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+De-normalize -&gt; invert per-channel transforms -&gt; physical clamp/bounds +
+solar gate -&gt; unit rescale (e.g. CLCT % -&gt; tcc fraction) -&gt; append derived
+hub-height wind. ``lat2d``/``lon2d`` are numpy (for the solar gate).
+
+</Indent>
+<Anchor id="earth2studio-models-dx-corrdiff_cosmo_era5-CorrDiffCosmoEra5-preprocess_input">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.CorrDiffCosmoEra5.preprocess_input(
+    era5: torch.Tensor,
+    valid_time: datetime.datetime,
+    lat2d: torch.Tensor,
+    lon2d: torch.Tensor
+) -> torch.Tensor
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Assemble the normalized network background from a raw ERA5 frame.
+
+``era5`` is [n_era5, H_in, W_in]. Returns [1, C_bg, H_out, W_out].
+
+</Indent>
+<Anchor id="earth2studio-models-dx-corrdiff_cosmo_era5-CorrDiffCosmoEra5-set_domain">
+
+<CodeBlock links={{"earth2studio.models.dx.corrdiff_cosmo_era5.CorrDiffCosmoEra5":"#earth2studio-models-dx-corrdiff_cosmo_era5-CorrDiffCosmoEra5"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.CorrDiffCosmoEra5.set_domain(
+    lat_min: float,
+    lat_max: float,
+    lon_min: float,
+    lon_max: float,
+    margin_deg: float = 1.0,
+    halo: int = 0
+) -> earth2studio.models.dx.corrdiff_cosmo_era5.CorrDiffCosmoEra5
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Restrict the model to a sub-domain for a lat/lon bounding box.
+
+Returns a NEW `CorrDiffCosmoEra5` that shares the loaded network(s)
+but whose target grid + static invariants are sliced to the smallest
+block of the (rotated) grid covering ``[lat_min, lat_max] x [lon_min,
+lon_max]``. The returned instance is a fixed-domain model with its own
+``input_coords``/``output_coords``, so it composes with the standard run
+pipelines. The ERA5 input grid is recomputed to cover it (+ ``margin_deg``).
+
+The network is shared by reference and each forward rebinds its latent-grid
+state on it in place, so the parent and its sub-domains are safe to run
+sequentially but NOT concurrently against the same network (two threads or
+async tasks would overwrite each other's grid binding -&gt; wrong-grid output);
+run concurrent domains in separate processes.
+
+Three-tier coverage (when the package ships extended invariants):
+
+* bbox inside the **native** trained footprint -&gt; proceed (validated);
+* bbox reaching into the **extended margin** (invariants exist there but
+  it is outside the trained footprint) -&gt; proceed + a one-time OOD warning;
+* bbox beyond the **extended extent** -&gt; ``ValueError`` (no invariants).
+
+Without extended invariants only the native footprint is supported. A
+returned sub-domain keeps only its own (cropped) grid, not the full or
+extended one, so call ``set_domain`` once on the full loaded model: a
+second ``set_domain`` on a returned sub-domain cannot reach back to the
+full or extended footprint (a bbox outside the sub-domain's grid raises).
+For several sub-regions, call ``set_domain`` multiple times on the full
+model instead.
+
+``halo`` (px, default 0 = off): run on a block expanded by ``halo`` real
+cells per side and trim it off the output, keeping the returned bbox
+interior clear of the DiT's boundary artifact (~32 px); clamps + warns at
+the grid edge. Both models are DiT-RoPE (crop-size agnostic at the fixed
+resolution), so any size runs in a single forward — but the run grid is
+snapped to a multiple of
+the DiT ``patch_size`` (an odd extent would floor to extent-1) and must be
+at least ``attn_kernel*patch`` cells per side (NATTEN must fit the latent),
+so very small bboxes raise.
+
+</Indent>
+<Anchor id="earth2studio-models-dx-corrdiff_cosmo_era5-CorrDiffCosmoEra5-to">
+
+<CodeBlock links={{"earth2studio.models.dx.corrdiff_cosmo_era5.CorrDiffCosmoEra5":"#earth2studio-models-dx-corrdiff_cosmo_era5-CorrDiffCosmoEra5"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.CorrDiffCosmoEra5.to(
+    device: torch.device
+) -> earth2studio.models.dx.corrdiff_cosmo_era5.CorrDiffCosmoEra5
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Move the model to a device (the active regression/diffusion sub-network
+is a registered submodule, so ``super().to`` moves it too).
+
+**Parameters:**
+
+<ParamField path="device" type="torch.device">
+Device to move the model to
+</ParamField>
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-models-dx-corrdiff_era5_hrrr-CorrDiffEra5Hrrr">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.models.dx.CorrDiffEra5Hrrr(
+    network: torch.nn.Module,
+    lat_input_grid: torch.Tensor,
+    lon_input_grid: torch.Tensor,
+    lat_output_grid: torch.Tensor,
+    lon_output_grid: torch.Tensor,
+    hrrr_y: torch.Tensor,
+    hrrr_x: torch.Tensor,
+    era5_center: torch.Tensor,
+    era5_scale: torch.Tensor,
+    out_center: torch.Tensor,
+    out_scale: torch.Tensor,
+    invariants: torch.Tensor,
+    network_kind: typing.Literal['rectified_flow', 'edm'] = 'rectified_flow',
+    era5_variables: collections.abc.Sequence[str] = ERA5_VARIABLES,
+    output_variables: collections.abc.Sequence[str] = OUTPUT_VARIABLES,
+    presence_flags: collections.abc.Sequence[str] = (),
+    day_of_year: bool = True,
+    prediction_type: typing.Literal['x0', 'flow'] = 'x0',
+    time_scale: float = 999.0,
+    number_of_samples: int = 1,
+    number_of_steps: int = 50,
+    solver: typing.Literal['heun', 'euler'] = 'heun',
+    shift: float = 32.0,
+    t_max: float = 0.99,
+    x0v_clip: float = 0.05,
+    sigma_min: float = 0.01,
+    sigma_max: float = 200.0,
+    rho: float = 7.0,
+    seed: int | None = None,
+    amp: bool = True
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** `Module`, [AutoModelMixin](../auto/mixin.mdx#earth2studio-models-auto-mixin-AutoModelMixin)
+
+Generative downscaling from 0.25-degree ERA5 to 3 km HRRR over CONUS.
+
+By default `load_model` loads the distilled 2-step generator of the model
+(`CorrDiffEra5HrrrDistilled`); pass
+``load_model(..., distilled_model=False)`` for the 50-step teacher.
+
+**Badges:** `region:na` `class:downscaling` `product:wind` `product:temp` `product:atmos` `product:radar` `year:2026` `gpu:80gb` `provider:nvidia` `backend:pytorch`
+
+**Parameters:**
+
+<ParamField path="network" type="torch.nn.Module">
+Conditioned network. For ``network_kind="rectified_flow"`` a
+``ConcatConditionWrapper(DiT)`` whose output is the velocity or the clean
+data (see ``prediction_type``); for ``network_kind="edm"`` an
+``EDMPreconditioner(ConcatConditionWrapper(DiT))`` (an x0-predictor).
+</ParamField>
+
+<ParamField path="lat_input_grid" type="torch.Tensor">
+1-D regular ERA5 input grid (the native training footprint). Latitude may
+be ascending or descending; input longitudes may use either the ``[0, 360)``
+or the ``[-180, 180)`` convention (compared modulo 360).
+</ParamField>
+
+<ParamField path="lon_input_grid" type="torch.Tensor">
+1-D regular ERA5 input grid (the native training footprint). Latitude may
+be ascending or descending; input longitudes may use either the ``[0, 360)``
+or the ``[-180, 180)`` convention (compared modulo 360).
+</ParamField>
+
+<ParamField path="lat_output_grid" type="torch.Tensor">
+2-D HRRR latitude / longitude ``[H, W]`` of the output crop (degrees).
+</ParamField>
+
+<ParamField path="lon_output_grid" type="torch.Tensor">
+2-D HRRR latitude / longitude ``[H, W]`` of the output crop (degrees).
+</ParamField>
+
+<ParamField path="hrrr_y" type="torch.Tensor">
+1-D native HRRR projection coordinates (m) of the output crop.
+</ParamField>
+
+<ParamField path="hrrr_x" type="torch.Tensor">
+1-D native HRRR projection coordinates (m) of the output crop.
+</ParamField>
+
+<ParamField path="era5_center" type="torch.Tensor">
+ERA5 input normalization (mean / std), size ``[n_era5]``.
+</ParamField>
+
+<ParamField path="era5_scale" type="torch.Tensor">
+ERA5 input normalization (mean / std), size ``[n_era5]``.
+</ParamField>
+
+<ParamField path="out_center" type="torch.Tensor">
+Output normalization (mean / std), size ``[n_out]``.
+</ParamField>
+
+<ParamField path="out_scale" type="torch.Tensor">
+Output normalization (mean / std), size ``[n_out]``.
+</ParamField>
+
+<ParamField path="invariants" type="torch.Tensor">
+Normalized static invariant channels ``[n_inv, H, W]``, appended to the
+conditioning after the cosine-zenith channel.
+</ParamField>
+
+<ParamField path="network_kind" type="Literal['rectified_flow', 'edm']" default="'rectified_flow'">
+Generative formulation, by default "rectified_flow"
+</ParamField>
+
+<ParamField path="era5_variables" type="Sequence[str]" default="ERA5_VARIABLES">
+Input channel order, by default `ERA5_VARIABLES`
+</ParamField>
+
+<ParamField path="output_variables" type="Sequence[str]" default="OUTPUT_VARIABLES">
+Output channel order, by default `OUTPUT_VARIABLES`
+</ParamField>
+
+<ParamField path="presence_flags" type="Sequence[str]" default="()">
+ERA5 variables that training randomly dropped from the input; one scalar
+"present" flag (always 1 at inference) per name.
+</ParamField>
+
+<ParamField path="day_of_year" type="bool" default="True">
+Whether the scalar conditioning carries ``[sin, cos]`` of the day-of-year
+phase at the validity time.
+</ParamField>
+
+<ParamField path="prediction_type" type="Literal['x0', 'flow']" default="'x0'">
+Rectified-flow output parameterization. Ignored for EDM, by default "x0"
+</ParamField>
+
+<ParamField path="time_scale" type="float" default="999.0">
+Multiplier applied to the rectified-flow time ``t in [0, 1]`` before the
+network's timestep embedder (the examples train with ``999.0``).
+</ParamField>
+
+<ParamField path="number_of_samples" type="int" default="1">
+Ensemble members per input; settable between calls.
+</ParamField>
+
+<ParamField path="number_of_steps" type="int" default="50">
+ODE solver steps (each Heun step costs two network evaluations). For a
+`CorrDiffEra5HrrrDistilled` network this is the number of blocks of
+its rollout and must be 1 or 2.
+</ParamField>
+
+<ParamField path="solver" type="(heun, euler)" default="'heun'">
+ODE solver. Unused for a distilled network, whose rollout is fixed.
+</ParamField>
+
+<ParamField path="shift" type="float" default="32.0">
+SD3 resolution shift ``a`` applied to the rectified-flow time grid,
+``t -&gt; a t / (1 + (a - 1) t)``; ``1.0`` disables it. The examples found
+``a`` of 12-32 optimal for full-domain sampling (the networks train on
+256 x 256 patches). Ignored for EDM. Unused for a distilled network, which
+carries its own time grid.
+</ParamField>
+
+<ParamField path="t_max" type="float" default="0.99">
+Rectified-flow start time (the noise end); kept slighly below 1 for stability.
+Unused for a distilled network.
+</ParamField>
+
+<ParamField path="x0v_clip" type="float" default="0.05">
+Lower clamp of the denominator in the x-prediction to velocity conversion
+``v = (x_t - x0_hat) / max(t, x0v_clip)`` near the data end (``t -&gt; 0``).
+Unused for a distilled network, which stores its own value.
+</ParamField>
+
+<ParamField path="sigma_min" type="float" default="0.01">
+EDM Karras schedule parameters. Ignored for rectified flow.
+</ParamField>
+
+<ParamField path="sigma_max" type="float" default="0.01">
+EDM Karras schedule parameters. Ignored for rectified flow.
+</ParamField>
+
+<ParamField path="rho" type="float" default="0.01">
+EDM Karras schedule parameters. Ignored for rectified flow.
+</ParamField>
+
+<ParamField path="seed" type="int | None" default="None">
+Base RNG seed for the sampling latents; member ``i`` uses ``seed + i``.
+``None`` leaves sampling unseeded.
+</ParamField>
+
+<ParamField path="amp" type="bool" default="True">
+Run network forwards under bf16 autocast while the ODE integration stays in
+fp32 (the examples' evaluation setting; roughly halves inference time).
+</ParamField>
+
+<Note>
+
+For more information see the following references:
+
+- https://huggingface.co/nvidia/corrdiff-era5-hrrr
+
+</Note>
+
+<Anchor id="earth2studio-models-dx-corrdiff_era5_hrrr-CorrDiffEra5Hrrr-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.CorrDiffEra5Hrrr.__call__(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Downscale ERA5 states to the HRRR CONUS crop.
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Input tensor ``[batch, time, variable, lat, lon]`` (the wrapper
+flattens leading batch dimensions automatically).
+</ParamField>
+
+<ParamField path="coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system.
+</ParamField>
+
+**Returns:** `tuple[torch.Tensor,` [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) `]`
+
+``[batch, sample, time, variable, hrrr_y, hrrr_x]`` and its coordinates.
+
+</Indent>
+<Anchor id="earth2studio-models-dx-corrdiff_era5_hrrr-CorrDiffEra5Hrrr-input_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.CorrDiffEra5Hrrr.input_coords() -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Input coordinate system: the native ERA5 CONUS footprint.
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Coordinate system dictionary; regrid ERA5 onto ``lat`` / ``lon``.
+
+</Indent>
+<Anchor id="earth2studio-models-dx-corrdiff_era5_hrrr-CorrDiffEra5Hrrr-load_default_package">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.CorrDiffEra5Hrrr.load_default_package() -> earth2studio.models.auto.Package
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Default pre-trained model package.
+
+**Returns:** [`Package`](../auto/package.mdx#earth2studio-models-auto-package-Package)
+
+Model package with default checkpoint location
+
+</Indent>
+<Anchor id="earth2studio-models-dx-corrdiff_era5_hrrr-CorrDiffEra5Hrrr-load_model">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package","earth2studio.models.dx.base.DiagnosticModel":"./base.mdx#earth2studio-models-dx-base-DiagnosticModel"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.CorrDiffEra5Hrrr.load_model(
+    package: earth2studio.models.auto.Package,
+    device: str | None = None,
+    number_of_samples: int | None = None,
+    number_of_steps: int | None = None,
+    seed: int | None = None,
+    amp: bool | None = None,
+    variant: typing.Literal['x_pred'] = 'x_pred',
+    distilled_model: bool = True
+) -> earth2studio.models.dx.base.DiagnosticModel
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Load the model from a package.
+
+**Parameters:**
+
+<ParamField path="package" type="Package">
+[`Package`](../auto/package.mdx#earth2studio-models-auto-package-Package) — Model package to load from.
+</ParamField>
+
+<ParamField path="device" type="str | None" default="None">
+Device to place the model on, by default None (CPU).
+</ParamField>
+
+<ParamField path="number_of_samples" type="int | None" default="None">
+Ensemble members per input; defaults to the package metadata.
+</ParamField>
+
+<ParamField path="number_of_steps" type="int | None" default="None">
+ODE steps for the teacher, or blocks (1 or 2) for the distilled
+generator; defaults to the package metadata.
+</ParamField>
+
+<ParamField path="seed" type="int | None" default="None">
+Base RNG seed, by default None (unseeded).
+</ParamField>
+
+<ParamField path="amp" type="bool | None" default="None">
+bf16 autocast for the network; defaults to the package metadata.
+</ParamField>
+
+<ParamField path="variant" type="x_pred" default="'x_pred'">
+Sub-folder of the package to load, by default ``"x_pred"`` (the
+x-prediction rectified-flow model).
+</ParamField>
+
+<ParamField path="distilled_model" type="bool" default="True">
+Whether to use the distilled model. If True, the wrapper loads the
+distilled few-step generator (``corrdiff-era5-hrrr-distil.mdlus`` in the
+same package), which generates members in 1 or 2 sampler steps
+(``number_of_steps`` defaults to 2) at a fraction of the teacher's cost.
+Its sampling schedule is fixed by the checkpoint. If False, it loads the
+teacher sampled with 50 Heun steps, by default True
+</ParamField>
+
+**Returns:** [`DiagnosticModel`](./base.mdx#earth2studio-models-dx-base-DiagnosticModel)
+
+Loaded model.
+
+</Indent>
+<Anchor id="earth2studio-models-dx-corrdiff_era5_hrrr-CorrDiffEra5Hrrr-output_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.CorrDiffEra5Hrrr.output_coords(
+    input_coords: earth2studio.utils.type.CoordSystem
+) -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Output coordinate system: HRRR crop on the native projection grid.
+
+**Parameters:**
+
+<ParamField path="input_coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system to transform into output_coords.
+</ParamField>
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+``[batch, sample, time, variable, hrrr_y, hrrr_x]``; the 2-D latitude
+and longitude of the crop are available as ``lat_output_grid`` /
+``lon_output_grid``.
+
+</Indent>
+<Anchor id="earth2studio-models-dx-corrdiff_era5_hrrr-CorrDiffEra5Hrrr-preprocess_input">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.CorrDiffEra5Hrrr.preprocess_input(
+    era5: torch.Tensor,
+    valid_time: datetime.datetime
+) -> tensordict.TensorDict
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Build the network conditioning for one ERA5 state.
+
+**Parameters:**
+
+<ParamField path="era5" type="torch.Tensor">
+``[n_era5, H_in, W_in]`` physical-unit ERA5 fields on the native grid.
+</ParamField>
+
+<ParamField path="valid_time" type="datetime">
+Validity time (UTC) of the state.
+</ParamField>
+
+**Returns:** `TensorDict`
+
+``cond_concat`` ``[1, n_era5 + 1 + n_inv, H, W]`` (normalized ERA5 on
+the HRRR grid, cosine zenith angle, invariants) and ``cond_vec``
+``[1, n_scalar]``.
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-models-dx-corrdiff-CorrDiffTaiwan">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.models.dx.CorrDiffTaiwan(
+    residual_model: torch.nn.Module,
+    regression_model: torch.nn.Module,
+    in_center: torch.Tensor,
+    in_scale: torch.Tensor,
+    out_center: torch.Tensor,
+    out_scale: torch.Tensor,
+    out_lat: torch.Tensor,
+    out_lon: torch.Tensor,
+    number_of_samples: int = 1,
+    number_of_steps: int = 8,
+    solver: typing.Literal['euler', 'heun'] = 'euler',
+    seed: int | None = None
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** `Module`, [AutoModelMixin](../auto/mixin.mdx#earth2studio-models-auto-mixin-AutoModelMixin)
+
+CorrDiff is a Corrector Diffusion model that learns mappings between
+low- and high-resolution weather data with high fidelity. This particular
+model was trained over a particular region near Taiwan.
+
+**Badges:** `region:as` `class:downscaling` `product:wind` `product:precip` `product:temp` `product:atmos` `year:2023` `gpu:40gb` `provider:nvidia` `backend:pytorch`
+
+**Parameters:**
+
+<ParamField path="residual_model" type="torch.nn.Module">
+Core pytorch model
+</ParamField>
+
+<ParamField path="regression_model" type="torch.nn.Module">
+Core pytorch model
+</ParamField>
+
+<ParamField path="in_center" type="torch.Tensor">
+Model input center normalization tensor of size [20,1,1]
+</ParamField>
+
+<ParamField path="in_scale" type="torch.Tensor">
+Model input scale normalization tensor of size [20,1,1]
+</ParamField>
+
+<ParamField path="out_center" type="torch.Tensor">
+Model output center normalization tensor of size [4,1,1]
+</ParamField>
+
+<ParamField path="out_scale" type="torch.Tensor">
+Model output scale normalization tensor of size [4,1,1]
+</ParamField>
+
+<ParamField path="out_lat" type="torch.Tensor">
+Output latitude grid of size [448, 448]
+</ParamField>
+
+<ParamField path="out_lon" type="torch.Tensor">
+Output longitude grid of size [448, 448]
+</ParamField>
+
+<ParamField path="number_of_samples" type="int" default="1">
+Number of high resolution samples to draw from diffusion model.
+Default is 1
+</ParamField>
+
+<ParamField path="number_of_steps" type="int" default="8">
+Number of langevin diffusion steps during sampling algorithm.
+Default is 8
+</ParamField>
+
+<ParamField path="solver" type="Literal['euler', 'heun']" default="'euler'">
+Discretization of diffusion process. Only 'euler' and 'heun'
+are supported. Default is 'euler'
+</ParamField>
+
+<ParamField path="seed" type="int | None" default="None">
+Random seed for reproducibility. Default is None.
+</ParamField>
+
+<Note>
+
+This model and checkpoint are from Mardani, Morteza, et al. 2023. For more
+information see the following references:
+
+- https://arxiv.org/abs/2309.15214
+- https://catalog.ngc.nvidia.com/orgs/nvidia/teams/modulus/models/corrdiff_inference_package
+
+</Note>
+
+<Anchor id="earth2studio-models-dx-corrdiff-CorrDiffTaiwan-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.CorrDiffTaiwan.__call__(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Forward pass of diagnostic
+
+</Indent>
+<Anchor id="earth2studio-models-dx-corrdiff-CorrDiffTaiwan-input_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.CorrDiffTaiwan.input_coords() -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Input coordinate system
+
+</Indent>
+<Anchor id="earth2studio-models-dx-corrdiff-CorrDiffTaiwan-load_default_package">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.CorrDiffTaiwan.load_default_package() -> earth2studio.models.auto.Package
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Default pre-trained corrdiff model package from Nvidia model registry
+
+</Indent>
+<Anchor id="earth2studio-models-dx-corrdiff-CorrDiffTaiwan-load_model">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package","earth2studio.models.dx.base.DiagnosticModel":"./base.mdx#earth2studio-models-dx-base-DiagnosticModel"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.CorrDiffTaiwan.load_model(
+    package: earth2studio.models.auto.Package,
+    device: str | None = None
+) -> earth2studio.models.dx.base.DiagnosticModel
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Load diagnostic from package
+
+</Indent>
+<Anchor id="earth2studio-models-dx-corrdiff-CorrDiffTaiwan-output_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.CorrDiffTaiwan.output_coords(
+    input_coords: earth2studio.utils.type.CoordSystem
+) -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Output coordinate system of diagnostic model
+
+**Parameters:**
+
+<ParamField path="input_coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system to transform into output_coords
+by default None, will use self.input_coords.
+</ParamField>
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Coordinate system dictionary
+
+</Indent>
+<Anchor id="earth2studio-models-dx-corrdiff-CorrDiffTaiwan-unet_regression">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.CorrDiffTaiwan.unet_regression(
+    net: torch.nn.Module,
+    img_lr: torch.Tensor,
+    output_channels: int,
+    number_of_samples: int
+) -> torch.Tensor
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>staticmethod</Badge>
+
+Perform U-Net regression.
+
+**Parameters:**
+
+<ParamField path="net" type="torch.nn.Module">
+U-Net model for regression.
+</ParamField>
+
+<ParamField path="img_lr" type="torch.Tensor">
+Low-resolution input image of shape (1, C_in, H_hr, W_hr).
+</ParamField>
+
+<ParamField path="output_channels" type="int">
+Number of output channels C_out.
+</ParamField>
+
+<ParamField path="number_of_samples" type="int">
+Number of samples to generate for the single input batch element.
+Only used to expand the shape of the output tensor.
+</ParamField>
+
+**Returns:** `torch.Tensor: Predicted output with shape (number_of_samples, C_out,`
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-models-dx-dlesym_v0_isccp_era5_precip-DLESyMv0_ISCCP_ERA5Precip">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.models.dx.DLESyMv0_ISCCP_ERA5Precip(
+    core_model: torch.nn.Module,
+    hpx_lat: numpy.ndarray,
+    hpx_lon: numpy.ndarray,
+    nside: int,
+    center: numpy.ndarray,
+    scale: numpy.ndarray,
+    constants: numpy.ndarray,
+    input_times: numpy.ndarray,
+    variables: list[str],
+    output_variable: str = 'tp06',
+    log_epsilon: float | None = 1e-08,
+    use_ttr: bool = True,
+    ttr_clim_mean: numpy.ndarray | None = None,
+    ttr_clim_std: numpy.ndarray | None = None,
+    olr_clim_mean: numpy.ndarray | None = None,
+    olr_clim_std: numpy.ndarray | None = None,
+    olr_floor: float = 0.0
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** `Module`, [AutoModelMixin](../auto/mixin.mdx#earth2studio-models-auto-mixin-AutoModelMixin)
+
+Precipitation diagnostic for the DLESyMv0_ISCCP_ERA5 climate model.
+
+A ``HEALPixUNet`` diagnostic from the AtmosSci-DLESM/DLESyM repository
+that predicts 6-hourly accumulated precipitation (``tp06``) from the full
+coupled atmosphere/ocean state. It is designed to be chained off
+[`DLESyMv0_ISCCP_ERA5`](../px/dlesym_v0_isccp_era5.mdx#earth2studio-models-px-dlesym_v0_isccp_era5-DLESyMv0_ISCCP_ERA5) (or its lat/lon
+variant).
+
+The model takes 2 consecutive history timesteps of 10 variables (the 9
+atmospheric variables plus ``sst``) on a HEALPix ``nside=64`` grid and
+predicts ``tp06`` at the last input timestep (i.e., precipitation
+accumulated over the 6 h prior to ``t=0``).
+
+When ``use_ttr=True`` (default), the wrapper accepts ERA5 ``ttr`` in
+place of ``rlut`` and applies the same per-doy moment-matching TTR -&gt; OLR
+transform as
+[`DLESyMv0_ISCCP_ERA5`](../px/dlesym_v0_isccp_era5.mdx#earth2studio-models-px-dlesym_v0_isccp_era5-DLESyMv0_ISCCP_ERA5)
+before the forward pass. This allows the diagnostic to run standalone
+from an ERA5 initial condition. When ``use_ttr=False``, supply
+pre-transformed ``rlut`` directly -- use this when chaining off
+[`DLESyMv0_ISCCP_ERA5`](../px/dlesym_v0_isccp_era5.mdx#earth2studio-models-px-dlesym_v0_isccp_era5-DLESyMv0_ISCCP_ERA5) output, which is
+already in OLR space.
+
+**Badges:** `region:global` `class:climate` `product:precip` `year:2024` `gpu:40gb` `provider:nvidia` `backend:pytorch`
+
+**Parameters:**
+
+<ParamField path="core_model" type="torch.nn.Module">
+The wrapped ``physicsnemo.models.dlwp_healpix.HEALPixUNet``.
+</ParamField>
+
+<ParamField path="hpx_lat" type="np.ndarray">
+HEALPix latitude grid, shape ``(12, nside, nside)``.
+</ParamField>
+
+<ParamField path="hpx_lon" type="np.ndarray">
+HEALPix longitude grid, shape ``(12, nside, nside)``.
+</ParamField>
+
+<ParamField path="nside" type="int">
+HEALPix nside.
+</ParamField>
+
+<ParamField path="center" type="np.ndarray">
+Per-variable input means, shape ``(1, 1, 1, V, 1, 1, 1)`` ordered by
+``variables``.
+</ParamField>
+
+<ParamField path="scale" type="np.ndarray">
+Per-variable input stds, same shape as ``center``.
+</ParamField>
+
+<ParamField path="constants" type="np.ndarray">
+Constant fields (e.g. land-sea mask, topography), shape
+``(12, n_constants, nside, nside)``.
+</ParamField>
+
+<ParamField path="input_times" type="np.ndarray">
+Input lead times, shape ``(input_time_dim,)``. e.g.
+``np.array([-6, 0], dtype='timedelta64[h]')``.
+</ParamField>
+
+<ParamField path="variables" type="list[str]">
+Input variable names in channel order. Must contain ``rlut`` (the
+model variable-space name); ``input_coords`` swaps it to ``ttr``
+when ``use_ttr=True``.
+</ParamField>
+
+<ParamField path="output_variable" type="str" default="'tp06'">
+Output variable name, typically ``"tp06"``.
+</ParamField>
+
+<ParamField path="log_epsilon" type="float | None" default="1e-08">
+If non-None, denormalize as ``exp(out + log(eps)) - eps`` to invert
+the upstream log-transform applied to precipitation during training.
+Set to ``None`` to disable.
+</ParamField>
+
+<ParamField path="use_ttr" type="bool" default="True">
+Accept ERA5 ``ttr`` instead of ``rlut`` and run the TTR -&gt; OLR
+transform internally. Defaults to True.
+</ParamField>
+
+<ParamField path="ttr_clim_mean" type="np.ndarray | None" default="None">
+Per-doy climatology arrays of shape ``(D, F, H, W)``. Required when
+``use_ttr=True``.
+</ParamField>
+
+<ParamField path="ttr_clim_std" type="np.ndarray | None" default="None">
+Per-doy climatology arrays of shape ``(D, F, H, W)``. Required when
+``use_ttr=True``.
+</ParamField>
+
+<ParamField path="olr_clim_mean" type="np.ndarray | None" default="None">
+Per-doy climatology arrays of shape ``(D, F, H, W)``. Required when
+``use_ttr=True``.
+</ParamField>
+
+<ParamField path="olr_clim_std" type="np.ndarray | None" default="None">
+Per-doy climatology arrays of shape ``(D, F, H, W)``. Required when
+``use_ttr=True``.
+</ParamField>
+
+<ParamField path="olr_floor" type="float" default="0.0">
+Lower bound applied to the transformed OLR. Defaults to 0.0.
+</ParamField>
+
+<Note>
+
+For more information see:
+
+- https://github.com/AtmosSci-DLESM/DLESyM
+- https://arxiv.org/abs/2409.16247 (the published paper backing this
+  checkpoint set)
+- https://huggingface.co/nvidia/dlesym-v0-isccp-era5
+
+</Note>
+
+<Anchor id="earth2studio-models-dx-dlesym_v0_isccp_era5_precip-DLESyMv0_ISCCP_ERA5Precip-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.DLESyMv0_ISCCP_ERA5Precip.__call__(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Run the precip diagnostic forward.
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Input of shape ``(B, T, LT, V, F, H, W)`` with ``LT = input_time_dim``
+history timesteps and ``V = len(variables)`` channels on HEALPix.
+</ParamField>
+
+<ParamField path="coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinates.
+</ParamField>
+
+**Returns:** `tuple[torch.Tensor,` [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) `]`
+
+Output tensor of shape ``(B, T, 1, 1, F, H, W)`` and the
+corresponding output coords with ``variable = [tp06]``.
+
+</Indent>
+<Anchor id="earth2studio-models-dx-dlesym_v0_isccp_era5_precip-DLESyMv0_ISCCP_ERA5Precip-input_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.DLESyMv0_ISCCP_ERA5Precip.input_coords() -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Input coordinate system of diagnostic model.
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Coordinate system dictionary with 2 history timesteps and the
+full coupled-state variable list on the HEALPix grid. When
+``use_ttr=True``, the radiation channel is advertised as
+``ttr`` (the wrapper converts to ``rlut`` internally).
+
+</Indent>
+<Anchor id="earth2studio-models-dx-dlesym_v0_isccp_era5_precip-DLESyMv0_ISCCP_ERA5Precip-load_default_package">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.DLESyMv0_ISCCP_ERA5Precip.load_default_package() -> earth2studio.models.auto.Package
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Default DLESyMv0_ISCCP_ERA5 precip package on HuggingFace.
+
+</Indent>
+<Anchor id="earth2studio-models-dx-dlesym_v0_isccp_era5_precip-DLESyMv0_ISCCP_ERA5Precip-load_model">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package","earth2studio.models.dx.base.DiagnosticModel":"./base.mdx#earth2studio-models-dx-base-DiagnosticModel"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.DLESyMv0_ISCCP_ERA5Precip.load_model(
+    package: earth2studio.models.auto.Package,
+    use_ttr: bool = True
+) -> earth2studio.models.dx.base.DiagnosticModel
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Load the DLESyMv0_ISCCP_ERA5 precip diagnostic from a package.
+
+**Parameters:**
+
+<ParamField path="package" type="Package">
+[`Package`](../auto/package.mdx#earth2studio-models-auto-package-Package) — Model package containing ``config.yaml``, the precip ``.mdlus``
+checkpoint, the HEALPix lat/lon, the constant fields, and (when
+``use_ttr=True``) the TTR/OLR climatology netCDFs
+(``era5_ttr_doy_stats_hpx64.nc`` and ``isccp_olr_doy_stats_hpx64.nc``).
+</ParamField>
+
+<ParamField path="use_ttr" type="bool" default="True">
+See `DLESyMv0_ISCCP_ERA5Precip`. Defaults to True.
+</ParamField>
+
+**Returns:** [`DiagnosticModel`](./base.mdx#earth2studio-models-dx-base-DiagnosticModel)
+
+Loaded ``DLESyMv0_ISCCP_ERA5Precip`` instance.
+
+</Indent>
+<Anchor id="earth2studio-models-dx-dlesym_v0_isccp_era5_precip-DLESyMv0_ISCCP_ERA5Precip-output_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.DLESyMv0_ISCCP_ERA5Precip.output_coords(
+    input_coords: earth2studio.utils.type.CoordSystem
+) -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Output coordinate system of diagnostic model.
+
+**Parameters:**
+
+<ParamField path="input_coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system to transform.
+</ParamField>
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Output coords with ``lead_time = [0]`` and ``variable = [tp06]``.
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-models-dx-orbit2_precip-OrbitGlobalPrecip">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.models.dx.OrbitGlobalPrecip(
+    core_model: torch.nn.Module,
+    land_sea_mask: numpy.ndarray,
+    orography: numpy.ndarray,
+    lattitude: numpy.ndarray,
+    landcover: numpy.ndarray,
+    normalize_mean_lowres: numpy.lib.npyio.NpzFile,
+    normalize_std_lowres: numpy.lib.npyio.NpzFile,
+    normalize_mean_highres: numpy.lib.npyio.NpzFile,
+    normalize_std_highres: numpy.lib.npyio.NpzFile,
+    do_tiling: bool,
+    div: int,
+    overlap: int
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** `Module`, [AutoModelMixin](../auto/mixin.mdx#earth2studio-models-auto-mixin-AutoModelMixin)
+
+ORBIT-2 precipitation downscaling model supporting both 9.5m and 126m parameter
+variants.
+
+**Example**
+
+The derived inputs ``tp24``, ``t2m_max``, and ``t2m_min`` must be computed from
+hourly ERA5 fields before calling the model:
+
+&gt;&gt;&gt; import numpy as np
+&gt;&gt;&gt; import torch
+&gt;&gt;&gt; from earth2studio.data import NCAR_ERA5, prep_data_array
+&gt;&gt;&gt; from earth2studio.models.dx import OrbitGlobalPrecip
+&gt;&gt;&gt; from earth2studio.utils.time import to_time_array
+&gt;&gt;&gt;
+&gt;&gt;&gt; package = OrbitGlobalPrecip.load_default_package()
+&gt;&gt;&gt; orbit = OrbitGlobalPrecip.load_model(package)
+&gt;&gt;&gt; orbit = orbit.to("cuda")
+&gt;&gt;&gt; data = NCAR_ERA5()
+&gt;&gt;&gt; time = to_time_array([np.datetime64("2023-06-01")])
+&gt;&gt;&gt;
+&gt;&gt;&gt; # Fetch base variables (all except tp24, t2m_max, t2m_min)
+&gt;&gt;&gt; base_vars = orbit.input_coords()`"variable"`
+&gt;&gt;&gt; x, coords = prep_data_array(data(time, base_vars), device="cuda")
+&gt;&gt;&gt;
+&gt;&gt;&gt; # Build past 24-hour precipitation accumulation and t2 max/min.
+&gt;&gt;&gt; batch_p = torch.zeros((len(time), 24, 4, x.shape[-2], x.shape[-1]), device="cuda")
+&gt;&gt;&gt; for i in range(24):
+...     time0 = np.array(time) - np.timedelta64(i, "h")
+...     p, _ = prep_data_array(data(time0, ["cp", "lsp", "t2m", "sst"]), device="cuda")
+...     batch_p[:, i] = p
+&gt;&gt;&gt; total_p_24hr = (batch_p[:, :, 0] + batch_p[:, :, 1]).sum(dim=1).unsqueeze(1)
+&gt;&gt;&gt; t2_sst_combined = torch.where(
+...     torch.isnan(batch_p[:, :, 3]), batch_p[:, :, 2], batch_p[:, :, 3]
+... )
+&gt;&gt;&gt; t2_max = t2_sst_combined.max(dim=1).values.unsqueeze(1)
+&gt;&gt;&gt; t2_min = t2_sst_combined.min(dim=1).values.unsqueeze(1)
+&gt;&gt;&gt; x = torch.cat((x, total_p_24hr, t2_max, t2_min), dim=1)
+&gt;&gt;&gt;
+&gt;&gt;&gt; input_coords = OrderedDict(
+...     &#123;k: v for k, v in orbit.input_coords().items() if k != "batch"&#125;
+... )
+&gt;&gt;&gt; input_coords["time"] = time
+&gt;&gt;&gt; input_coords.move_to_end("time", last=False)
+&gt;&gt;&gt; output, output_coords = orbit(x, input_coords)
+
+**Badges:** `region:global` `class:medium-range` `product:precip` `year:2025` `gpu:40gb` `backend:pytorch`
+
+**Parameters:**
+
+<ParamField path="core_model" type="torch.nn.Module">
+Core pytorch model
+</ParamField>
+
+<ParamField path="land_sea_mask" type="np.ndarray">
+Binary land-sea mask at 0.25° resolution, shape ``(720, 1440)``.
+Values are 1 over land, 0 over ocean.
+</ParamField>
+
+<ParamField path="orography" type="np.ndarray">
+Surface geopotential height (meters) at 0.25° resolution,
+shape ``(720, 1440)``.
+</ParamField>
+
+<ParamField path="lattitude" type="np.ndarray">
+Latitude values broadcast to grid shape ``(720, 1440)``, used as a
+positional encoding input to the model.
+</ParamField>
+
+<ParamField path="landcover" type="np.ndarray">
+Land-use / land-cover classification at 0.25° resolution,
+shape ``(720, 1440)``.
+</ParamField>
+
+<ParamField path="normalize_mean_lowres" type="np.lib.npyio.NpzFile">
+Per-variable mean values for input normalization. Keys are variable
+names, values are single-element arrays.
+</ParamField>
+
+<ParamField path="normalize_std_lowres" type="np.lib.npyio.NpzFile">
+Per-variable standard deviation values for input normalization. Keys
+are variable names, values are single-element arrays.
+</ParamField>
+
+<ParamField path="normalize_mean_highres" type="np.lib.npyio.NpzFile">
+Per-variable mean values for output denormalization. Keys are variable
+names, values are single-element arrays.
+</ParamField>
+
+<ParamField path="normalize_std_highres" type="np.lib.npyio.NpzFile">
+Per-variable standard deviation values for output denormalization. Keys
+are variable names, values are single-element arrays.
+</ParamField>
+
+<ParamField path="do_tiling" type="bool">
+Boolean to indicate whether tiled inference is performed
+</ParamField>
+
+<ParamField path="div" type="int">
+If performing tiling, number of tiles to divide input into
+</ParamField>
+
+<ParamField path="overlap" type="int">
+If performing tiling, number of overlap pixels to use during tiled inference
+</ParamField>
+
+<Note>
+
+This model and checkpoint are from Wang et al. 2025. For more information see the
+following references:
+
+- https://dl.acm.org/doi/10.1145/3712285.3771989
+- https://huggingface.co/jychoi-hpc/ORBIT-2
+A few details regarding the model's variables:
+
+- The input variables ``t2m_min`` and ``t2m_max`` are daily minimum and maximum.
+- ``t2m`` and ``sst`` are combined to represent global surface temperature.
+- The model is fine-tuned for IMERG 24-hour accumulated precipitation (``tp24``).
+
+</Note>
+
+<Anchor id="earth2studio-models-dx-orbit2_precip-OrbitGlobalPrecip-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.OrbitGlobalPrecip.__call__(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Forward pass of diagnostic
+
+</Indent>
+<Anchor id="earth2studio-models-dx-orbit2_precip-OrbitGlobalPrecip-adjust_coords_for_flip">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.OrbitGlobalPrecip.adjust_coords_for_flip(
+    coords: climate_learn.utils.visualize.TileCoordinates,
+    processor: climate_learn.utils.visualize.TileProcessor
+) -> climate_learn.utils.visualize.TileCoordinates
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>staticmethod</Badge>
+
+Adjust coordinates after vertical image flip.
+
+</Indent>
+<Anchor id="earth2studio-models-dx-orbit2_precip-OrbitGlobalPrecip-clip_replace_constant">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.OrbitGlobalPrecip.clip_replace_constant(
+    y: torch.Tensor,
+    out_variables: list[str]
+) -> torch.Tensor
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>staticmethod</Badge>
+
+Postprocess Precipitation Data to get rid of unphysical values
+
+</Indent>
+<Anchor id="earth2studio-models-dx-orbit2_precip-OrbitGlobalPrecip-input_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.OrbitGlobalPrecip.input_coords() -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Input coordinate system of diagnostic model
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Coordinate system dictionary
+
+</Indent>
+<Anchor id="earth2studio-models-dx-orbit2_precip-OrbitGlobalPrecip-load_default_package">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.OrbitGlobalPrecip.load_default_package() -> earth2studio.models.auto.Package
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Load prognostic package
+
+</Indent>
+<Anchor id="earth2studio-models-dx-orbit2_precip-OrbitGlobalPrecip-load_model">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package","earth2studio.models.dx.base.DiagnosticModel":"./base.mdx#earth2studio-models-dx-base-DiagnosticModel"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.OrbitGlobalPrecip.load_model(
+    package: earth2studio.models.auto.Package,
+    model_type: typing.Literal['global'] = 'global',
+    model_size: typing.Literal['9.5m', '126m'] = '9.5m',
+    model_variable: typing.Literal['precipitation'] = 'precipitation'
+) -> earth2studio.models.dx.base.DiagnosticModel
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Load ORBIT-2 precipitation diagnostic model from package files.
+
+**Parameters:**
+
+<ParamField path="package" type="Package">
+[`Package`](../auto/package.mdx#earth2studio-models-auto-package-Package) — Model package containing configuration and checkpoint files.
+</ParamField>
+
+<ParamField path="model_type" type="Literal['global']" default="'global'">
+ORBIT-2 model family to load, by default "global"
+</ParamField>
+
+<ParamField path="model_size" type="Literal['9.5m', '126m']" default="'9.5m'">
+ORBIT-2 model size variant to load, by default "9.5m"
+</ParamField>
+
+<ParamField path="model_variable" type="Literal['precipitation']" default="'precipitation'">
+Target variable variant to load, by default "precipitation"
+</ParamField>
+
+**Returns:** [`DiagnosticModel`](./base.mdx#earth2studio-models-dx-base-DiagnosticModel)
+
+Loaded ORBIT-2 precipitation diagnostic model
+
+</Indent>
+<Anchor id="earth2studio-models-dx-orbit2_precip-OrbitGlobalPrecip-output_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.OrbitGlobalPrecip.output_coords(
+    input_coords: earth2studio.utils.type.CoordSystem
+) -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Output coordinate system of diagnostic model
+
+**Parameters:**
+
+<ParamField path="input_coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system to transform into output_coords
+by default None, will use self.input_coords.
+</ParamField>
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Coordinate system dictionary
+
+</Indent>
+<Anchor id="earth2studio-models-dx-orbit2_precip-OrbitGlobalPrecip-preprocess_input">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.OrbitGlobalPrecip.preprocess_input(
+    x: torch.Tensor
+) -> torch.Tensor
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Preprocess Earth2Studio data to match ORBIT-2 DATA
+
+Expects input channels ordered as VARIABLES (including trailing sst).
+Replaces t2m with sst over ocean pixels (where land_sea_mask == 0 and
+sst is not NaN), then drops the sst channel before proceeding.
+
+</Indent>
+<Anchor id="earth2studio-models-dx-orbit2_precip-OrbitGlobalPrecip-stitch_tiles">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.OrbitGlobalPrecip.stitch_tiles(
+    tiles: list,
+    tile_coords: list,
+    processor: climate_learn.utils.visualize.TileProcessor,
+    batch_size: int
+) -> torch.Tensor
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>staticmethod</Badge>
+
+Stitch tiles together into complete images.
+
+Reconstructs full image from processed tiles, handling overlap regions.
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-models-dx-precipitation_afno-PrecipitationAFNO">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.models.dx.PrecipitationAFNO(
+    core_model: torch.nn.Module,
+    center: torch.Tensor,
+    scale: torch.Tensor
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** `Module`, [AutoModelMixin](../auto/mixin.mdx#earth2studio-models-auto-mixin-AutoModelMixin)
+
+Precipitation AFNO diagnsotic model. Predicts the total precipation parameter
+which is the accumulated amount of liquid and frozen water (rain or snow) with
+units m. This model was trained on ERA5 data and predicts the 6-hourly accumulated
+total precipitation at the validity date and time. This model uses an 20 atmospheric
+inputs and outputs one on a 0.25 degree lat-lon grid (south-pole excluding)
+[720 x 1440].
+
+Note:
+    This checkpoint is from Parthik et al. 2022:
+
+    - https://arxiv.org/abs/2202.11214
+    - https://github.com/NVlabs/FourCastNet
+
+**Badges:** `region:global` `class:medium-range` `product:precip` `year:2022` `gpu:40gb` `provider:nvidia` `backend:pytorch`
+
+**Parameters:**
+
+<ParamField path="core_model" type="torch.nn.Module">
+Core pytorch model
+</ParamField>
+
+<ParamField path="center" type="torch.Tensor">
+Model center normalization tensor of size [20,1,1]
+</ParamField>
+
+<ParamField path="scale" type="torch.Tensor">
+Model scale normalization tensor of size [20,1,1]
+</ParamField>
+
+<ParamField path="eps" type="= 1e-05">
+</ParamField>
+<Anchor id="earth2studio-models-dx-precipitation_afno-PrecipitationAFNO-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.PrecipitationAFNO.__call__(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Forward pass of diagnostic
+
+</Indent>
+<Anchor id="earth2studio-models-dx-precipitation_afno-PrecipitationAFNO-input_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.PrecipitationAFNO.input_coords() -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Input coordinate system of diagnostic model
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Coordinate system dictionary
+
+</Indent>
+<Anchor id="earth2studio-models-dx-precipitation_afno-PrecipitationAFNO-load_default_package">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.PrecipitationAFNO.load_default_package() -> earth2studio.models.auto.Package
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Default pre-trained precipation model package from Nvidia model registry
+
+</Indent>
+<Anchor id="earth2studio-models-dx-precipitation_afno-PrecipitationAFNO-load_model">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package","earth2studio.models.dx.base.DiagnosticModel":"./base.mdx#earth2studio-models-dx-base-DiagnosticModel"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.PrecipitationAFNO.load_model(
+    package: earth2studio.models.auto.Package
+) -> earth2studio.models.dx.base.DiagnosticModel
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Load diagnostic from package
+
+</Indent>
+<Anchor id="earth2studio-models-dx-precipitation_afno-PrecipitationAFNO-output_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.PrecipitationAFNO.output_coords(
+    input_coords: earth2studio.utils.type.CoordSystem
+) -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Output coordinate system of diagnostic model
+
+**Parameters:**
+
+<ParamField path="input_coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system to transform into output_coords
+by default None, will use self.input_coords.
+</ParamField>
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Coordinate system dictionary
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-models-dx-precipitation_afno_v2-PrecipitationAFNOv2">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.models.dx.PrecipitationAFNOv2(
+    core_model: torch.nn.Module,
+    landsea_mask: torch.Tensor,
+    orography: torch.Tensor,
+    center: torch.Tensor,
+    scale: torch.Tensor
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** `Module`, [AutoModelMixin](../auto/mixin.mdx#earth2studio-models-auto-mixin-AutoModelMixin)
+
+Improved Precipitation AFNO diagnostic model. Predicts the total precipitation
+for the next 6 hours [t, t+6h] with the units m. This model uses 20 atmospheric
+inputs and outputs one on a 0.25 degree lat-lon grid (south-pole excluding)
+[720 x 1440].
+
+**Badges:** `region:global` `class:medium-range` `product:precip` `year:2024` `gpu:40gb` `provider:nvidia` `backend:pytorch`
+
+**Parameters:**
+
+<ParamField path="core_model" type="torch.nn.Module">
+Core pytorch model
+</ParamField>
+
+<ParamField path="landsea_mask" type="torch.Tensor">
+Land sea mask tensor of size [720,1440]
+</ParamField>
+
+<ParamField path="orography" type="torch.Tensor">
+Surface geopotential (orography) tensor of size [720,1440]
+</ParamField>
+
+<ParamField path="center" type="torch.Tensor">
+Model center normalization tensor of size [20,1,1]
+</ParamField>
+
+<ParamField path="scale" type="torch.Tensor">
+Model scale normalization tensor of size [20,1,1]
+</ParamField>
+
+<Note>
+
+For more information on the model, please refer to:
+
+- https://catalog.ngc.nvidia.com/orgs/nvidia/teams/earth-2/models/afno_dx_tp-v1-era5
+
+</Note>
+
+<Warning>
+
+PrecipitationAFNOv2 performs worse than PrecipitationAFNO v1 and will be
+deprecated in upcoming releases.
+
+</Warning>
+
+<Anchor id="earth2studio-models-dx-precipitation_afno_v2-PrecipitationAFNOv2-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.PrecipitationAFNOv2.__call__(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Forward pass of diagnostic
+
+</Indent>
+<Anchor id="earth2studio-models-dx-precipitation_afno_v2-PrecipitationAFNOv2-input_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.PrecipitationAFNOv2.input_coords() -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Input coordinate system of diagnostic model
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Coordinate system dictionary
+
+</Indent>
+<Anchor id="earth2studio-models-dx-precipitation_afno_v2-PrecipitationAFNOv2-load_default_package">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.PrecipitationAFNOv2.load_default_package() -> earth2studio.models.auto.Package
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Load prognostic package
+
+</Indent>
+<Anchor id="earth2studio-models-dx-precipitation_afno_v2-PrecipitationAFNOv2-load_model">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package","earth2studio.models.dx.base.DiagnosticModel":"./base.mdx#earth2studio-models-dx-base-DiagnosticModel"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.PrecipitationAFNOv2.load_model(
+    package: earth2studio.models.auto.Package
+) -> earth2studio.models.dx.base.DiagnosticModel
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Load diagnostic from package
+
+</Indent>
+<Anchor id="earth2studio-models-dx-precipitation_afno_v2-PrecipitationAFNOv2-output_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.PrecipitationAFNOv2.output_coords(
+    input_coords: earth2studio.utils.type.CoordSystem
+) -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Output coordinate system of diagnostic model
+
+**Parameters:**
+
+<ParamField path="input_coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system to transform into output_coords
+by default None, will use self.input_coords.
+</ParamField>
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Coordinate system dictionary
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-models-dx-solarradiation_afno-SolarRadiationAFNO1H">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.models.dx.SolarRadiationAFNO1H()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** [SolarRadiationAFNO](#earth2studio-models-dx-solarradiation_afno-SolarRadiationAFNO)
+
+Solar Radiation AFNO diagnostic model for 1-hour frequency predictions.
+Predicts the accumulated global surface solar radiation over 1 hour [Jm^-2].
+
+**Badges:** `region:global` `class:medium-range` `product:solar` `year:2024` `gpu:40gb` `provider:nvidia` `backend:pytorch`
+
+<Anchor id="earth2studio-models-dx-solarradiation_afno-SolarRadiationAFNO1H-load_default_package">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.SolarRadiationAFNO1H.load_default_package() -> earth2studio.models.auto.Package
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Load prognostic package
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-models-dx-solarradiation_afno-SolarRadiationAFNO6H">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.models.dx.SolarRadiationAFNO6H()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** [SolarRadiationAFNO](#earth2studio-models-dx-solarradiation_afno-SolarRadiationAFNO)
+
+Solar Radiation AFNO diagnostic model for 6-hour frequency predictions.
+Predicts the accumulated global surface solar radiation over 6 hours [Jm^-2].
+
+**Badges:** `region:global` `class:medium-range` `product:solar` `year:2024` `gpu:40gb` `provider:nvidia` `backend:pytorch`
+
+<Anchor id="earth2studio-models-dx-solarradiation_afno-SolarRadiationAFNO6H-load_default_package">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.SolarRadiationAFNO6H.load_default_package() -> earth2studio.models.auto.Package
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Load prognostic package
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-models-dx-stormscope_dx_nsrdb-StormScopeDxNSRDB">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.models.dx.StormScopeDxNSRDB(
+    diffusion_model: torch.nn.Module,
+    regression_model: torch.nn.Module,
+    sigma_min: float,
+    sigma_max: float,
+    conditioning_means: torch.Tensor,
+    conditioning_stds: torch.Tensor,
+    conditioning_variables: numpy.ndarray,
+    output_variables: numpy.ndarray,
+    latitudes: torch.Tensor,
+    longitudes: torch.Tensor,
+    invariants: torch.Tensor | None = None,
+    valid_mask: torch.Tensor | None = None,
+    y_coords: numpy.ndarray | None = None,
+    x_coords: numpy.ndarray | None = None,
+    input_interp_max_dist_km: float = 12.0,
+    number_of_samples: int = 1,
+    seed: int | None = None,
+    num_steps: int = 12,
+    amp: bool = True
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** `Module`, [AutoModelMixin](../auto/mixin.mdx#earth2studio-models-auto-mixin-AutoModelMixin)
+
+Estimate Global Horizontal Irradiance from GOES imagery.
+
+This diagnostic model is designed to be used with the
+`earth2studio.models.px.StormScopeGOES` prognostic model, consuming
+its GOES channel outputs to produce solar irradiance estimates.
+
+A regression network produces a first estimate that is refined with a
+warm-started diffusion sampler. Each requested sample is generated
+independently at the input observation time.
+
+**Example**
+
+Using the diagnostic with forecasted GOES imagery from
+`earth2studio.models.px.StormScopeGOES`. A
+`earth2studio.data.GOES` data source can also be used directly
+in place of the prognostic model output:
+
+&gt;&gt;&gt; # Load StormScopeGOES prognostic and NSRDB diagnostic models
+&gt;&gt;&gt; package = StormScopeBase.load_default_package()
+&gt;&gt;&gt; goes_model = StormScopeGOES.load_model(package, conditioning_data_source=None)
+&gt;&gt;&gt; goes_model = goes_model.to("cuda").eval()
+&gt;&gt;&gt; nsrdb_model = StormScopeDxNSRDB.load_model(StormScopeDxNSRDB.load_default_package())
+&gt;&gt;&gt; nsrdb_model = nsrdb_model.to("cuda")
+&gt;&gt;&gt;
+&gt;&gt;&gt; # Build interpolators from GOES grid to model grid
+&gt;&gt;&gt; goes_lat, goes_lon = GOES.grid(satellite="goes16", scan_mode="C")
+&gt;&gt;&gt; goes_model.build_input_interpolator(goes_lat, goes_lon)
+&gt;&gt;&gt; nsrdb_model.build_input_interpolator(goes_lat, goes_lon)
+&gt;&gt;&gt;
+&gt;&gt;&gt; # Run one GOES forecast step then estimate GHI
+&gt;&gt;&gt; y_goes, y_coords = goes_model(x, coords)
+&gt;&gt;&gt; ghi_coords = y_coords.copy()
+&gt;&gt;&gt; del ghi_coords["lead_time"]
+&gt;&gt;&gt; ghi, ghi_coords = nsrdb_model(y_goes.squeeze(2), ghi_coords)
+
+**Badges:** `region:na` `class:nowcasting` `product:solar` `year:2026` `gpu:48gb` `provider:nvidia` `backend:pytorch`
+
+**Parameters:**
+
+<ParamField path="diffusion_model" type="nn.Module">
+Diffusion denoiser.
+</ParamField>
+
+<ParamField path="regression_model" type="nn.Module">
+Deterministic first-guess model.
+</ParamField>
+
+<ParamField path="sigma_min" type="float">
+Minimum diffusion noise level.
+</ParamField>
+
+<ParamField path="sigma_max" type="float">
+Warm-start diffusion noise level.
+</ParamField>
+
+<ParamField path="conditioning_means" type="torch.Tensor">
+Per-channel GOES means.
+</ParamField>
+
+<ParamField path="conditioning_stds" type="torch.Tensor">
+Per-channel GOES standard deviations.
+</ParamField>
+
+<ParamField path="conditioning_variables" type="np.ndarray">
+GOES input variables.
+</ParamField>
+
+<ParamField path="output_variables" type="np.ndarray">
+Output variables, typically ``["ghi"]``.
+</ParamField>
+
+<ParamField path="latitudes" type="torch.Tensor">
+Native-grid latitudes with shape ``[H, W]``.
+</ParamField>
+
+<ParamField path="longitudes" type="torch.Tensor">
+Native-grid longitudes with shape ``[H, W]``.
+</ParamField>
+
+<ParamField path="invariants" type="torch.Tensor | None" default="None">
+Static conditioning channels, by default None.
+</ParamField>
+
+<ParamField path="valid_mask" type="torch.Tensor | None" default="None">
+Native-grid output mask, by default None.
+</ParamField>
+
+<ParamField path="y_coords" type="np.ndarray | None" default="None">
+Native-grid y coordinates, by default None.
+</ParamField>
+
+<ParamField path="x_coords" type="np.ndarray | None" default="None">
+Native-grid x coordinates, by default None.
+</ParamField>
+
+<ParamField path="input_interp_max_dist_km" type="float" default="12.0">
+Maximum input interpolation distance, by default 12.0.
+</ParamField>
+
+<ParamField path="number_of_samples" type="int" default="1">
+Number of GHI samples per input, by default 1.
+</ParamField>
+
+<ParamField path="seed" type="int | None" default="None">
+Base random seed, by default None.
+</ParamField>
+
+<ParamField path="num_steps" type="int" default="12">
+Number of diffusion steps, by default 12.
+</ParamField>
+
+<ParamField path="amp" type="bool" default="True">
+Enable automatic mixed precision, by default True.
+</ParamField>
+
+<Note>
+
+For more information see the following references:
+
+- https://huggingface.co/nvidia/StormScope-NSRDB
+
+</Note>
+
+<Anchor id="earth2studio-models-dx-stormscope_dx_nsrdb-StormScopeDxNSRDB-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.StormScopeDxNSRDB.__call__(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Generate GHI samples from GOES imagery.
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+GOES tensor with shape ``[batch, time, variable, y, x]``.
+</ParamField>
+
+<ParamField path="coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — GOES coordinates.
+</ParamField>
+
+**Returns:** `tuple[torch.Tensor,` [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) `]`
+
+GHI samples and output coordinates.
+
+</Indent>
+<Anchor id="earth2studio-models-dx-stormscope_dx_nsrdb-StormScopeDxNSRDB-build_input_interpolator">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.StormScopeDxNSRDB.build_input_interpolator(
+    input_lats: torch.Tensor | numpy.typing.ArrayLike,
+    input_lons: torch.Tensor | numpy.typing.ArrayLike,
+    max_dist_km: float | None = None
+) -> torch.nn.Module
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Build an interpolator from an input grid to the model grid.
+
+**Parameters:**
+
+<ParamField path="input_lats" type="torch.Tensor | ArrayLike">
+Input latitudes.
+</ParamField>
+
+<ParamField path="input_lons" type="torch.Tensor | ArrayLike">
+Input longitudes.
+</ParamField>
+
+<ParamField path="max_dist_km" type="float | None" default="None">
+Maximum nearest-neighbor distance, by default None.
+</ParamField>
+
+**Returns:** `nn.Module`
+
+Input interpolation module.
+
+</Indent>
+<Anchor id="earth2studio-models-dx-stormscope_dx_nsrdb-StormScopeDxNSRDB-input_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.StormScopeDxNSRDB.input_coords() -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Input coordinate system.
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+GOES input coordinates.
+
+</Indent>
+<Anchor id="earth2studio-models-dx-stormscope_dx_nsrdb-StormScopeDxNSRDB-load_default_package">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.StormScopeDxNSRDB.load_default_package() -> earth2studio.models.auto.Package
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Default StormScope NSRDB package.
+
+**Returns:** [`Package`](../auto/package.mdx#earth2studio-models-auto-package-Package)
+
+Model package.
+
+</Indent>
+<Anchor id="earth2studio-models-dx-stormscope_dx_nsrdb-StormScopeDxNSRDB-load_model">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package","earth2studio.models.dx.base.DiagnosticModel":"./base.mdx#earth2studio-models-dx-base-DiagnosticModel"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.StormScopeDxNSRDB.load_model(
+    package: earth2studio.models.auto.Package,
+    number_of_samples: int = 1,
+    seed: int | None = None
+) -> earth2studio.models.dx.base.DiagnosticModel
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Load the StormScope NSRDB diagnostic.
+
+**Parameters:**
+
+<ParamField path="package" type="Package">
+[`Package`](../auto/package.mdx#earth2studio-models-auto-package-Package) — Package containing model assets.
+</ParamField>
+
+<ParamField path="number_of_samples" type="int" default="1">
+Number of GHI samples, by default 1.
+</ParamField>
+
+<ParamField path="seed" type="int | None" default="None">
+Base random seed, by default None.
+</ParamField>
+
+**Returns:** [`DiagnosticModel`](./base.mdx#earth2studio-models-dx-base-DiagnosticModel)
+
+Loaded diagnostic model.
+
+</Indent>
+<Anchor id="earth2studio-models-dx-stormscope_dx_nsrdb-StormScopeDxNSRDB-output_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.StormScopeDxNSRDB.output_coords(
+    input_coords: earth2studio.utils.type.CoordSystem
+) -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Output coordinate system.
+
+**Parameters:**
+
+<ParamField path="input_coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Native-grid GOES input coordinates.
+</ParamField>
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Sampled GHI output coordinates.
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-models-dx-wind_gust-WindgustAFNO">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.models.dx.WindgustAFNO(
+    core_model: torch.nn.Module,
+    landsea_mask: torch.Tensor,
+    orography: torch.Tensor,
+    center: torch.Tensor,
+    scale: torch.Tensor
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** `Module`, [AutoModelMixin](../auto/mixin.mdx#earth2studio-models-auto-mixin-AutoModelMixin)
+
+Wind gust AFNO diagnsotic model. Predicts the maximum wind gust during the
+preceding hour with the units m/s. This model uses an 17 atmospheric inputs and
+outputs one on a 0.25 degree lat-lon grid (south-pole excluding) [720 x 1440].
+
+**Badges:** `region:global` `class:medium-range` `product:wind` `year:2024` `gpu:40gb` `provider:nvidia` `backend:pytorch`
+
+**Parameters:**
+
+<ParamField path="core_model" type="torch.nn.Module">
+Core pytorch model
+</ParamField>
+
+<ParamField path="landsea_mask" type="torch.Tensor">
+Land sea mask tensor of size [720,1440]
+</ParamField>
+
+<ParamField path="orography" type="torch.Tensor">
+Surface geopotential (orography) tensor of size [720,1440]
+</ParamField>
+
+<ParamField path="center" type="torch.Tensor">
+Model center normalization tensor of size [17,1,1]
+</ParamField>
+
+<ParamField path="scale" type="torch.Tensor">
+Model scale normalization tensor of size [17,1,1]
+</ParamField>
+
+<Note>
+
+For more information on the model, please refer to:
+
+- https://catalog.ngc.nvidia.com/orgs/nvidia/teams/earth-2/models/afno_dx_wg-v1-era5
+
+</Note>
+
+<Anchor id="earth2studio-models-dx-wind_gust-WindgustAFNO-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.WindgustAFNO.__call__(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Forward pass of diagnostic
+
+</Indent>
+<Anchor id="earth2studio-models-dx-wind_gust-WindgustAFNO-input_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.WindgustAFNO.input_coords() -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Input coordinate system of diagnostic model
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Coordinate system dictionary
+
+</Indent>
+<Anchor id="earth2studio-models-dx-wind_gust-WindgustAFNO-load_default_package">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.WindgustAFNO.load_default_package() -> earth2studio.models.auto.Package
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Default pre-trained windgustnet model package from Nvidia model registry
+
+</Indent>
+<Anchor id="earth2studio-models-dx-wind_gust-WindgustAFNO-load_model">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package","earth2studio.models.dx.base.DiagnosticModel":"./base.mdx#earth2studio-models-dx-base-DiagnosticModel"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.WindgustAFNO.load_model(
+    package: earth2studio.models.auto.Package
+) -> earth2studio.models.dx.base.DiagnosticModel
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Load diagnostic from package
+
+</Indent>
+<Anchor id="earth2studio-models-dx-wind_gust-WindgustAFNO-output_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.WindgustAFNO.output_coords(
+    input_coords: earth2studio.utils.type.CoordSystem
+) -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Output coordinate system of diagnostic model
+
+**Parameters:**
+
+<ParamField path="input_coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system to transform into output_coords
+by default None, will use self.input_coords.
+</ParamField>
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Coordinate system dictionary
+
+</Indent>
+</Indent>

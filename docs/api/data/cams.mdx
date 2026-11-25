@@ -1,0 +1,184 @@
+---
+layout: overview
+title: earth2studio.data.cams
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`CAMS_FX`](#earth2studio-data-cams-CAMS_FX) | CAMS Global atmospheric composition forecast data source. |
+
+### Functions
+
+| Name | Description |
+|------|-------------|
+
+### API
+
+<Anchor id="earth2studio-data-cams-CAMS_FX">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.cams.CAMS_FX(
+    cache: bool = True,
+    verbose: bool = True
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+CAMS Global atmospheric composition forecast data source.
+
+Uses the ``cams-global-atmospheric-composition-forecasts`` dataset.
+Grid is 0.4 deg global (451 x 900).
+
+**Badges:** `region:global` `dataclass:simulation` `product:wind` `product:temp` `product:atmos` `provider:copernicus`
+
+**Parameters:**
+
+<ParamField path="cache" type="bool" default="True">
+Cache data source on local memory, by default True
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="True">
+Print download progress, by default True
+</ParamField>
+
+<Note>
+
+Additional information on the data repository, registration, and authentication can
+be referenced here:
+
+- https://ads.atmosphere.copernicus.eu/datasets/cams-global-atmospheric-composition-forecasts
+- https://ads.atmosphere.copernicus.eu/how-to-api
+
+    The API endpoint for this data source varies from the Climate Data Store (CDS), be
+    sure your api config has the correct url.
+
+</Note>
+
+<Warning>
+
+This is a remote data source and can potentially download a large amount of data
+to your local machine for large requests.
+
+</Warning>
+
+<ParamField path="cache" type="Path">
+Cache location.
+</ParamField>
+<Anchor id="earth2studio-data-cams-CAMS_FX-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.LeadTimeArray":"../utils/type.mdx#earth2studio-utils-type-LeadTimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.cams.CAMS_FX.__call__(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    lead_time: datetime.timedelta | list[datetime.timedelta] | earth2studio.utils.type.LeadTimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Retrieve CAMS Global forecast data.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Forecast initialization times (UTC).
+</ParamField>
+
+<ParamField path="lead_time" type="timedelta | list[timedelta] | LeadTimeArray">
+`timedelta | list[timedelta] |` [`LeadTimeArray`](../utils/type.mdx#earth2studio-utils-type-LeadTimeArray) — Forecast lead times.
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — Variables to return. Must be in CAMSGlobalLexicon.
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+CAMS forecast data array with dims [time, lead_time, variable, lat, lon]
+
+</Indent>
+<Anchor id="earth2studio-data-cams-CAMS_FX-available">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.cams.CAMS_FX.available(
+    time: datetime.datetime | list[datetime.datetime]
+) -> bool
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Check if CAMS Global forecast data is available for the requested times.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime]">
+Timestamps to check availability for.
+</ParamField>
+
+**Returns:** `bool`
+
+True if all requested times are within the valid range.
+
+</Indent>
+<Anchor id="earth2studio-data-cams-CAMS_FX-fetch">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.LeadTimeArray":"../utils/type.mdx#earth2studio-utils-type-LeadTimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.cams.CAMS_FX.fetch(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    lead_time: datetime.timedelta | list[datetime.timedelta] | earth2studio.utils.type.LeadTimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Async retrieval of CAMS Global forecast data.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Forecast initialization times (UTC).
+</ParamField>
+
+<ParamField path="lead_time" type="timedelta | list[timedelta] | LeadTimeArray">
+`timedelta | list[timedelta] |` [`LeadTimeArray`](../utils/type.mdx#earth2studio-utils-type-LeadTimeArray) — Forecast lead times.
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — Variables to return. Must be in CAMSGlobalLexicon.
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+CAMS forecast data array with dims [time, lead_time, variable, lat, lon]
+
+</Indent>
+</Indent>

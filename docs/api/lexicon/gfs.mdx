@@ -1,0 +1,65 @@
+---
+layout: overview
+title: earth2studio.lexicon.gfs
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`GFSLexicon`](#earth2studio-lexicon-gfs-GFSLexicon) | Global Forecast System Lexicon |
+
+### API
+
+<Anchor id="earth2studio-lexicon-gfs-GFSLexicon">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.lexicon.gfs.GFSLexicon()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Global Forecast System Lexicon
+GFS specified &lt;Parameter ID&gt;::&lt;Level/ Layer&gt;
+
+<Note>
+
+Additional resources:
+https://www.nco.ncep.noaa.gov/pmb/products/gfs/gfs.t00z.pgrb2.0p25.f000.shtml
+https://www.nco.ncep.noaa.gov/pmb/products/gfs/gfs.t00z.pgrb2.0p25.f003.shtml
+
+</Note>
+
+<Warning>
+
+Some variables are only present for lead time greater than 0
+
+</Warning>
+
+<Anchor id="earth2studio-lexicon-gfs-GFSLexicon-get_item">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.lexicon.gfs.GFSLexicon.get_item(
+    val: str
+) -> tuple[str, collections.abc.Callable]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Get item from GFS vocabulary.
+
+</Indent>
+</Indent>

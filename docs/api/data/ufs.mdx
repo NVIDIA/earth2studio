@@ -1,0 +1,200 @@
+---
+layout: overview
+title: earth2studio.data.ufs
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`UFSObsConv`](#earth2studio-data-ufs-UFSObsConv) | NOAA UFS GEFS-v13 replay observations in-situ data |
+| [`UFSObsSat`](#earth2studio-data-ufs-UFSObsSat) | NOAA UFS GEFS-v13 replay observations satellite data |
+
+### Functions
+
+| Name | Description |
+|------|-------------|
+
+### API
+
+<Anchor id="earth2studio-data-ufs-UFSObsConv">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.ufs.UFSObsConv()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** [_UFSObsBase](#earth2studio-data-ufs-_UFSObsBase)
+
+NOAA UFS GEFS-v13 replay observations in-situ data
+
+**Example**
+
+<CodeBlock showLineNumbers={false}>
+
+```python
+ds = UFSObsConv(tolerance=timedelta(hours=2))
+df = ds(datetime(2024, 1, 1, 20), ["u"])
+
+```
+
+</CodeBlock>
+
+**Badges:** `region:global` `dataclass:observation` `product:atmos` `product:insitu`
+
+**Parameters:**
+
+<ParamField path="time_tolerance" type="TimeTolerance" default="np.timedelta64(10, 'm')">
+[`TimeTolerance`](../utils/type.mdx#earth2studio-utils-type-TimeTolerance) — Time tolerance window for filtering observations. Accepts a single value
+(symmetric ± window) or a tuple (lower, upper) for asymmetric windows,
+by default, np.timedelta64(10, 'm').
+</ParamField>
+
+<ParamField path="max_workers" type="int" default="24">
+Max workers in async IO thread pool for concurrent downloads, by default 24.
+</ParamField>
+
+<ParamField path="cache" type="bool" default="True">
+Cache data source in local filesystem cache, by default True.
+</ParamField>
+
+<ParamField path="async_timeout" type="int" default="600">
+Time in seconds after which the async fetch will be cancelled if not finished,
+by default 600.
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="True">
+Log basic progress information, by default True.
+</ParamField>
+
+<ParamField path="decode_workers" type="int | Literal['auto']" default="'auto'">
+Number of processes used to decode the fetched NetCDF files into
+DataFrames, or "auto" to select from the available CPUs. Use 1 to
+decode serially in the current process, by default "auto". Workers
+use the 'spawn' start method, so as with any use of multiprocessing,
+script entry points must be guarded by ``if __name__ == "__main__"``.
+</ParamField>
+
+<Note>
+
+Additional resources:
+
+- https://registry.opendata.aws/noaa-ufs-gefsv13replay-pds/
+- https://psl.noaa.gov/data/ufs_replay/
+
+</Note>
+
+<Warning>
+
+This is a remote data source and can potentially download a large amount of data
+to your local machine for large requests.
+
+</Warning>
+
+</Indent>
+
+<Anchor id="earth2studio-data-ufs-UFSObsSat">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeTolerance":"../utils/type.mdx#earth2studio-utils-type-TimeTolerance"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.ufs.UFSObsSat(
+    time_tolerance: earth2studio.utils.type.TimeTolerance = np.timedelta64(10, 'm'),
+    satellites: list[str] | None = None,
+    max_workers: int = 24,
+    cache: bool = True,
+    async_timeout: int = 600,
+    verbose: bool = True,
+    decode_workers: int | typing.Literal['auto'] = 'auto'
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** [_UFSObsBase](#earth2studio-data-ufs-_UFSObsBase)
+
+NOAA UFS GEFS-v13 replay observations satellite data
+
+**Example**
+
+<CodeBlock showLineNumbers={false}>
+
+```python
+# Use all possible satellites
+ds = UFSObsSat(tolerance=timedelta(hours=2))
+df = ds(datetime(2024, 1, 1, 20), ["atms"])
+
+# Use specific satellite
+ds = UFSObsSat(tolerance=timedelta(hours=2), satellites=["n20"])
+df = ds(datetime(2024, 1, 1, 20), ["atms"])
+
+```
+
+</CodeBlock>
+
+**Badges:** `region:global` `dataclass:observation` `product:atmos` `product:sat`
+
+**Parameters:**
+
+<ParamField path="time_tolerance" type="TimeTolerance" default="np.timedelta64(10, 'm')">
+[`TimeTolerance`](../utils/type.mdx#earth2studio-utils-type-TimeTolerance) — Time tolerance window for filtering observations. Accepts a single value
+(symmetric ± window) or a tuple (lower, upper) for asymmetric windows,
+by default, np.timedelta64(10, 'm').
+</ParamField>
+
+<ParamField path="satellites" type="list[str]" default="None">
+List of satellite platforms to include, by default includes all platforms.
+</ParamField>
+
+<ParamField path="max_workers" type="int" default="24">
+Max workers in async IO thread pool for concurrent downloads, by default 24.
+</ParamField>
+
+<ParamField path="cache" type="bool" default="True">
+Cache data source in local filesystem cache, by default True.
+</ParamField>
+
+<ParamField path="async_timeout" type="int" default="600">
+Time in seconds after which the async fetch will be cancelled if not finished,
+by default 600.
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="True">
+Log basic progress information, by default True.
+</ParamField>
+
+<ParamField path="decode_workers" type="int | Literal['auto']" default="'auto'">
+Number of processes used to decode the fetched NetCDF files into
+DataFrames, or "auto" to select from the available CPUs. Use 1 to
+decode serially in the current process, by default "auto". Workers
+use the 'spawn' start method, so as with any use of multiprocessing,
+script entry points must be guarded by ``if __name__ == "__main__"``.
+</ParamField>
+
+<Note>
+
+Additional resources:
+
+- https://registry.opendata.aws/noaa-ufs-gefsv13replay-pds/
+- https://psl.noaa.gov/data/ufs_replay/
+
+</Note>
+
+<Warning>
+
+This is a remote data source and can potentially download a large amount of data
+to your local machine for large requests.
+
+</Warning>
+
+</Indent>

@@ -1,0 +1,749 @@
+---
+layout: overview
+title: earth2studio.utils.checkpoint
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`Checkpoint`](#earth2studio-utils-checkpoint-Checkpoint) | Catalog of restart checkpoints for a named inference run. |
+| [`CheckpointEntry`](#earth2studio-utils-checkpoint-CheckpointEntry) | A committed checkpoint catalog row. |
+| [`CheckpointError`](#earth2studio-utils-checkpoint-CheckpointError) | Base error for checkpoint failures. |
+| [`CheckpointSerializationError`](#earth2studio-utils-checkpoint-CheckpointSerializationError) | Raised when checkpoint state cannot be serialized without pickle. |
+| [`CheckpointSession`](#earth2studio-utils-checkpoint-CheckpointSession) | Active checkpoint row or new checkpoint session. |
+| [`CheckpointState`](#earth2studio-utils-checkpoint-CheckpointState) | Bound checkpoint state proxy returned by |
+| [`CheckpointStateCollision`](#earth2studio-utils-checkpoint-CheckpointStateCollision) | Raised when a state dataclass type is bound more than once. |
+| [`CheckpointStateSchemaError`](#earth2studio-utils-checkpoint-CheckpointStateSchemaError) | Raised when a saved dataclass payload does not match the current schema. |
+| [`LoadedState`](#earth2studio-utils-checkpoint-LoadedState) | Serialized dataclass payload waiting to be bound. |
+| [`NullCheckpoint`](#earth2studio-utils-checkpoint-NullCheckpoint) | No-op checkpoint used when checkpointing is disabled. |
+| [`PendingCheckpointState`](#earth2studio-utils-checkpoint-PendingCheckpointState) | Dataclass state bound before a checkpoint session is active. |
+
+### Functions
+
+| Name | Description |
+|------|-------------|
+| [`bind_checkpoint_state`](#earth2studio-utils-checkpoint-bind_checkpoint_state) | Bind a dataclass instance to checkpoint state metadata. |
+| [`default_checkpoint_path`](#earth2studio-utils-checkpoint-default_checkpoint_path) | Return the default path for a named checkpoint store. |
+
+### API
+
+<Anchor id="earth2studio-utils-checkpoint-Checkpoint">
+
+<CodeBlock links={{"earth2studio.utils.checkpoint.CheckpointLevel":"#earth2studio-utils-checkpoint-CheckpointLevel"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.utils.checkpoint.Checkpoint(
+    name: str,
+    path: str | pathlib.Path | None = None,
+    mode: typing.Literal['overwrite', 'append'] = 'overwrite',
+    flush_interval: int | None = 1,
+    history_size: int | None = None,
+    level: earth2studio.utils.checkpoint.CheckpointLevel = 2,
+    rank: int | None = None,
+    world_size: int | None = None,
+    device: str | torch.device = torch.device('cpu')
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Catalog of restart checkpoints for a named inference run.
+
+A checkpoint owns the on-disk catalog and commit directories for one logical
+inference run. Each committed catalog row stores generic workflow metadata
+and component state bound through
+`bind_checkpoint_state`.
+
+**Parameters:**
+
+<ParamField path="name" type="str">
+Name of the checkpoint store. Used in the default checkpoint path and in
+commit manifests.
+</ParamField>
+
+<ParamField path="path" type="str | Path | None" default="None">
+Directory where checkpoint files are stored. If ``None``, checkpoints are
+written under the default Earth2Studio cache location, by default None.
+</ParamField>
+
+<ParamField path="mode" type="Literal['overwrite', 'append']" default="'overwrite'">
+Catalog update mode. ``"overwrite"`` keeps only the latest row;
+``"append"`` preserves row history for repeated writes, by default
+"overwrite".
+</ParamField>
+
+<ParamField path="flush_interval" type="int | None" default="1">
+Number of workflow ``write`` calls between durable commits. Use ``None``
+to keep updates pending until ``flush`` is called explicitly, by default
+1.
+</ParamField>
+
+<ParamField path="history_size" type="int | None" default="None">
+Maximum number of rows to keep when ``mode="append"``. In overwrite mode
+this is ignored and treated as one latest row, by default None.
+</ParamField>
+
+<ParamField path="level" type="CheckpointLevel" default="2">
+[`CheckpointLevel`](#earth2studio-utils-checkpoint-CheckpointLevel) — Requested component logging level. ``0`` records workflow progress and
+explicit metadata only, ``1`` allows component state needed to restart
+workflow items such as ensemble members, and ``2`` allows component
+state needed to resume inside a forecast rollout, by default 2.
+</ParamField>
+
+<ParamField path="rank" type="int | None" default="None">
+Distributed rank for this process. If ``None``, Earth2Studio attempts to
+detect the rank from PhysicsNeMo or common distributed environment
+variables, by default None.
+</ParamField>
+
+<ParamField path="world_size" type="int | None" default="None">
+Distributed world size. If ``None``, Earth2Studio attempts to detect the
+world size from PhysicsNeMo or ``WORLD_SIZE``, by default None.
+</ParamField>
+
+<ParamField path="device" type="str | torch.device" default="torch.device('cpu')">
+Device where components should stage live tensor state before it is
+serialized into the checkpoint, by default torch.device("cpu").
+</ParamField>
+
+<ParamField path="_catalog" type="list[CheckpointEntry] | None = None">
+</ParamField>
+
+<ParamField path="_context_sessions" type="list[CheckpointSession] = []">
+</ParamField>
+
+<ParamField path="active" type="CheckpointSession | None">
+Active checkpoint selected from this catalog, if one is in scope.
+</ParamField>
+
+<ParamField path="catalog" type="tuple[CheckpointEntry, ...]">
+Committed checkpoint entries for the current rank.
+</ParamField>
+
+<ParamField path="device" type="= torch.device(device)">
+</ParamField>
+
+<ParamField path="history_size" type="= 1 if mode == 'overwrite' else history_size">
+</ParamField>
+
+<ParamField path="path">
+</ParamField>
+
+<ParamField path="rank" type="= detected_rank if rank is None else rank">
+</ParamField>
+
+<ParamField path="rank_path" type="Path">
+Directory for this process checkpoint writes.
+</ParamField>
+
+<ParamField path="world_size">
+</ParamField>
+<Anchor id="earth2studio-utils-checkpoint-Checkpoint-refresh">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.utils.checkpoint.Checkpoint.refresh() -> None
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Refresh the checkpoint catalog from disk.
+
+</Indent>
+<Anchor id="earth2studio-utils-checkpoint-Checkpoint-select">
+
+<CodeBlock links={{"earth2studio.utils.checkpoint.CheckpointSession":"#earth2studio-utils-checkpoint-CheckpointSession"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.utils.checkpoint.Checkpoint.select(
+    row: int
+) -> earth2studio.utils.checkpoint.CheckpointSession
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Select an existing checkpoint row by position.
+
+The selected session can be used as a context manager. Bound component
+state and metadata are restored from the selected catalog row when the
+session becomes active.
+
+**Parameters:**
+
+<ParamField path="row" type="int">
+Positional row index. Negative indexing is supported.
+</ParamField>
+
+**Returns:** [`CheckpointSession`](#earth2studio-utils-checkpoint-CheckpointSession)
+
+Session representing the selected catalog row.
+
+**Raises:**
+
+- `IndexError`: If no catalog row matches the selection.
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-utils-checkpoint-CheckpointEntry">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.utils.checkpoint.CheckpointEntry(
+    commit_id: str,
+    labels: dict[str, typing.Any],
+    metadata: dict[str, typing.Any],
+    metadata_keys: tuple[str, ...],
+    write_count: int,
+    saved_at: str,
+    rank: int,
+    world_size: int,
+    state_ids: tuple[str, ...]
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>Dataclass</Badge>
+
+A committed checkpoint catalog row.
+
+<ParamField path="artifacts" type="tuple[str, ...]">
+Compatibility alias for metadata keys.
+</ParamField>
+
+<ParamField path="lead_time" type="Any | None">
+Forecast lead time metadata, when present.
+</ParamField>
+
+</Indent>
+
+<Anchor id="earth2studio-utils-checkpoint-CheckpointError">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.utils.checkpoint.CheckpointError()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** `RuntimeError`
+
+Base error for checkpoint failures.
+
+</Indent>
+
+<Anchor id="earth2studio-utils-checkpoint-CheckpointSerializationError">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.utils.checkpoint.CheckpointSerializationError()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** [CheckpointError](#earth2studio-utils-checkpoint-CheckpointError)
+
+Raised when checkpoint state cannot be serialized without pickle.
+
+</Indent>
+
+<Anchor id="earth2studio-utils-checkpoint-CheckpointSession">
+
+<CodeBlock links={{"earth2studio.utils.checkpoint.Checkpoint":"#earth2studio-utils-checkpoint-Checkpoint","earth2studio.utils.checkpoint.CheckpointEntry":"#earth2studio-utils-checkpoint-CheckpointEntry"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.utils.checkpoint.CheckpointSession(
+    catalog: earth2studio.utils.checkpoint.Checkpoint,
+    entry: earth2studio.utils.checkpoint.CheckpointEntry | None = None
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Active checkpoint row or new checkpoint session.
+
+A session is the context-bound handle used by workflows and components to
+restore bound state, record completed restart boundaries, and commit new
+checkpoint rows. Sessions created from `Checkpoint.select` restore an
+existing catalog row; sessions opened by ``with checkpoint`` on an empty
+catalog create the first row for the checkpoint.
+
+**Parameters:**
+
+<ParamField path="catalog" type="Checkpoint">
+[`Checkpoint`](#earth2studio-utils-checkpoint-Checkpoint) — Checkpoint catalog that owns this session.
+</ParamField>
+
+<ParamField path="entry" type="CheckpointEntry | None" default="None">
+[`CheckpointEntry`](#earth2studio-utils-checkpoint-CheckpointEntry) `| None` — Existing catalog row to restore. If ``None``, the session starts as a new
+write target, by default None.
+</ParamField>
+
+<ParamField path="_commit_path" type="Path">
+</ParamField>
+
+<ParamField path="_loaded_states" type="= self._load_selected_states()">
+</ParamField>
+
+<ParamField path="_pending_metadata" type="dict[str, Any] = &#123;&#125;">
+</ParamField>
+
+<ParamField path="_reusable_state_ids" type="set[str] = set()">
+</ParamField>
+
+<ParamField path="_tokens" type="list[Token[CheckpointSession | None]] = []">
+</ParamField>
+
+<ParamField path="artifacts" type="dict[str, Any]">
+Compatibility alias for checkpoint metadata.
+</ParamField>
+
+<ParamField path="bound_states" type="dict[str, Any] = &#123;&#125;">
+</ParamField>
+
+<ParamField path="commit_id" type="str | None">
+Selected commit identifier, if one exists.
+</ParamField>
+
+<ParamField path="device" type="device">
+Device used for live checkpoint state tensors.
+</ParamField>
+
+<ParamField path="exists" type="bool">
+Whether this session resolves to an existing checkpoint row.
+</ParamField>
+
+<ParamField path="is_active" type="bool">
+Whether this checkpoint session is active in the current context.
+</ParamField>
+
+<ParamField path="labels" type="= dict(entry.labels) if entry is not None else &#123;&#125;">
+</ParamField>
+
+<ParamField path="lead_time" type="Any | None">
+Forecast lead time metadata, when present.
+</ParamField>
+
+<ParamField path="metadata" type="dict[str, Any]">
+Load metadata recorded for the selected checkpoint row.
+</ParamField>
+
+<ParamField path="write_count" type="= entry.write_count if entry is not None else 0">
+</ParamField>
+<Anchor id="earth2studio-utils-checkpoint-CheckpointSession-artifact">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.utils.checkpoint.CheckpointSession.artifact(
+    name: str
+) -> typing.Any
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Compatibility alias for `metadata_value`.
+
+</Indent>
+<Anchor id="earth2studio-utils-checkpoint-CheckpointSession-bind">
+
+<CodeBlock links={{"earth2studio.utils.checkpoint.T":"#earth2studio-utils-checkpoint-T","earth2studio.utils.checkpoint.CheckpointState":"#earth2studio-utils-checkpoint-CheckpointState"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.utils.checkpoint.CheckpointSession.bind(
+    state: earth2studio.utils.checkpoint.T | earth2studio.utils.checkpoint.CheckpointState[earth2studio.utils.checkpoint.T]
+) -> earth2studio.utils.checkpoint.CheckpointState[earth2studio.utils.checkpoint.T]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Bind and restore a dataclass state object.
+
+</Indent>
+<Anchor id="earth2studio-utils-checkpoint-CheckpointSession-flush">
+
+<CodeBlock links={{"earth2studio.utils.checkpoint.CheckpointEntry":"#earth2studio-utils-checkpoint-CheckpointEntry"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.utils.checkpoint.CheckpointSession.flush(
+    metadata: typing.Any = {}
+) -> earth2studio.utils.checkpoint.CheckpointEntry | None
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Commit the current session state to the checkpoint catalog.
+
+``flush`` writes an atomic commit directory containing the manifest,
+bound component state, and checkpoint metadata, then updates the catalog
+row for this session. If no write is pending and no metadata overrides
+are supplied, no commit is created.
+
+**Returns:** [`CheckpointEntry`](#earth2studio-utils-checkpoint-CheckpointEntry) `| None`
+
+The committed catalog entry, or ``None`` when there was nothing new to
+commit.
+
+</Indent>
+<Anchor id="earth2studio-utils-checkpoint-CheckpointSession-metadata_value">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.utils.checkpoint.CheckpointSession.metadata_value(
+    name: str
+) -> typing.Any
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Load one metadata value by name.
+
+</Indent>
+<Anchor id="earth2studio-utils-checkpoint-CheckpointSession-write">
+
+<CodeBlock links={{"earth2studio.utils.checkpoint.CheckpointEntry":"#earth2studio-utils-checkpoint-CheckpointEntry"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.utils.checkpoint.CheckpointSession.write(
+    metadata: typing.Any = {}
+) -> earth2studio.utils.checkpoint.CheckpointEntry | None
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Record a safe restart boundary for the active session.
+
+``write`` increments the session write count and stores the latest
+checkpoint metadata. If the parent checkpoint's ``flush_interval`` is
+reached, the pending update is committed to disk; otherwise it remains in
+memory until a later ``write`` or ``flush``.
+
+**Returns:** [`CheckpointEntry`](#earth2studio-utils-checkpoint-CheckpointEntry) `| None`
+
+The committed catalog entry when this call triggers a flush;
+otherwise ``None``.
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-utils-checkpoint-CheckpointState">
+
+<CodeBlock links={{"earth2studio.utils.checkpoint.T":"#earth2studio-utils-checkpoint-T","earth2studio.utils.checkpoint.Checkpoint":"#earth2studio-utils-checkpoint-Checkpoint","earth2studio.utils.checkpoint.CheckpointSession":"#earth2studio-utils-checkpoint-CheckpointSession"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.utils.checkpoint.CheckpointState(
+    state: earth2studio.utils.checkpoint.T,
+    checkpoint: earth2studio.utils.checkpoint.Checkpoint | None = None,
+    session: earth2studio.utils.checkpoint.CheckpointSession | None = None,
+    state_loaded: bool = False
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** `Generic[T]`
+
+Bound checkpoint state proxy returned by
+[`bind_checkpoint_state`](./checkpoint.mdx#earth2studio-utils-checkpoint-bind_checkpoint_state).
+
+The proxy forwards normal attribute access to the wrapped dataclass while
+exposing checkpoint metadata through ``checkpoint_*`` properties.
+
+<ParamField path="checkpoint_dataclass" type="T">
+Wrapped dataclass instance serialized by the checkpoint.
+</ParamField>
+
+<ParamField path="checkpoint_device" type="device">
+Device used for live checkpoint state tensors.
+</ParamField>
+
+<ParamField path="checkpoint_enabled" type="bool">
+Whether this state is associated with a checkpoint.
+</ParamField>
+
+<ParamField path="checkpoint_flush_interval" type="int | None">
+Flush interval configured on the associated checkpoint.
+</ParamField>
+
+<ParamField path="checkpoint_is_flush_due" type="bool">
+Whether the next checkpoint write is expected to flush to disk.
+</ParamField>
+
+<ParamField path="checkpoint_labels" type="Mapping[str, Any]">
+Labels for the active checkpoint session or pending checkpoint.
+</ParamField>
+
+<ParamField path="checkpoint_lead_time" type="Any | None">
+Selected checkpoint lead time metadata, if one exists.
+</ParamField>
+
+<ParamField path="checkpoint_level" type="CheckpointLevel">
+Checkpoint component logging level requested by the user.
+</ParamField>
+
+<ParamField path="checkpoint_metadata" type="Mapping[str, Any]">
+Metadata recorded for the selected checkpoint row.
+</ParamField>
+
+<ParamField path="checkpoint_selected" type="bool">
+Whether this state is bound to an existing checkpoint row.
+</ParamField>
+
+<ParamField path="checkpoint_state_loaded" type="bool">
+Whether this dataclass was restored from the selected checkpoint row.
+</ParamField>
+
+<ParamField path="checkpoint_write_count" type="int">
+Number of write boundaries recorded in the active session.
+</ParamField>
+
+<ParamField path="device" type="device">
+Alias for the checkpoint tensor state device.
+</ParamField>
+</Indent>
+
+<Anchor id="earth2studio-utils-checkpoint-CheckpointStateCollision">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.utils.checkpoint.CheckpointStateCollision()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** [CheckpointError](#earth2studio-utils-checkpoint-CheckpointError)
+
+Raised when a state dataclass type is bound more than once.
+
+</Indent>
+
+<Anchor id="earth2studio-utils-checkpoint-CheckpointStateSchemaError">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.utils.checkpoint.CheckpointStateSchemaError()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** [CheckpointError](#earth2studio-utils-checkpoint-CheckpointError)
+
+Raised when a saved dataclass payload does not match the current schema.
+
+</Indent>
+
+<Anchor id="earth2studio-utils-checkpoint-LoadedState">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.utils.checkpoint.LoadedState(
+    path: pathlib.Path,
+    manifest: dict[str, typing.Any]
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>Dataclass</Badge>
+
+Serialized dataclass payload waiting to be bound.
+
+</Indent>
+
+<Anchor id="earth2studio-utils-checkpoint-NullCheckpoint">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.utils.checkpoint.NullCheckpoint()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+No-op checkpoint used when checkpointing is disabled.
+
+<ParamField path="catalog" type="NullCheckpoint">
+Catalog-like no-op handle for workflow checkpoint checks.
+</ParamField>
+
+<ParamField path="is_active" type="bool">
+Whether this checkpoint session is active in the current context.
+</ParamField>
+
+<ParamField path="labels" type="Mapping[str, Any]">
+Labels for the no-op session.
+</ParamField>
+
+<ParamField path="metadata" type="Mapping[str, Any]">
+Metadata for the no-op session.
+</ParamField>
+
+<ParamField path="write_count" type="int">
+Number of checkpoint writes accepted by the no-op session.
+</ParamField>
+<Anchor id="earth2studio-utils-checkpoint-NullCheckpoint-flush">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.utils.checkpoint.NullCheckpoint.flush(
+    metadata: typing.Any = {}
+) -> None
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Accept a flush request without committing anything.
+
+</Indent>
+<Anchor id="earth2studio-utils-checkpoint-NullCheckpoint-write">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.utils.checkpoint.NullCheckpoint.write(
+    metadata: typing.Any = {}
+) -> None
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Accept a checkpoint boundary without committing anything.
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-utils-checkpoint-PendingCheckpointState">
+
+<CodeBlock links={{"earth2studio.utils.checkpoint.Checkpoint":"#earth2studio-utils-checkpoint-Checkpoint"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.utils.checkpoint.PendingCheckpointState(
+    checkpoint: earth2studio.utils.checkpoint.Checkpoint,
+    state_id: str,
+    state: typing.Any,
+    reusable: bool = False
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>Dataclass</Badge>
+
+Dataclass state bound before a checkpoint session is active.
+
+</Indent>
+
+<Anchor id="earth2studio-utils-checkpoint-bind_checkpoint_state">
+
+<CodeBlock links={{"earth2studio.utils.checkpoint.T":"#earth2studio-utils-checkpoint-T","earth2studio.utils.checkpoint.CheckpointState":"#earth2studio-utils-checkpoint-CheckpointState"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.utils.checkpoint.bind_checkpoint_state(
+    state: earth2studio.utils.checkpoint.T | earth2studio.utils.checkpoint.CheckpointState[earth2studio.utils.checkpoint.T]
+) -> earth2studio.utils.checkpoint.CheckpointState[earth2studio.utils.checkpoint.T]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Bind a dataclass instance to checkpoint state metadata.
+
+The returned proxy forwards normal dataclass field access and exposes
+checkpoint metadata through ``checkpoint_*`` properties. When no checkpoint
+session is active, state is buffered for the most recently instantiated
+`Checkpoint` in this context.
+
+</Indent>
+
+<Anchor id="earth2studio-utils-checkpoint-default_checkpoint_path">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.utils.checkpoint.default_checkpoint_path(
+    name: str
+) -> pathlib.Path
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Return the default path for a named checkpoint store.
+
+</Indent>

@@ -1,0 +1,260 @@
+---
+layout: overview
+title: earth2studio.io.kv
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`KVBackend`](#earth2studio-io-kv-KVBackend) | A key-value (dict) backend. |
+
+### API
+
+<Anchor id="earth2studio-io-kv-KVBackend">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.io.kv.KVBackend(
+    device: str = 'cpu'
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+A key-value (dict) backend.
+
+**Parameters:**
+
+<ParamField path="device" type="str = 'cpu'" default="'cpu'">
+Device to keep array tensors.
+</ParamField>
+
+<ParamField path="coords" type="CoordSystem = OrderedDict(&#123;&#125;)">
+</ParamField>
+
+<ParamField path="dims" type="dict[str, list[str]] = &#123;&#125;">
+</ParamField>
+
+<ParamField path="root" type="dict[str, Tensor] = &#123;&#125;">
+</ParamField>
+<Anchor id="earth2studio-io-kv-KVBackend-__contains__">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.io.kv.KVBackend.__contains__(
+    item: str
+) -> bool
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Checks if item in KV store.
+
+**Parameters:**
+
+<ParamField path="item" type="str">
+
+</ParamField>
+
+</Indent>
+<Anchor id="earth2studio-io-kv-KVBackend-__getitem__">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.io.kv.KVBackend.__getitem__(
+    item: str
+) -> torch.Tensor | numpy.ndarray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Gets item in KV store.
+
+**Parameters:**
+
+<ParamField path="item" type="str">
+
+</ParamField>
+
+</Indent>
+<Anchor id="earth2studio-io-kv-KVBackend-__iter__">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.io.kv.KVBackend.__iter__() -> collections.abc.Iterator
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Return an iterator over KV store member names.
+
+</Indent>
+<Anchor id="earth2studio-io-kv-KVBackend-__len__">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.io.kv.KVBackend.__len__() -> int
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Gets length of Dict Group.
+
+</Indent>
+<Anchor id="earth2studio-io-kv-KVBackend-add_array">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.io.kv.KVBackend.add_array(
+    coords: earth2studio.utils.type.CoordSystem,
+    array_name: str | list[str],
+    data: torch.Tensor | list[torch.Tensor] = None
+) -> None
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Add an array to the existing KV store.
+
+**Parameters:**
+
+<ParamField path="coords" type="CoordSystem">
+[`CoordSystem`](../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Ordered dict of coordinate information.
+</ParamField>
+
+<ParamField path="array_name" type="str">
+Name to add to kv store for the new array. Can optionally
+be a list of array_names.
+</ParamField>
+
+<ParamField path="data" type="torch.Tensor | list[torch.Tensor]" default="None">
+Optional data to initialize the array with. If None, then
+the KV store array is initialized with torch.float32 zeros.
+Can also pass a list of tensors, which must match in length to the
+list of array_names passed. If a list of tensors is passed, it is assumed
+that each tensor share `coords`.
+</ParamField>
+
+</Indent>
+<Anchor id="earth2studio-io-kv-KVBackend-read">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.io.kv.KVBackend.read(
+    coords: earth2studio.utils.type.CoordSystem,
+    array_name: str,
+    device: torch.device = 'cpu'
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Read data from the current KV store using the passed array_name.
+
+**Parameters:**
+
+<ParamField path="coords" type="OrderedDict">
+Coordinates of the data to be read.
+</ParamField>
+
+<ParamField path="array_name" type="str | list[str]">
+Name(s) of the array(s) to read from.
+</ParamField>
+
+<ParamField path="device" type="torch.device" default="'cpu'">
+device to place the read data from, by default 'cpu'
+</ParamField>
+
+</Indent>
+<Anchor id="earth2studio-io-kv-KVBackend-to_xarray">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.io.kv.KVBackend.to_xarray(
+    xr_kwargs: typing.Any = {}
+) -> xarray.Dataset
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Returns an xarray Dataset corresponding to the variables
+and coordinates in the KV Store.
+
+**Parameters:**
+
+<ParamField path="xr_kwargs" type="dict[str, Any]" default="&#123;&#125;">
+Optional keyward arguments to pass to xarray Dataset constructor.
+</ParamField>
+
+**Returns:** `xarray.Dataset`
+
+</Indent>
+<Anchor id="earth2studio-io-kv-KVBackend-write">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.io.kv.KVBackend.write(
+    x: torch.Tensor | list[torch.Tensor],
+    coords: earth2studio.utils.type.CoordSystem,
+    array_name: str | list[str]
+) -> None
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Write data to the current KV store using the passed array_name.
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor | list[torch.Tensor]">
+Tensor(s) to be written to KV store.
+</ParamField>
+
+<ParamField path="coords" type="OrderedDict">
+Coordinates of the passed data.
+</ParamField>
+
+<ParamField path="array_name" type="str | list[str]">
+Name(s) of the array(s) that will be written to.
+</ParamField>
+
+</Indent>
+</Indent>

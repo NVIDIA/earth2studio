@@ -1,0 +1,482 @@
+---
+layout: overview
+title: earth2studio.data.earthmover
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`EarthMoverBrightBandIFS`](#earth2studio-data-earthmover-EarthMoverBrightBandIFS) | Brightband ECMWF IFS 0.25 degree initial-condition data source on |
+| [`EarthMoverBrightBandIFS_FX`](#earth2studio-data-earthmover-EarthMoverBrightBandIFS_FX) | Brightband ECMWF IFS 0.1 degree (10km) 15-day forecast data source on Earthmover |
+| [`EarthMoverERA5`](#earth2studio-data-earthmover-EarthMoverERA5) | Earthmover ERA5 0.25 degree reanalysis data source. |
+
+### API
+
+<Anchor id="earth2studio-data-earthmover-EarthMoverBrightBandIFS">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.earthmover.EarthMoverBrightBandIFS(
+    repo: str | None = None,
+    branch: str = DEFAULT_BRANCH,
+    client: arraylake.AsyncClient | None = None,
+    cache: bool = True,
+    verbose: bool = True
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** [_EarthMoverBase](#earth2studio-data-earthmover-_EarthMoverBase)
+
+Brightband ECMWF IFS 0.25 degree initial-condition data source on
+Earthmover Arraylake.
+
+**Badges:** `region:global` `dataclass:analysis` `dataset:ifs` `product:wind` `product:temp` `product:atmos` `product:ocean` `product:land` `provider:earthmover`
+
+**Parameters:**
+
+<ParamField path="repo" type="str" default="None">
+Arraylake repository name as ``org/repo``. When omitted, derives the
+repo from ``EARTHMOVER_ORGANIZATION`` as
+``&lt;org&gt;/ecmwf-ifs-initial-conditions-open-subscription``, by default None.
+</ParamField>
+
+<ParamField path="branch" type="str" default="DEFAULT_BRANCH">
+Repository branch to read, by default "main".
+</ParamField>
+
+<ParamField path="client" type="arraylake.AsyncClient" default="None">
+Pre-authenticated Arraylake async client. When omitted, this data source
+uses the API key stored in ``EARTHMOVER_API_KEY``, by default None.
+</ParamField>
+
+<ParamField path="cache" type="bool" default="True">
+Retained for API compatibility; Arraylake reads lazily via Icechunk, by
+default True.
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="True">
+Print progress, by default True.
+</ParamField>
+
+<Note>
+
+Configure Earthmover access before using this data source:
+
+- Set the ``EARTHMOVER_API_KEY`` environment variable to an Earthmover /
+  Arraylake API key, unless passing a pre-authenticated ``client``.
+- Pass ``repo="org/repo"`` to open a specific Arraylake repository.
+- If ``repo`` is omitted, set the ``EARTHMOVER_ORGANIZATION`` environment
+  variable. The default repository is
+  ``&lt;EARTHMOVER_ORGANIZATION&gt;/ecmwf-ifs-initial-conditions-open-subscription``.
+
+Arraylake-backed Earthmover sources require Python 3.12 or newer.
+
+For a walkthrough of subscribing to a Marketplace listing, authenticating,
+fetching data and writing output back to Arraylake, see the blog post
+[Access Earthmover Marketplace Data with Earth2Studio](https://nvidia.github.io/earth2studio/blog/2026/10/05/earthmover-marketplace-data/).
+
+Additional information on the data repository can be referenced here:
+
+- https://app.earthmover.io/marketplace/697162921880507a6587c31b
+
+</Note>
+
+<Warning>
+
+This is a remote data source and can download a large amount of data for large
+requests.
+
+</Warning>
+
+<Anchor id="earth2studio-data-earthmover-EarthMoverBrightBandIFS-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.earthmover.EarthMoverBrightBandIFS.__call__(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Retrieve IFS analysis data for times and variables.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Analysis timestamps (UTC).
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — Earth2Studio variable id(s).
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+Data array with dimensions ``[time, variable, lat, lon]``.
+
+</Indent>
+<Anchor id="earth2studio-data-earthmover-EarthMoverBrightBandIFS-fetch">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.earthmover.EarthMoverBrightBandIFS.fetch(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Retrieve IFS analysis data for times and variables asynchronously.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Analysis timestamps (UTC).
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — Earth2Studio variable id(s).
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+Data array with dimensions ``[time, variable, lat, lon]``.
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-data-earthmover-EarthMoverBrightBandIFS_FX">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.earthmover.EarthMoverBrightBandIFS_FX(
+    repo: str | None = None,
+    branch: str = DEFAULT_BRANCH,
+    client: arraylake.AsyncClient | None = None,
+    cache: bool = True,
+    verbose: bool = True
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** [_EarthMoverBase](#earth2studio-data-earthmover-_EarthMoverBase)
+
+Brightband ECMWF IFS 0.1 degree (10km) 15-day forecast data source on Earthmover
+Arraylake.
+
+**Badges:** `region:global` `dataclass:simulation` `dataset:ifs` `product:wind` `product:precip` `product:temp` `product:atmos` `provider:earthmover`
+
+**Parameters:**
+
+<ParamField path="repo" type="str" default="None">
+Arraylake repository name as ``org/repo``. When omitted, derives the
+repo from ``EARTHMOVER_ORGANIZATION`` as
+``&lt;org&gt;/ecmwf-ifs-15-day-forecast-open-subscription``, by default None.
+</ParamField>
+
+<ParamField path="branch" type="str" default="DEFAULT_BRANCH">
+Repository branch to read, by default "main".
+</ParamField>
+
+<ParamField path="client" type="arraylake.AsyncClient" default="None">
+Pre-authenticated Arraylake async client. When omitted, this data source
+uses the API key stored in ``EARTHMOVER_API_KEY``, by default None.
+</ParamField>
+
+<ParamField path="cache" type="bool" default="True">
+Retained for API compatibility; Arraylake reads lazily via Icechunk, by
+default True.
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="True">
+Print progress, by default True.
+</ParamField>
+
+<Note>
+
+Configure Earthmover access before using this data source:
+
+- Set the ``EARTHMOVER_API_KEY`` environment variable to an Earthmover /
+  Arraylake API key, unless passing a pre-authenticated ``client``.
+- Pass ``repo="org/repo"`` to open a specific Arraylake repository.
+- If ``repo`` is omitted, set the ``EARTHMOVER_ORGANIZATION`` environment
+  variable. The default repository is
+  ``&lt;EARTHMOVER_ORGANIZATION&gt;/ecmwf-ifs-15-day-forecast-open-subscription``.
+
+Arraylake-backed Earthmover sources require Python 3.12 or newer.
+
+For a walkthrough of subscribing to a Marketplace listing, authenticating,
+fetching data and writing output back to Arraylake, see the blog post
+[Access Earthmover Marketplace Data with Earth2Studio](https://nvidia.github.io/earth2studio/blog/2026/10/05/earthmover-marketplace-data/).
+
+Additional information on the data repository can be referenced here:
+
+- https://app.earthmover.io/marketplace/6971be98fc964a0d0fb66e04
+
+</Note>
+
+<Warning>
+
+This is a remote data source and can download a large amount of data for large
+requests.
+
+</Warning>
+
+<Anchor id="earth2studio-data-earthmover-EarthMoverBrightBandIFS_FX-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.LeadTimeArray":"../utils/type.mdx#earth2studio-utils-type-LeadTimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.earthmover.EarthMoverBrightBandIFS_FX.__call__(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    lead_time: datetime.timedelta | list[datetime.timedelta] | earth2studio.utils.type.LeadTimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Retrieve IFS forecast data for init times, lead times and variables.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Forecast initialization timestamps (UTC).
+</ParamField>
+
+<ParamField path="lead_time" type="timedelta | list[timedelta] | LeadTimeArray">
+`timedelta | list[timedelta] |` [`LeadTimeArray`](../utils/type.mdx#earth2studio-utils-type-LeadTimeArray) — Forecast lead times.
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — Earth2Studio variable id(s).
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+Data array with dimensions ``[time, lead_time, variable, lat, lon]``.
+
+</Indent>
+<Anchor id="earth2studio-data-earthmover-EarthMoverBrightBandIFS_FX-fetch">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.LeadTimeArray":"../utils/type.mdx#earth2studio-utils-type-LeadTimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.earthmover.EarthMoverBrightBandIFS_FX.fetch(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    lead_time: datetime.timedelta | list[datetime.timedelta] | earth2studio.utils.type.LeadTimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Retrieve IFS forecast data asynchronously.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Forecast initialization timestamps (UTC).
+</ParamField>
+
+<ParamField path="lead_time" type="timedelta | list[timedelta] | LeadTimeArray">
+`timedelta | list[timedelta] |` [`LeadTimeArray`](../utils/type.mdx#earth2studio-utils-type-LeadTimeArray) — Forecast lead times.
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — Earth2Studio variable id(s).
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+Data array with dimensions ``[time, lead_time, variable, lat, lon]``.
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-data-earthmover-EarthMoverERA5">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.earthmover.EarthMoverERA5(
+    repo: str | None = None,
+    branch: str = DEFAULT_BRANCH,
+    client: arraylake.AsyncClient | None = None,
+    cache: bool = True,
+    verbose: bool = True
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** [_EarthMoverBase](#earth2studio-data-earthmover-_EarthMoverBase)
+
+Earthmover ERA5 0.25 degree reanalysis data source.
+
+**Badges:** `region:global` `dataclass:reanalysis` `dataset:era5` `product:wind` `product:precip` `product:temp` `product:atmos` `product:solar` `provider:earthmover`
+
+**Parameters:**
+
+<ParamField path="repo" type="str" default="None">
+Arraylake repository name as ``org/repo``. When omitted, derives the
+repo from ``EARTHMOVER_ORGANIZATION`` as
+``&lt;org&gt;/era5-subscription``, by default None.
+</ParamField>
+
+<ParamField path="branch" type="str" default="DEFAULT_BRANCH">
+Repository branch to read, by default "main".
+</ParamField>
+
+<ParamField path="client" type="arraylake.AsyncClient" default="None">
+Pre-authenticated Arraylake async client. When omitted, this data source
+uses the API key stored in ``EARTHMOVER_API_KEY``, by default None.
+</ParamField>
+
+<ParamField path="cache" type="bool" default="True">
+Retained for API compatibility; Arraylake reads lazily via Icechunk, by
+default True.
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="True">
+Print progress, by default True.
+</ParamField>
+
+<Note>
+
+Configure Earthmover access before using this data source:
+
+- Set the ``EARTHMOVER_API_KEY`` environment variable to an Earthmover /
+  Arraylake API key, unless passing a pre-authenticated ``client``.
+- Pass ``repo="org/repo"`` to open a specific Arraylake repository.
+- If ``repo`` is omitted, set the ``EARTHMOVER_ORGANIZATION`` environment
+  variable. The default repository is
+  ``&lt;EARTHMOVER_ORGANIZATION&gt;/era5-subscription``.
+
+The data source opens the ``single/spatial`` and ``pressure/spatial``
+groups from the ERA5 Marketplace repository. Arraylake-backed Earthmover
+sources require Python 3.12 or newer.
+
+For a walkthrough of subscribing to a Marketplace listing, authenticating,
+fetching data and writing output back to Arraylake, see the blog post
+[Access Earthmover Marketplace Data with Earth2Studio](https://nvidia.github.io/earth2studio/blog/2026/10/05/earthmover-marketplace-data/).
+
+Additional information on the data repository can be referenced here:
+
+- https://app.earthmover.io/marketplace/6a19bcfe9aa6e97720a2fad2
+
+</Note>
+
+<Warning>
+
+This is a remote data source and can download a large amount of data for large
+requests.
+
+</Warning>
+
+<Anchor id="earth2studio-data-earthmover-EarthMoverERA5-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.earthmover.EarthMoverERA5.__call__(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Retrieve ERA5 data for times and variables.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Analysis timestamps (UTC).
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — Earth2Studio variable id(s).
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+Data array with dimensions ``[time, variable, lat, lon]``.
+
+</Indent>
+<Anchor id="earth2studio-data-earthmover-EarthMoverERA5-fetch">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.earthmover.EarthMoverERA5.fetch(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Retrieve ERA5 data for times and variables asynchronously.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Analysis timestamps (UTC).
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — Earth2Studio variable id(s).
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+Data array with dimensions ``[time, variable, lat, lon]``.
+
+</Indent>
+</Indent>

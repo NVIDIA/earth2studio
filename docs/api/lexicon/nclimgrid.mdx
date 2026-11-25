@@ -1,0 +1,70 @@
+---
+layout: overview
+title: earth2studio.lexicon.nclimgrid
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`NClimGridLexicon`](#earth2studio-lexicon-nclimgrid-NClimGridLexicon) | Lexicon for NClimGrid daily gridded climate data source. |
+
+### API
+
+<Anchor id="earth2studio-lexicon-nclimgrid-NClimGridLexicon">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.lexicon.nclimgrid.NClimGridLexicon()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Lexicon for NClimGrid daily gridded climate data source.
+
+Maps Earth2Studio variable names to NClimGrid native variable identifiers
+and provides unit conversion modifiers.
+
+<Note>
+
+Variable documentation:
+https://www.ncei.noaa.gov/data/nclimgrid-daily/doc/nclimgrid-daily_v1-0-0_user-guide.pdf
+
+</Note>
+
+<Anchor id="earth2studio-lexicon-nclimgrid-NClimGridLexicon-get_item">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.lexicon.nclimgrid.NClimGridLexicon.get_item(
+    val: str
+) -> tuple[str, collections.abc.Callable]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Return remote key and modifier function for a variable.
+
+**Parameters:**
+
+<ParamField path="val" type="str">
+Variable name (E2S convention).
+</ParamField>
+
+**Returns:** `tuple[str, Callable]`
+
+Remote key string and modifier function.
+
+</Indent>
+</Indent>

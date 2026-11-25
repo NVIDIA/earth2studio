@@ -1,0 +1,236 @@
+---
+layout: overview
+title: earth2studio.data.metop_mhs
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`MetOpMHS`](#earth2studio-data-metop_mhs-MetOpMHS) | EUMETSAT MetOp MHS Level 1B brightness temperature observations. |
+
+### Functions
+
+| Name | Description |
+|------|-------------|
+
+### API
+
+<Anchor id="earth2studio-data-metop_mhs-MetOpMHS">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeTolerance":"../utils/type.mdx#earth2studio-utils-type-TimeTolerance"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.metop_mhs.MetOpMHS(
+    satellite: str | None = None,
+    time_tolerance: earth2studio.utils.type.TimeTolerance = np.timedelta64(1, 'h'),
+    cache: bool = True,
+    verbose: bool = True,
+    async_timeout: int = 600
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+EUMETSAT MetOp MHS Level 1B brightness temperature observations.
+
+Microwave Humidity Sounder (MHS) is a 5-channel cross-track scanning
+microwave radiometer aboard the MetOp series of polar-orbiting satellites.
+It measures calibrated scene radiances at frequencies from 89 GHz to
+190.3 GHz, providing humidity profiles from the surface to the upper
+troposphere.
+
+MHS is the successor to AMSU-B and operates on MetOp-A (decommissioned
+2021), MetOp-B, and MetOp-C.  It will be replaced by the Microwave
+Sounder (MWS) on the MetOp Second Generation (MetOp-SG) satellites.
+
+The returned `DataFrame` has one row per FOV per channel,
+following the same convention as [`UFSObsSat`](./ufs.mdx#earth2studio-data-ufs-UFSObsSat).
+The ``sensor_index`` column (1--5) identifies each channel.
+
+This data source downloads Level 1B products from the EUMETSAT Data Store
+and parses the EPS native binary format to extract brightness temperatures,
+geolocation, and viewing geometry for each field of view (FOV).
+
+Each scan line contains 90 FOVs with ~16 km spatial resolution at nadir.
+A typical orbit pass contains ~2300 scan lines.
+
+**Badges:** `region:global` `dataclass:observation` `product:sat` `provider:eumetsat`
+
+**Parameters:**
+
+<ParamField path="satellite" type="str" default="None">
+Satellite platform filter for product search. One of "metop-a",
+"metop-b", "metop-c", or None (all available). By default None.
+</ParamField>
+
+<ParamField path="time_tolerance" type="TimeTolerance" default="np.timedelta64(1, 'h')">
+[`TimeTolerance`](../utils/type.mdx#earth2studio-utils-type-TimeTolerance) — Time tolerance window for filtering observations. Accepts a single
+value (symmetric ± window) or a tuple (lower, upper) for asymmetric
+windows, by default np.timedelta64(1, 'h')
+</ParamField>
+
+<ParamField path="cache" type="bool" default="True">
+Cache data source on local memory, by default True
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="True">
+Print download progress and info, by default True
+</ParamField>
+
+<ParamField path="async_timeout" type="int" default="600">
+Time in seconds after which download will be cancelled if not finished,
+by default 600
+</ParamField>
+
+<Note>
+
+Requires EUMETSAT Data Store credentials. Set the following environment
+variables:
+
+- ``EUMETSAT_CONSUMER_KEY``: Your EUMETSAT API consumer key
+- ``EUMETSAT_CONSUMER_SECRET``: Your EUMETSAT API consumer secret
+
+Register at https://eoportal.eumetsat.int/ to obtain credentials.
+Additional information on the data repository:
+
+- https://data.eumetsat.int/data/map/EO:EUM:DAT:METOP:MHSL1
+- https://user.eumetsat.int/s3/eup-strapi-media/pdf_atovsl1b_pg_8bbaa8ba48.pdf
+Binary format constants (MDR offsets, record size) are from the EUMETSAT
+MHS Product Format Specification (TEN/97-229, version 10) and verified
+against the MetopDatasets.jl CSV format descriptions.
+
+</Note>
+
+<Warning>
+
+This is a remote data source and can potentially download a large amount
+of data to your local machine for large requests.
+
+</Warning>
+
+<ParamField path="cache" type="str">
+Get the appropriate cache location.
+</ParamField>
+<Anchor id="earth2studio-data-metop_mhs-MetOpMHS-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.metop_mhs.MetOpMHS.__call__(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray,
+    fields: str | list[str] | pyarrow.Schema | None = None
+) -> pandas.DataFrame
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Function to get MHS brightness temperature observations.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Timestamps to return data for (UTC).
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — Variables to return. Must be in MetOpMHSLexicon
+(e.g. ``["mhs"]``).
+</ParamField>
+
+<ParamField path="fields" type="str | list[str] | pa.Schema | None" default="None">
+Fields to include in output, by default None (all fields).
+</ParamField>
+
+**Returns:** `pd.DataFrame`
+
+MHS observation data in long format with one row per FOV
+per channel.
+
+</Indent>
+<Anchor id="earth2studio-data-metop_mhs-MetOpMHS-fetch">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.metop_mhs.MetOpMHS.fetch(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray,
+    fields: str | list[str] | pyarrow.Schema | None = None
+) -> pandas.DataFrame
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Async function to get MHS data.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Timestamps to return data for (UTC).
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — Variables to return. Must be in MetOpMHSLexicon
+(e.g. ``["mhs"]``).
+</ParamField>
+
+<ParamField path="fields" type="str | list[str] | pa.Schema | None" default="None">
+Fields to include in output, by default None (all fields).
+</ParamField>
+
+**Returns:** `pd.DataFrame`
+
+MHS observation data in long format with one row per FOV
+per channel.
+
+</Indent>
+<Anchor id="earth2studio-data-metop_mhs-MetOpMHS-resolve_fields">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.metop_mhs.MetOpMHS.resolve_fields(
+    fields: str | list[str] | pyarrow.Schema | None
+) -> pyarrow.Schema
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Convert fields parameter into a validated PyArrow schema.
+
+**Parameters:**
+
+<ParamField path="fields" type="str | list[str] | pa.Schema | None">
+Field specification. None returns the full SCHEMA.
+</ParamField>
+
+**Returns:** `pa.Schema`
+
+A PyArrow schema containing only the requested fields
+
+**Raises:**
+
+- `KeyError`: If a requested field name is not in the SCHEMA
+- `TypeError`: If a field type doesn't match the SCHEMA
+
+</Indent>
+</Indent>

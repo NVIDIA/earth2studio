@@ -1,0 +1,1021 @@
+---
+layout: overview
+title: earth2studio.models.px.dlesym
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`DLESyM`](#earth2studio-models-px-dlesym-DLESyM) | DLESyM-V1-ERA5 prognostic model. This is an ensemble forecast model for |
+| [`DLESyMLatLon`](#earth2studio-models-px-dlesym-DLESyMLatLon) | DLESyM prognostic model supporting lat/lon input and output coordinates. |
+
+### API
+
+<Anchor id="earth2studio-models-px-dlesym-DLESyM">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.models.px.dlesym.DLESyM(
+    atmos_model: torch.nn.Module,
+    ocean_model: torch.nn.Module,
+    hpx_lat: numpy.ndarray,
+    hpx_lon: numpy.ndarray,
+    nside: int,
+    center: numpy.ndarray,
+    scale: numpy.ndarray,
+    atmos_constants: numpy.ndarray,
+    ocean_constants: numpy.ndarray,
+    atmos_input_times: numpy.ndarray,
+    ocean_input_times: numpy.ndarray,
+    atmos_output_times: numpy.ndarray,
+    ocean_output_times: numpy.ndarray,
+    atmos_variables: list[str],
+    ocean_variables: list[str],
+    atmos_coupling_variables: list[str],
+    ocean_coupling_variables: list[str],
+    atmos_diagnostic_variables: list[str] | None = None,
+    ocean_diagnostic_variables: list[str] | None = None,
+    use_cln: bool = False,
+    condition_shape: int | None = None
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** `Module`, [AutoModelMixin](../auto/mixin.mdx#earth2studio-models-auto-mixin-AutoModelMixin), [PrognosticMixin](./utils.mdx#earth2studio-models-px-utils-PrognosticMixin)
+
+DLESyM-V1-ERA5 prognostic model. This is an ensemble forecast model for
+global earth system modeling. This model includes an atmosphere and ocean
+component, using atmospheric variables as well as the sea-surface temperature
+on a HEALPix nside=64 (approximately 1 degree) resolution grid. The model
+architecture is a U-Net with padding operations modified to support using
+the HEALPix grid. Because the atmosphere and ocean models are predicted at
+different times, not all entries in the output tensor are valid. As a result,
+we provide convenience methods for retrieving the valid atmospheric and
+oceanic outputs.
+
+The default package provided for this model contains the checkpoints used
+in the ECMWF AI Weather Quest S2S competition. These checkpoints are trained
+with CRPS loss and use sampled random noise to produce ensemble variability
+each forward pass, seeded with the ``set_rng`` method.
+
+**Example**
+
+<CodeBlock showLineNumbers={false}>
+
+```python
+pkg = DLESyM.load_default_package()
+model = DLESyM.load_model(pkg)
+
+# Create iterator
+iterator = model.create_iterator(x, coords)
+
+for step, (x, coords) in enumerate(iterator):
+    if step > 0:
+        # Valid atmos and ocean predictions with their respective coordinates extracted below
+        atmos_outputs, atmos_coords = model.retrieve_valid_atmos_outputs(x, coords)
+        ocean_outputs, ocean_coords = model.retrieve_valid_ocean_outputs(x, coords)
+        ...
+
+```
+
+</CodeBlock>
+
+**Badges:** `region:global` `class:subseasonal-seasonal` `product:wind` `product:temp` `product:atmos` `product:ocean` `year:2025` `gpu:40gb` `provider:nvidia` `backend:pytorch`
+
+**Parameters:**
+
+<ParamField path="atmos_model" type="torch.nn.Module">
+Atmosphere model
+</ParamField>
+
+<ParamField path="ocean_model" type="torch.nn.Module">
+Ocean model
+</ParamField>
+
+<ParamField path="hpx_lat" type="np.ndarray">
+HEALPix latitude coordinates, shape (12, nside, nside)
+</ParamField>
+
+<ParamField path="hpx_lon" type="np.ndarray">
+HEALPix longitude coordinates, shape (12, nside, nside)
+</ParamField>
+
+<ParamField path="nside" type="int">
+HEALPix nside
+</ParamField>
+
+<ParamField path="center" type="np.ndarray">
+Means of the full output variable set (prognostics + diagnostics,
+in the same order as `output_coords`'s `variable` axis), shape
+(1, 1, 1, num_output_variables, 1, 1, 1)
+</ParamField>
+
+<ParamField path="scale" type="np.ndarray">
+Standard deviations of the full output variable set, same shape
+and ordering as `center`
+</ParamField>
+
+<ParamField path="atmos_constants" type="np.ndarray">
+Constants for the atmosphere model, shape (12, num_atmos_constants, nside, nside)
+</ParamField>
+
+<ParamField path="ocean_constants" type="np.ndarray">
+Constants for the ocean model, shape (12, num_ocean_constants, nside, nside)
+</ParamField>
+
+<ParamField path="atmos_input_times" type="np.ndarray">
+Atmospheric input times, shape (num_atmos_input_times,)
+</ParamField>
+
+<ParamField path="ocean_input_times" type="np.ndarray">
+Ocean input times, shape (num_ocean_input_times,)
+</ParamField>
+
+<ParamField path="atmos_output_times" type="np.ndarray">
+Atmospheric output times, shape (num_atmos_output_times,)
+</ParamField>
+
+<ParamField path="ocean_output_times" type="np.ndarray">
+Ocean output times, shape (num_ocean_output_times,)
+</ParamField>
+
+<ParamField path="atmos_variables" type="list[str]">
+Atmospheric variables
+</ParamField>
+
+<ParamField path="ocean_variables" type="list[str]">
+Ocean variables
+</ParamField>
+
+<ParamField path="atmos_coupling_variables" type="list[str]">
+Atmospheric coupling variables
+</ParamField>
+
+<ParamField path="ocean_coupling_variables" type="list[str]">
+Ocean coupling variables
+</ParamField>
+
+<ParamField path="atmos_diagnostic_variables" type="list[str]" default="None">
+Atmospheric diagnostic output variables. These are produced by the
+atmos model but, unlike `atmos_variables`, are not fed back in as
+input to the next autoregressive step, by default []
+</ParamField>
+
+<ParamField path="ocean_diagnostic_variables" type="list[str]" default="None">
+Ocean diagnostic output variables, analogous to
+`atmos_diagnostic_variables`, by default []
+</ParamField>
+
+<ParamField path="use_cln" type="bool" default="False">
+Whether the atmos/ocean models use conditional layer norm, which
+requires sampling and passing noise to the model to produce
+ensemble variability from a single set of weights, by default False
+</ParamField>
+
+<ParamField path="condition_shape" type="int" default="None">
+Dimension of the conditional layer norm noise vector. Required if
+`use_cln` is True, by default None
+</ParamField>
+
+<Note>
+
+For more information about this model see:
+
+- https://arxiv.org/abs/2409.16247
+- https://arxiv.org/abs/2311.06253v2
+- https://huggingface.co/nvidia/dlesym-v1-era5
+
+For more information about the HEALPix grid see:
+
+- https://github.com/NVlabs/earth2grid
+
+</Note>
+
+<Anchor id="earth2studio-models-px-dlesym-DLESyM-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.dlesym.DLESyM.__call__(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Runs coupled DLESyM model forward 1 step.
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Input tensor
+</ParamField>
+
+<ParamField path="coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system
+</ParamField>
+
+**Returns:** `tuple[torch.Tensor,` [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) `]`
+
+Output tensor and coordinate system for the prediction
+
+</Indent>
+<Anchor id="earth2studio-models-px-dlesym-DLESyM-create_iterator">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.dlesym.DLESyM.create_iterator(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem
+) -> collections.abc.Iterator[tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Creates a iterator which can be used to perform time-integration of the
+prognostic model. Will return the initial condition first (0th step).
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Input tensor
+</ParamField>
+
+<ParamField path="coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system
+</ParamField>
+
+</Indent>
+<Anchor id="earth2studio-models-px-dlesym-DLESyM-input_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.dlesym.DLESyM.input_coords() -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Input coordinate system of the prognostic model
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Coordinate system dictionary
+
+</Indent>
+<Anchor id="earth2studio-models-px-dlesym-DLESyM-load_default_package">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.dlesym.DLESyM.load_default_package() -> earth2studio.models.auto.Package
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Default DLESyM model package on NGC
+
+The package's top-level ``config.yaml`` lists the available
+checkpoint versions; see `load_model` for how to select
+between them.
+
+</Indent>
+<Anchor id="earth2studio-models-px-dlesym-DLESyM-load_model">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package","earth2studio.models.px.base.PrognosticModel":"./base.mdx#earth2studio-models-px-base-PrognosticModel"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.dlesym.DLESyM.load_model(
+    package: earth2studio.models.auto.Package,
+    atmos_model_idx: int = 0,
+    ocean_model_idx: int = 0,
+    version: typing.Literal['v1.0', 'v1.1'] = 'v1.1'
+) -> earth2studio.models.px.base.PrognosticModel
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Load prognostic from package
+
+**Parameters:**
+
+<ParamField path="package" type="Package">
+[`Package`](../auto/package.mdx#earth2studio-models-auto-package-Package) — Package to load model from
+</ParamField>
+
+<ParamField path="version" type="('v1.0', 'v1.1')" default="'v1.0'">
+Checkpoint version to load; see each version's entry in the
+package's `config.yaml` for details. `v1.1` is the checkpoint
+submitted to the ECMWF AI Weather Quest competition
+(https://aiweatherquest.ecmwf.int/). `v1.0` is the previous
+checkpoint, kept for reproducibility; loading it logs a
+deprecation warning, by default "v1.1"
+</ParamField>
+
+<ParamField path="atmos_model_idx" type="int" default="0">
+Index of atmos model weights to load. Only meaningful for
+checkpoint versions that ship multiple atmos checkpoints
+(used to build ensembles without conditional layer norm), by
+default 0
+</ParamField>
+
+<ParamField path="ocean_model_idx" type="int" default="0">
+Index of ocean model weights to load. Only meaningful for
+checkpoint versions that ship multiple ocean checkpoints, by
+default 0
+</ParamField>
+
+**Returns:** [`PrognosticModel`](./base.mdx#earth2studio-models-px-base-PrognosticModel)
+
+Prognostic model
+
+</Indent>
+<Anchor id="earth2studio-models-px-dlesym-DLESyM-output_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.dlesym.DLESyM.output_coords(
+    input_coords: earth2studio.utils.type.CoordSystem
+) -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Output coordinate system of the prognostic model
+
+**Parameters:**
+
+<ParamField path="input_coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system to transform into output_coords
+</ParamField>
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Coordinate system dictionary
+
+</Indent>
+<Anchor id="earth2studio-models-px-dlesym-DLESyM-prepare_input_data">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.dlesym.DLESyM.prepare_input_data(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem
+) -> tuple[list[torch.Tensor], list[torch.Tensor]]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Prepare input data for the atmos and ocean models.
+From the data in `x`, we will build a list of tensors for each model.
+Assumes `x` is a tensor of shape (batch, time, lead_time, variable, face, height, width).
+The list order is [state, insolation, constants, coupled_inputs].
+Models expect input data in the following shapes:
+    state: (batch, face, lead_time, variable, height, width)
+    insolation: (batch, face, lead_time, variable(=1), height, width)
+    constants: (face, variable, height, width)
+    coupled_inputs: (lead_time, batch, variable, face, height, width)
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Input data
+</ParamField>
+
+<ParamField path="coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinates
+</ParamField>
+
+**Returns:** `tuple[List[torch.Tensor], List[torch.Tensor]]`
+
+Prepared input data for atmos and ocean models, respectively
+
+</Indent>
+<Anchor id="earth2studio-models-px-dlesym-DLESyM-prepare_output_data">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.dlesym.DLESyM.prepare_output_data(
+    atmos_outputs: torch.Tensor,
+    ocean_outputs: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem
+) -> torch.Tensor
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Prepare output data for the atmos and ocean models.
+From the data in `atmos_outputs` and `ocean_outputs`, we will build a tensor of shape (batch, time, lead_time, variable, face, height, width).
+Assumes the atmosphere has the finest temporal resolution over output lead times.
+Expects input data to be of shape (batch * time, face, lead_time, variable, height, width).
+
+**Parameters:**
+
+<ParamField path="atmos_outputs" type="torch.Tensor">
+Atmos outputs
+</ParamField>
+
+<ParamField path="ocean_outputs" type="torch.Tensor">
+Ocean outputs
+</ParamField>
+
+<ParamField path="coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinates
+</ParamField>
+
+**Returns:** `torch.Tensor`
+
+Output data
+
+</Indent>
+<Anchor id="earth2studio-models-px-dlesym-DLESyM-retrieve_valid_atmos_outputs">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.dlesym.DLESyM.retrieve_valid_atmos_outputs(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Retrieve the valid atmospheric model outputs from an output data tensor.
+This function will retrieve the valid outputs and return them in a tensor of shape (batch, time, lead_time, variable, face, height, width).
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Output data tensor
+</ParamField>
+
+<ParamField path="coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinates
+</ParamField>
+
+**Returns:** `torch.Tensor`
+
+Atmos outputs
+
+</Indent>
+<Anchor id="earth2studio-models-px-dlesym-DLESyM-retrieve_valid_ocean_outputs">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.dlesym.DLESyM.retrieve_valid_ocean_outputs(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Retrieve the valid ocean model outputs from an output data tensor.
+Because we use a dense grid of output times for the coupled model, some of the output times
+for the ocean model may not be valid because it takes a coarser time-step.
+This function will retrieve the valid outputs and return them in a tensor of shape (batch, time, lead_time, variable, face, height, width).
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Output data tensor
+</ParamField>
+
+<ParamField path="coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinates
+</ParamField>
+
+**Returns:** `torch.Tensor`
+
+Ocean outputs
+
+</Indent>
+<Anchor id="earth2studio-models-px-dlesym-DLESyM-set_rng">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.dlesym.DLESyM.set_rng(
+    seed: int,
+    reset: bool = True
+) -> None
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Seed the generator used to sample conditional layer norm noise.
+
+Matches the `set_rng(seed, reset)` convention used by other
+stochastic prognostic models in earth2studio (e.g. FCN3), so
+callers (ensemble drivers, eval recipes) can reseed this model the
+same way as any other stochastic model via
+`hasattr(model, "set_rng")`. Has no effect if `use_cln` is False.
+
+**Parameters:**
+
+<ParamField path="seed" type="int">
+Seed value
+</ParamField>
+
+<ParamField path="reset" type="bool" default="True">
+Reinitialize the generator from `seed`. If False and the
+generator is already initialized, this is a no-op, by default
+True
+</ParamField>
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-models-px-dlesym-DLESyMLatLon">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.models.px.dlesym.DLESyMLatLon(
+    atmos_model: torch.nn.Module,
+    ocean_model: torch.nn.Module,
+    hpx_lat: numpy.ndarray,
+    hpx_lon: numpy.ndarray,
+    nside: int,
+    center: numpy.ndarray,
+    scale: numpy.ndarray,
+    atmos_constants: numpy.ndarray,
+    ocean_constants: numpy.ndarray,
+    atmos_input_times: numpy.ndarray,
+    ocean_input_times: numpy.ndarray,
+    atmos_output_times: numpy.ndarray,
+    ocean_output_times: numpy.ndarray,
+    atmos_variables: list[str],
+    ocean_variables: list[str],
+    atmos_coupling_variables: list[str],
+    ocean_coupling_variables: list[str],
+    atmos_diagnostic_variables: list[str] | None = None,
+    ocean_diagnostic_variables: list[str] | None = None,
+    use_cln: bool = False,
+    condition_shape: int | None = None
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** [DLESyM](#earth2studio-models-px-dlesym-DLESyM)
+
+DLESyM prognostic model supporting lat/lon input and output coordinates.
+This model still uses the HEALPix grid internally, but the first input is regridded
+from lat/lon and the outputs are regridded back to lat/lon upon returning from the model.
+Regridding is done using the `earth2grid` package. For convenience, we expose
+regridding methods that are accessible as `.to_hpx` and `.to_ll`.
+
+**Example**
+
+<CodeBlock showLineNumbers={false}>
+
+```python
+pkg = DLESyMLatLon.load_default_package()
+model = DLESyMLatLon.load_model(pkg)
+
+# x and coords are data defined on appropriate lat/lon grid
+x, coords = fetch_data(...)
+
+# Run model
+x, coords = model(x, coords)
+
+# Lat-lon outputs
+atmos_outputs, atmos_coords = model.retrieve_valid_atmos_outputs(x, coords)
+ocean_outputs, ocean_coords = model.retrieve_valid_ocean_outputs(x, coords)
+
+# HEALPix outputs
+atmos_outputs_hpx, atmos_coords_hpx = model.to_hpx(atmos_outputs), model.coords_to_hpx(atmos_coords)
+ocean_outputs_hpx, ocean_coords_hpx = model.to_hpx(ocean_outputs), model.coords_to_hpx(ocean_coords)
+
+Badges
+------
+region:global class:subseasonal-seasonal product:wind product:temp product:atmos product:ocean year:2025
+gpu:40gb
+provider:nvidia backend:pytorch
+```
+
+</CodeBlock>
+
+**Parameters:**
+
+<ParamField path="atmos_model" type="torch.nn.Module">
+Atmosphere model
+</ParamField>
+
+<ParamField path="ocean_model" type="torch.nn.Module">
+Ocean model
+</ParamField>
+
+<ParamField path="hpx_lat" type="np.ndarray">
+HEALPix latitude coordinates, shape (12, nside, nside)
+</ParamField>
+
+<ParamField path="hpx_lon" type="np.ndarray">
+HEALPix longitude coordinates, shape (12, nside, nside)
+</ParamField>
+
+<ParamField path="nside" type="int">
+HEALPix nside
+</ParamField>
+
+<ParamField path="center" type="np.ndarray">
+Means of the full output variable set (prognostics + diagnostics,
+in the same order as `output_coords`'s `variable` axis), shape
+(1, 1, 1, num_output_variables, 1, 1, 1)
+</ParamField>
+
+<ParamField path="scale" type="np.ndarray">
+Standard deviations of the full output variable set, same shape
+and ordering as `center`
+</ParamField>
+
+<ParamField path="atmos_constants" type="np.ndarray">
+Constants for the atmosphere model, shape (12, num_atmos_constants, nside, nside)
+</ParamField>
+
+<ParamField path="ocean_constants" type="np.ndarray">
+Constants for the ocean model, shape (12, num_ocean_constants, nside, nside)
+</ParamField>
+
+<ParamField path="atmos_input_times" type="np.ndarray">
+Atmospheric input times, shape (num_atmos_input_times,)
+</ParamField>
+
+<ParamField path="ocean_input_times" type="np.ndarray">
+Ocean input times, shape (num_ocean_input_times,)
+</ParamField>
+
+<ParamField path="atmos_output_times" type="np.ndarray">
+Atmospheric output times, shape (num_atmos_output_times,)
+</ParamField>
+
+<ParamField path="ocean_output_times" type="np.ndarray">
+Ocean output times, shape (num_ocean_output_times,)
+</ParamField>
+
+<ParamField path="atmos_variables" type="list[str]">
+Atmospheric variables
+</ParamField>
+
+<ParamField path="ocean_variables" type="list[str]">
+Ocean variables
+</ParamField>
+
+<ParamField path="atmos_coupling_variables" type="list[str]">
+Atmospheric coupling variables
+</ParamField>
+
+<ParamField path="ocean_coupling_variables" type="list[str]">
+Ocean coupling variables
+</ParamField>
+
+<ParamField path="atmos_diagnostic_variables" type="list[str]" default="None">
+Atmospheric diagnostic output variables. These are produced by the
+atmos model but, unlike `atmos_variables`, are not fed back in as
+input to the next autoregressive step, by default []
+</ParamField>
+
+<ParamField path="ocean_diagnostic_variables" type="list[str]" default="None">
+Ocean diagnostic output variables, analogous to
+`atmos_diagnostic_variables`, by default []
+</ParamField>
+
+<ParamField path="use_cln" type="bool" default="False">
+Whether the atmos/ocean models use conditional layer norm, which
+requires sampling and passing noise to the model to produce
+ensemble variability from a single set of weights, by default False
+</ParamField>
+
+<ParamField path="condition_shape" type="int" default="None">
+Dimension of the conditional layer norm noise vector. Required if
+`use_cln` is True, by default None
+</ParamField>
+
+<Note>
+
+See `DLESyM` for more information about the prognostic model. Due to the internal
+regridding, model hooks applied during iteration will need to operate on the HEALPix grid.
+
+</Note>
+
+<Anchor id="earth2studio-models-px-dlesym-DLESyMLatLon-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.dlesym.DLESyMLatLon.__call__(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Runs coupled DLESyM model forward 1 step, regridding to/from HEALPix grid
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Input tensor
+</ParamField>
+
+<ParamField path="coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system
+</ParamField>
+
+**Returns:** `tuple[torch.Tensor,` [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) `]`
+
+Output tensor and coordinate system for the prediction
+
+</Indent>
+<Anchor id="earth2studio-models-px-dlesym-DLESyMLatLon-compute_ttr_3h">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.dlesym.DLESyMLatLon.compute_ttr_3h(
+    raw_ttr: torch.Tensor,
+    raw_coords: earth2studio.utils.type.CoordSystem,
+    target_lead_time: numpy.ndarray | None = None
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Reduce raw hourly `ttr` samples into the `ttr-3h` accumulated
+input variable at each of `target_lead_time`.
+
+ERA5's `ttr` is accumulated since the most recent 00/12 UTC
+forecast-cycle start and is exactly 0 at each cycle boundary, so
+the accumulation over the trailing `TTR_3H_WINDOW_HOURS` window
+ending at `t` is `raw_ttr[t] - raw_ttr[t - TTR_3H_WINDOW_HOURS]`.
+
+**Parameters:**
+
+<ParamField path="raw_ttr" type="torch.Tensor">
+Raw `ttr` tensor, with a `lead_time` axis covering at least
+`ttr_3h_query_times(target_lead_time)`
+</ParamField>
+
+<ParamField path="raw_coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Coordinates for `raw_ttr`
+</ParamField>
+
+<ParamField path="target_lead_time" type="np.ndarray" default="None">
+Lead times to compute `ttr-3h` at, by default
+`self.atmos_input_times`
+</ParamField>
+
+**Returns:** `tuple[torch.Tensor,` [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) `]`
+
+`ttr-3h` tensor and coordinates, with `lead_time` set to
+`target_lead_time`
+
+<Warning>
+
+This has not been verified against the AIWQ training pipeline's
+own `ttr-3h` computation -- confirm the two agree (e.g. for a
+known date) before trusting model output that depends on it.
+
+</Warning>
+
+</Indent>
+<Anchor id="earth2studio-models-px-dlesym-DLESyMLatLon-coords_to_hpx">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.dlesym.DLESyMLatLon.coords_to_hpx(
+    coords: earth2studio.utils.type.CoordSystem
+) -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Convenience method to pop out lat/lon dimensions from coords and replace with HEALPix
+
+</Indent>
+<Anchor id="earth2studio-models-px-dlesym-DLESyMLatLon-coords_to_ll">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.dlesym.DLESyMLatLon.coords_to_ll(
+    coords: earth2studio.utils.type.CoordSystem
+) -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Convenience method to pop out HEALPix dimensions from coords and replace with lat/lon
+
+</Indent>
+<Anchor id="earth2studio-models-px-dlesym-DLESyMLatLon-input_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.dlesym.DLESyMLatLon.input_coords() -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Input coordinate system of prognostic model
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Coordinate system dictionary
+
+</Indent>
+<Anchor id="earth2studio-models-px-dlesym-DLESyMLatLon-output_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.dlesym.DLESyMLatLon.output_coords(
+    input_coords: earth2studio.utils.type.CoordSystem
+) -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Output coordinate system of the prognostic model
+
+**Parameters:**
+
+<ParamField path="input_coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system
+</ParamField>
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Output coordinate system
+
+</Indent>
+<Anchor id="earth2studio-models-px-dlesym-DLESyMLatLon-to_hpx">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.dlesym.DLESyMLatLon.to_hpx(
+    x: torch.Tensor
+) -> torch.Tensor
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Regrid input data to HEALPix grid. Last 2 dimensions are assumed to be
+(lat, lon)
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Input tensor
+</ParamField>
+
+**Returns:** `torch.Tensor`
+
+Regridded tensor, shape (..., 12, nside, nside)
+
+</Indent>
+<Anchor id="earth2studio-models-px-dlesym-DLESyMLatLon-to_ll">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.dlesym.DLESyMLatLon.to_ll(
+    x: torch.Tensor
+) -> torch.Tensor
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Regrid output data from HEALPix grid. Last 3 dimensions are assumed to be
+(face, height, width)
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Input tensor
+</ParamField>
+
+**Returns:** `torch.Tensor`
+
+Regridded tensor, shape (..., 721, 1440)
+
+</Indent>
+<Anchor id="earth2studio-models-px-dlesym-DLESyMLatLon-ttr_3h_query_times">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.dlesym.DLESyMLatLon.ttr_3h_query_times(
+    lead_time: numpy.ndarray | None = None
+) -> numpy.ndarray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Hourly lead times (relative to the same reference time as
+`lead_time`) of raw `ttr` samples needed to compute `ttr-3h` via
+`compute_ttr_3h`.
+
+Fetch raw `ttr` (not `ttr-3h`) at exactly these lead times from a
+data source -- independently of, and without expanding, the
+model's main `input_coords()["lead_time"]` fetch.
+
+**Parameters:**
+
+<ParamField path="lead_time" type="np.ndarray" default="None">
+Lead times `ttr-3h` will be computed at, by default
+`self.atmos_input_times`
+</ParamField>
+
+**Returns:** `np.ndarray`
+
+Sorted, de-duplicated hourly lead time offsets (`timedelta64[h]`)
+
+</Indent>
+</Indent>

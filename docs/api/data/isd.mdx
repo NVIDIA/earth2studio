@@ -1,0 +1,302 @@
+---
+layout: overview
+title: earth2studio.data.isd
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`ISD`](#earth2studio-data-isd-ISD) | NOAA's Integrated Surface Database (ISD) is a global database that consists of |
+
+### API
+
+<Anchor id="earth2studio-data-isd-ISD">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeTolerance":"../utils/type.mdx#earth2studio-utils-type-TimeTolerance"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.isd.ISD(
+    stations: list[str],
+    time_tolerance: earth2studio.utils.type.TimeTolerance = np.timedelta64(10, 'm'),
+    cache: bool = True,
+    verbose: bool = True,
+    async_timeout: int = 600
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+NOAA's Integrated Surface Database (ISD) is a global database that consists of
+hourly and synoptic surface observations compiled from numerous sources into a
+common data model.
+
+**Example**
+
+<CodeBlock showLineNumbers={false}>
+
+```python
+# Bay area, lat lon bounding box (lat min, lon min, lat max, lon max)
+stations = ISD.get_stations_bbox((36, -124, 40, -120))
+ds = ISD(stations, time_tolerance=timedelta(hours=2))
+df = ds(datetime(2024, 1, 1, 20), ["t2m", "ws10m"])
+
+```
+
+</CodeBlock>
+
+**Badges:** `region:na` `dataclass:observation` `product:wind` `product:precip` `product:temp` `provider:noaa` `product:insitu`
+
+**Parameters:**
+
+<ParamField path="stations" type="list[str]">
+Station IDs as the concatenation of USAF (6 chars) and WBAN (5 digits) to
+attempt to fetch data from.
+</ParamField>
+
+<ParamField path="time_tolerance" type="TimeTolerance" default="np.timedelta64(10, 'm')">
+[`TimeTolerance`](../utils/type.mdx#earth2studio-utils-type-TimeTolerance) — Time tolerance window for filtering observations. Accepts a single value
+(symmetric ± window) or a tuple (lower, upper) for asymmetric windows,
+by default np.timedelta64(10, 'm')
+</ParamField>
+
+<ParamField path="cache" type="bool" default="True">
+Cache data source on local memory, by default True
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="True">
+Print download progress and missing data warnings, by default True
+</ParamField>
+
+<ParamField path="async_timeout" type="int" default="600">
+Time in sec after which download will be cancelled if not finished successfully,
+by default 600
+</ParamField>
+
+<Note>
+
+To help get a list of possible station IDs, this class includes
+`ISD.get_stations_bbox` which accepts a lat-lon bounding box and will return
+known historical stations IDs. For more information on the stations, users should
+consult the `isd-history.csv` which can easily accessed with `ISD.get_station_history`
+Additional information on the data repository can be referenced here:
+
+- https://www.ncei.noaa.gov/products/land-based-station/integrated-surface-database
+- https://registry.opendata.aws/noaa-isd/
+- https://www.ncei.noaa.gov/data/global-hourly/doc/isd-format-document.pdf
+
+</Note>
+
+<Warning>
+
+This is a remote data source and can potentially download a large amount of data
+to your local machine for large requests.
+
+</Warning>
+
+<ParamField path="cache" type="str">
+Get the appropriate cache location.
+</ParamField>
+
+<Anchor id="earth2studio-data-isd-ISD-__call__">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.isd.ISD.__call__(
+    time: datetime.datetime | list[datetime.datetime] | numpy.ndarray,
+    variable: str | list[str] | numpy.ndarray,
+    fields: str | list[str] | pyarrow.Schema | None = None
+) -> pandas.DataFrame
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Function to get data
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Timestamps to return data for (UTC).
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — String, list of strings or array of strings that refer to variables to
+return. Must be in the ISD lexicon.
+</ParamField>
+
+<ParamField path="fields" type="str | list[str] | pa.Schema | None" default="None">
+Fields to include in output, by default None (all fields).
+</ParamField>
+
+**Returns:** `pd.DataFrame`
+
+ISD data frame
+
+</Indent>
+<Anchor id="earth2studio-data-isd-ISD-column_map">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.isd.ISD.column_map() -> dict[str, str]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Build column name mapping from ISD source names to schema names.
+
+**Returns:** `dict[str, str]`
+
+Mapping from ISD column names to schema field names
+
+</Indent>
+<Anchor id="earth2studio-data-isd-ISD-fetch">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.isd.ISD.fetch(
+    time: datetime.datetime | list[datetime.datetime] | numpy.ndarray,
+    variable: str | list[str] | numpy.ndarray,
+    fields: str | list[str] | pyarrow.Schema | None = None
+) -> pandas.DataFrame
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Async function to get data
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Timestamps to return data for (UTC).
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — String, list of strings or array of strings that refer to variables (column
+ids) to return. Must be in the ISD lexicon.
+</ParamField>
+
+<ParamField path="fields" type="str | list[str] | pa.Schema | None" default="None">
+Fields to include in output, by default None (all fields).
+</ParamField>
+
+**Returns:** `pd.DataFrame`
+
+ISD data frame
+
+</Indent>
+<Anchor id="earth2studio-data-isd-ISD-get_station_history">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.isd.ISD.get_station_history() -> pandas.DataFrame
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Fetches and caches the ISD station history data frame from S3. Useful for
+getting additional information on a specific station
+
+**Returns:** `pd.DataFrame`
+
+Raw data frame of downloaded csv file
+
+</Indent>
+<Anchor id="earth2studio-data-isd-ISD-get_stations_bbox">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.isd.ISD.get_stations_bbox(
+    lat_lon_bbox: tuple[float, float, float, float]
+) -> list[str]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Return ISD station IDs within a lat/lon box. Station IDs are the combination
+of the USAF and WBAN IDs.
+
+**Parameters:**
+
+<ParamField path="lat_lon_bbox" type="tuple[float, float, float, float]">
+Latitude/Longitude bounding box to get stations [lat_min, lon_min, lat_max, lon_max]
+(in cardinal directions [lat_south, lon_west, lat_north, lon_east])
+</ParamField>
+
+**Returns:** `list[str]`
+
+List of stations IDs
+
+</Indent>
+<Anchor id="earth2studio-data-isd-ISD-resolve_fields">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.isd.ISD.resolve_fields(
+    fields: str | list[str] | pyarrow.Schema | None
+) -> pyarrow.Schema
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Convert fields parameter into a validated PyArrow schema.
+
+**Parameters:**
+
+<ParamField path="fields" type="str | list[str] | pa.Schema | None">
+Field specification. Can be:
+- None: Returns the full class SCHEMA
+- str: Single field name to select from SCHEMA
+- list[str]: List of field names to select from SCHEMA
+- pa.Schema: Validated against class SCHEMA for compatibility
+</ParamField>
+
+**Returns:** `pa.Schema`
+
+A PyArrow schema containing only the requested fields
+
+**Raises:**
+
+- `KeyError`: If a requested field name is not found in the class SCHEMA
+- `TypeError`: If a field type in the provided schema doesn't match the class SCHEMA
+- `ValueError`: If required fields are missing
+
+</Indent>
+</Indent>

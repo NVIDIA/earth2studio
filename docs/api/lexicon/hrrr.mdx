@@ -1,0 +1,157 @@
+---
+layout: overview
+title: earth2studio.lexicon.hrrr
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`HRRRFXLexicon`](#earth2studio-lexicon-hrrr-HRRRFXLexicon) | High-Resolution Rapid Refresh Analysis Forecast Lexicon |
+| [`HRRRLexicon`](#earth2studio-lexicon-hrrr-HRRRLexicon) | High-Resolution Rapid Refresh Analysis Lexicon |
+
+### API
+
+<Anchor id="earth2studio-lexicon-hrrr-HRRRFXLexicon">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.lexicon.hrrr.HRRRFXLexicon()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+High-Resolution Rapid Refresh Analysis Forecast Lexicon
+HRRR specified &lt;Product ID&gt;::&lt;Parameter ID&gt;::&lt;Level/ Layer&gt;::&lt;Forcast Valid Range(optional)&gt;::&lt;ID Number (optional, override)&gt;
+Some variables may not be present for analyis / leadtime 0
+
+Products include:
+    - wrfsfc
+    - wrfprs
+    - wrfnat
+    - wrfsubh
+
+<Note>
+
+Additional resources:
+- https://www.nco.ncep.noaa.gov/pmb/products/hrrr/
+- https://www.nco.ncep.noaa.gov/pmb/products/hrrr/hrrr.t00z.wrfsfcf00.grib2.shtml
+- https://www.nco.ncep.noaa.gov/pmb/products/hrrr/hrrr.t00z.wrfsfcf02.grib2.shtml
+
+</Note>
+
+<Anchor id="earth2studio-lexicon-hrrr-HRRRFXLexicon-build_vocab">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.lexicon.hrrr.HRRRFXLexicon.build_vocab() -> dict[str, str]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>staticmethod</Badge>
+
+Create HRRR vocab dictionary
+
+</Indent>
+<Anchor id="earth2studio-lexicon-hrrr-HRRRFXLexicon-get_item">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.lexicon.hrrr.HRRRFXLexicon.get_item(
+    val: str
+) -> tuple[str, collections.abc.Callable]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Get item from HRRR vocabulary.
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-lexicon-hrrr-HRRRLexicon">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.lexicon.hrrr.HRRRLexicon()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+High-Resolution Rapid Refresh Analysis Lexicon
+HRRR specified &lt;Product ID&gt;::&lt;Parameter ID&gt;::&lt;Level/ Layer&gt;::&lt;Forcast Valid Range(optional)&gt;::&lt;ID Number (optional, override)&gt;
+
+Products include:
+    - wrfsfc
+    - wrfprs
+    - wrfnat
+    - wrfsubh
+
+<Note>
+
+Additional resources:
+- https://www.nco.ncep.noaa.gov/pmb/products/hrrr/
+- https://www.nco.ncep.noaa.gov/pmb/products/hrrr/hrrr.t00z.wrfsfcf00.grib2.shtml
+- https://www.nco.ncep.noaa.gov/pmb/products/hrrr/hrrr.t00z.wrfsfcf02.grib2.shtml
+
+</Note>
+
+<Anchor id="earth2studio-lexicon-hrrr-HRRRLexicon-build_vocab">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.lexicon.hrrr.HRRRLexicon.build_vocab() -> dict[str, str]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>staticmethod</Badge>
+
+Create HRRR vocab dictionary
+
+</Indent>
+<Anchor id="earth2studio-lexicon-hrrr-HRRRLexicon-get_item">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.lexicon.hrrr.HRRRLexicon.get_item(
+    val: str
+) -> tuple[str, collections.abc.Callable]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Get item from HRRR vocabulary.
+
+</Indent>
+</Indent>
