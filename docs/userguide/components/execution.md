@@ -67,7 +67,12 @@ The built-in runners are:
   stream. Each diagnostic in `diagnostics` adds a stream under its key. It accepts
   an optional `perturbation` for initial-condition ensembles.
 - `DiagnosticRunner` applies diagnostics directly to source data. Step `k`
-  reads the source at the item's time plus `k * step`.
+  reads the source at the item's time plus `k * step`. A diagnostic declaring
+  fixed input `lead_time` coordinates, such as `CorrDiffCMIP6`'s
+  `[-24h, 0h, 24h]`, reads that window around each step (using a `DataSource`
+  when the window reaches negative lead times), and its fixed output lead times
+  are offset by the step's lead time (`LeadWindow` reductions require regular
+  non-negative lead axes).
 - `CoupledRunner` (`earth2studio.coupling`) runs several models together;
   see [Coupled Models](#coupled-models).
 

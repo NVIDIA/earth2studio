@@ -43,11 +43,18 @@ from earth2studio.perturbation import (
     HemisphericCentredBredVector,
     LaggedEnsemble,
 )
-from earth2studio.run import DiagnosticRunner, PrognosticRunner, Runner, WorkItem
+from earth2studio.run import (
+    DiagnosticRunner,
+    Pipeline,
+    PrognosticRunner,
+    Runner,
+    WorkItem,
+    work_items,
+)
 from earth2studio.run.runner import _signature_for_stream
 from earth2studio.run.work import member_seed
 from earth2studio.utils import coord_array, coord_array_like
-from earth2studio.utils.coords import E2S_DYNAMIC_DIMS
+from earth2studio.utils.coords import E2S_DYNAMIC_DIMS, handshake_dataarray
 from earth2studio.utils.type import CoordinateSystem
 
 T0 = np.datetime64("2026-01-01T00")
@@ -496,6 +503,317 @@ def test_diagnostic_runner_needs_a_source() -> None:
 def test_diagnostic_runner_needs_declared_input_variables() -> None:
     with pytest.raises(ValueError):
         DiagnosticRunner({"copy": Identity()}, _Ones())
+
+
+class _MultiFrameDiagnostic:
+    """CorrDiffCMIP6-shaped diagnostic requiring a fixed multi-frame lead window."""
+
+    def __init__(
+        self,
+        input_leads: np.ndarray | None = None,
+        output_leads: np.ndarray | None = None,
+    ) -> None:
+        self.input_leads = (
+            np.array([-24, 0, 24], dtype="timedelta64[h]")
+            if input_leads is None
+            else input_leads
+        )
+        self.output_leads = (
+            np.array([-12, -6], dtype="timedelta64[h]")
+            if output_leads is None
+            else output_leads
+        )
+        self.seen_anchors: list[np.datetime64] = []
+        self.seen_input_leads: list[list[np.timedelta64]] = []
+
+    def input_coords(self) -> CoordinateSystem:
+        return coord_array(
+            ("batch", "time", "lead_time", "variable", "lat", "lon"),
+            {
+                "lead_time": self.input_leads,
+                "variable": ["u10m", "v10m"],
+                "lat": [10, 0],
+                "lon": [0, 10, 20],
+            },
+            dynamic=("batch", "time"),
+        )
+
+    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
+        handshake_dataarray(input_coords, self.input_coords())
+        return coord_array_like(
+            input_coords,
+            {
+                "lead_time": self.output_leads,
+                "variable": ["ws10m"],
+            },
+        )
+
+    def to(self, device: torch.device) -> "_MultiFrameDiagnostic":
+        return self
+
+    def __call__(self, x: xr.DataArray) -> xr.DataArray:
+        self.output_coords(x)
+        self.seen_anchors.append(x["time"].values[0])
+        self.seen_input_leads.append(list(x["lead_time"].values))
+        # Summarize across the multi-frame window so every input frame contributes.
+        mean_val = x.mean(dim=("lead_time", "variable"))
+        out = xr.concat([mean_val for _ in self.output_leads], dim="lead_time")
+        out = out.assign_coords(lead_time=self.output_leads)
+        out = out.expand_dims(variable=["ws10m"])
+        return out.transpose(..., "time", "lead_time", "variable", "lat", "lon")
+
+
+class _DynamicLeadDiagnostic(_WindSpeed):
+    """WindGust-shaped diagnostic declaring a dynamic lead_time axis."""
+
+    def input_coords(self) -> CoordinateSystem:
+        return coord_array(
+            ("batch", "time", "lead_time", "variable", "lat", "lon"),
+            {"variable": ["u10m", "v10m"], "lat": [10, 0], "lon": [0, 10, 20]},
+            dynamic=("batch", "time", "lead_time"),
+        )
+
+
+class _ForecastSource:
+    """ForecastSource returning values tagged by lead hours."""
+
+    def __init__(self) -> None:
+        self.calls: list[tuple[list[np.datetime64], list[np.timedelta64]]] = []
+
+    def __call__(
+        self,
+        time: np.ndarray,
+        lead_time: np.ndarray,
+        variable: np.ndarray,
+    ) -> xr.DataArray:
+        time = np.atleast_1d(time)
+        lead_time = np.atleast_1d(lead_time)
+        variable = np.atleast_1d(variable)
+        self.calls.append((list(time), list(lead_time)))
+        hours = (lead_time / np.timedelta64(1, "h")).astype(np.float32)
+        data = np.broadcast_to(
+            hours[None, :, None, None, None],
+            (len(time), len(lead_time), len(variable), 2, 3),
+        ).copy()
+        return xr.DataArray(
+            data,
+            dims=("time", "lead_time", "variable", "lat", "lon"),
+            coords={
+                "time": time,
+                "lead_time": lead_time,
+                "variable": variable,
+                "lat": [10, 0],
+                "lon": [0, 10, 20],
+            },
+        )
+
+
+def _hours(leads: Any) -> list[int]:
+    """Lead times as whole hours, for readable assertions."""
+    return (np.asarray(leads) // np.timedelta64(1, "h")).astype(int).tolist()
+
+
+def test_diagnostic_runner_preserves_multiframe_input_leads_with_datasource() -> None:
+    source = _Ones()
+    diagnostic = _MultiFrameDiagnostic()
+    runner = DiagnosticRunner(
+        {"downscale": diagnostic}, source, step=np.timedelta64(24, "h")
+    )
+    item = WorkItem(T0, np.timedelta64(24, "h"))
+
+    requests = runner.data_requests(item)
+    assert [_hours(r.lead_time) for r in requests] == [[-24, 0, 24], [0, 24, 48]]
+    for request in requests:
+        np.testing.assert_array_equal(request.time, [T0])
+
+    planned = runner.output_coords(item.final_lead_time)["downscale"]
+    assert _hours(planned["lead_time"].values) == [-12, -6, 12, 18]
+
+    steps = list(runner.run_item(item))
+    assert len(steps) == 2
+    # DataSource receives valid times T0 + [-24h, 0h, 24h] then T0 + [0h, 24h, 48h].
+    assert _hours([t - T0 for t in source.times]) == [-24, 0, 24, 0, 24, 48]
+    # Model sees its declared relative window anchored at T0 then T0 + 24h.
+    assert diagnostic.seen_anchors == [T0, T0 + np.timedelta64(24, "h")]
+    assert [_hours(leads) for leads in diagnostic.seen_input_leads] == [
+        [-24, 0, 24],
+        [-24, 0, 24],
+    ]
+    # Outputs are re-anchored to item.time with step-shifted lead times.
+    for step_output, expected_leads in zip(steps, ([-12, -6], [12, 18])):
+        y = step_output["downscale"]
+        np.testing.assert_array_equal(y["time"].values, [T0])
+        assert _hours(y["lead_time"].values) == expected_leads
+
+    # End-to-end write through Pipeline matches the planned stream schema.
+    store = KVBackend()
+    Pipeline(runner, output={"downscale": store}, device="cpu").run(
+        work_items([T0], np.timedelta64(24, "h"))
+    )
+    assert store["ws10m"].shape == (1, 4, 2, 3)
+    np.testing.assert_allclose(store["ws10m"], 1.0)
+
+
+def test_diagnostic_runner_multiframe_with_forecast_source() -> None:
+    source = _ForecastSource()
+    diagnostic = _MultiFrameDiagnostic(
+        input_leads=np.array([0, 6], dtype="timedelta64[h]"),
+        output_leads=np.array([6], dtype="timedelta64[h]"),
+    )
+    runner = DiagnosticRunner({"dx": diagnostic}, source, step=np.timedelta64(6, "h"))
+    item = WorkItem(T0, np.timedelta64(6, "h"))
+
+    requests = runner.data_requests(item)
+    assert [_hours(r.lead_time) for r in requests] == [[0, 6], [6, 12]]
+
+    steps = list(runner.run_item(item))
+    assert len(steps) == 2
+    # The forecast is always read from the item's init time, at shifted leads.
+    assert [(t, _hours(leads)) for t, leads in source.calls] == [
+        ([T0], [0, 6]),
+        ([T0], [6, 12]),
+    ]
+    # Step 0 averages leads [0, 6] -> 3.0; step 1 averages leads [6, 12] -> 9.0.
+    np.testing.assert_allclose(steps[0]["dx"].values, 3.0)
+    np.testing.assert_allclose(steps[1]["dx"].values, 9.0)
+    assert [_hours(s["dx"]["lead_time"].values) for s in steps] == [[6], [12]]
+
+
+def test_diagnostic_runner_preserves_dynamic_lead_time_behavior() -> None:
+    source = _Ones()
+    runner = DiagnosticRunner(
+        {"wind": _DynamicLeadDiagnostic()}, source, step=np.timedelta64(6, "h")
+    )
+    item = _item(12)
+    requests = runner.data_requests(item)
+    assert [_hours(r.lead_time) for r in requests] == [[0], [6], [12]]
+    steps = list(runner.run_item(item))
+    assert [_hours(s["wind"]["lead_time"].values) for s in steps] == [[0], [6], [12]]
+
+
+class _SingleFrameDiagnostic(_WindSpeed):
+    """Fixed single-frame ``[0]`` diagnostic enforcing ``handshake_dataarray``."""
+
+    def __init__(self) -> None:
+        self.seen: list[tuple[np.datetime64, list[int]]] = []
+
+    def input_coords(self) -> CoordinateSystem:
+        return coord_array(
+            ("batch", "time", "lead_time", "variable", "lat", "lon"),
+            {
+                "lead_time": np.array([0], dtype="timedelta64[h]"),
+                "variable": ["u10m", "v10m"],
+                "lat": [10, 0],
+                "lon": [0, 10, 20],
+            },
+            dynamic=("batch", "time"),
+        )
+
+    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
+        handshake_dataarray(input_coords, self.input_coords())
+        return coord_array_like(input_coords, {"variable": ["ws10m"]})
+
+    def __call__(self, x: xr.DataArray) -> xr.DataArray:
+        self.output_coords(x)
+        self.seen.append((x["time"].values[0], _hours(x["lead_time"].values)))
+        return super().__call__(x)
+
+
+def test_diagnostic_runner_anchors_fixed_single_frame_input() -> None:
+    # A fixed [0] input is anchored at time + k*step so handshake_dataarray
+    # succeeds on every step, while fetches and outputs keep [0, 6, 12] leads.
+    diagnostic = _SingleFrameDiagnostic()
+    runner = DiagnosticRunner(
+        {"wind": diagnostic}, _Ones(), step=np.timedelta64(6, "h")
+    )
+    assert [_hours(r.lead_time) for r in runner.data_requests(_item(12))] == [
+        [0],
+        [6],
+        [12],
+    ]
+    steps = list(runner.run_item(_item(12)))
+    assert diagnostic.seen == [
+        (T0, [0]),
+        (T0 + np.timedelta64(6, "h"), [0]),
+        (T0 + np.timedelta64(12, "h"), [0]),
+    ]
+    assert [_hours(s["wind"]["lead_time"].values) for s in steps] == [[0], [6], [12]]
+
+
+def test_diagnostic_runner_windowed_batches_members() -> None:
+    runner = DiagnosticRunner(
+        {"downscale": _MultiFrameDiagnostic()}, _Ones(), step=np.timedelta64(24, "h")
+    )
+    item = WorkItem(T0, np.timedelta64(24, "h"), member_ids=(0, 1))
+    steps = list(runner.run_item(item))
+    for step_output, expected_leads in zip(steps, ([-12, -6], [12, 18])):
+        y = step_output["downscale"]
+        assert y.dims[0] == "ensemble"
+        np.testing.assert_array_equal(y["ensemble"], [0, 1])
+        np.testing.assert_array_equal(y["time"].values, [T0])
+        assert _hours(y["lead_time"].values) == expected_leads
+
+
+def test_diagnostic_runner_rejects_overlapping_or_unplaceable_leads() -> None:
+    # Overlapping output leads across steps fail at planning AND direct run_item.
+    overlapping = _MultiFrameDiagnostic(
+        output_leads=np.array([0, 10, 20], dtype="timedelta64[h]")
+    )
+    runner = DiagnosticRunner(
+        {"downscale": overlapping}, _Ones(), step=np.timedelta64(10, "h")
+    )
+    with pytest.raises(ValueError, match="repeat lead times"):
+        runner.output_coords(np.timedelta64(10, "h"))
+    with pytest.raises(ValueError, match="duplicate lead_time"):
+        list(runner.run_item(WorkItem(T0, np.timedelta64(10, "h"))))
+
+    # Fixed input window with dynamic/absent output lead_time fails at construction.
+    class _DroppedOutputLead(_MultiFrameDiagnostic):
+        def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
+            return coord_array(
+                ("batch", "time", "variable", "lat", "lon"),
+                {"variable": ["ws10m"], "lat": [10, 0], "lon": [0, 10, 20]},
+                dynamic=("batch", "time"),
+            )
+
+    with pytest.raises(ValueError, match="dynamic or absent"):
+        DiagnosticRunner({"bad": _DroppedOutputLead()}, _Ones())
+
+    # Dynamic input with fixed output lead_time fails on multi-step runs.
+    class _FixedOutputOnly(_DynamicLeadDiagnostic):
+        def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
+            return coord_array(
+                ("batch", "time", "lead_time", "variable", "lat", "lon"),
+                {
+                    "lead_time": np.array([6], dtype="timedelta64[h]"),
+                    "variable": ["ws10m"],
+                    "lat": [10, 0],
+                    "lon": [0, 10, 20],
+                },
+                dynamic=("batch", "time"),
+            )
+
+        def __call__(self, x: xr.DataArray) -> xr.DataArray:
+            return (
+                super()
+                .__call__(x)
+                .assign_coords(lead_time=np.array([6], dtype="timedelta64[h]"))
+            )
+
+    fixed_out_runner = DiagnosticRunner(
+        {"fixed_out": _FixedOutputOnly()}, _Ones(), step=np.timedelta64(6, "h")
+    )
+    with pytest.raises(ValueError, match="may repeat the same lead times"):
+        fixed_out_runner.output_coords(np.timedelta64(6, "h"))
+    with pytest.raises(ValueError, match="duplicate lead_time"):
+        list(fixed_out_runner.run_item(_item(6)))
+
+    # A step longer than the output window is accepted, with sorted leads.
+    valid_runner = DiagnosticRunner(
+        {"downscale": overlapping}, _Ones(), step=np.timedelta64(24, "h")
+    )
+    planned = valid_runner.output_coords(np.timedelta64(24, "h"))["downscale"]
+    assert _hours(planned["lead_time"].values) == [0, 10, 20, 24, 34, 44]
 
 
 def test_every_stochastic_model_is_seeded_per_member() -> None:

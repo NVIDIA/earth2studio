@@ -64,7 +64,8 @@ final lead time must be a multiple of the runner's step.
 - `work_items` orders items time-major in the caller's `times` order and splits
   each time's members into groups of `member_batch`. Times and final lead times are
   normalized to seconds, so items hash by instant.
-- Every item writes lead times from zero, so a valid list repeats no
+- Every item starts at step zero (lead time zero, or a windowed diagnostic's
+  declared offset around zero), so a valid list repeats no
   `(time, member)` whatever the final lead times, and either every item has members or
   none does. `work_items` and `OutputManager.prepare` raise `ValueError` otherwise.
 
@@ -110,7 +111,8 @@ class Runner(Protocol):
 
 `output_coords(final_lead_time)` returns one allocation-free `coord_array` signature per
 stream (see [E2S-06_MODEL_CONTRACT_SPEC.md](E2S-06_MODEL_CONTRACT_SPEC.md)). Its fixed
-dimensions are `lead_time`, covering every lead the final lead time allows, then
+dimensions are `lead_time`, covering every lead the stream produces (the final
+lead time's leads, or, for a windowed diagnostic, its offset output leads), then
 `variable` and the grid's. `time` and `ensemble` may appear only in the dynamic
 prefix. The schema carries the yielded fields' grid metadata, auxiliary
 coordinates, dtype and attributes, and is an upper bound: runs may stop early.
@@ -444,7 +446,16 @@ each diagnostic adds a stream under the caller's name.
 
 `DiagnosticRunner(diagnostics, source=None, step=None, seed=0, source_member=None)` applies
 diagnostics directly to source data. Step `k` fetches inputs at the item's time
-plus `k * step`; without `step`, an item is one step at lead time zero.
+plus `k * step`; without `step`, an item is one step at lead time zero. A
+diagnostic whose input declares fixed `lead_time` coordinates fetches that
+window offset by the step's lead time (windows reaching negative lead times need
+a source that supplies times before `item.time`, such as a `DataSource`), and is
+called with the window relabeled to its declared lead times at `time + k * step`
+(requiring fixed output `lead_time` coordinates). Its output is labeled back to
+the item's time, with fixed output lead times offset by the step's lead time;
+the stream schema holds those sorted offset lead times (`LeadWindow` reductions
+do not apply to negative or irregular offset axes), and both `output_coords` and
+`run_item` raise `ValueError` if steps repeat a lead time.
 
 `PrognosticRunner` and `DiagnosticRunner` support single-slot models only: a
 prognostic or diagnostic whose `input_coords()` returns a tuple of slots raises
