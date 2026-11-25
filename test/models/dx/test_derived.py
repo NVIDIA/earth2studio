@@ -25,6 +25,7 @@ import earth2studio.grids as grids
 from earth2studio.grids import CurvilinearGrid, LatLonGrid, resolve_grid
 from earth2studio.models.conformance import check_diagnostic_contract
 from earth2studio.models.dx import (
+    DerivedHDW,
     DerivedPressureLevels,
     DerivedRH,
     DerivedRHDewpoint,
@@ -77,6 +78,7 @@ DERIVED_MODELS = [
     DerivedRH,
     DerivedRHDewpoint,
     DerivedVPD,
+    DerivedHDW,
     DerivedSurfacePressure,
     DerivedTCWV,
     DerivedPressureLevels,
@@ -626,6 +628,102 @@ def test_derived_vpd_invalid_coords(invalid_coords):
         model(field)
 
 
+def _vpd_reference(t, r):
+    es = 6.11 * np.exp((2.26e6 / 461) * ((1.0 / 273.16) - (1.0 / t)))
+    return es * ((100.0 - r) / 100.0)
+
+
+@pytest.mark.parametrize(
+    "levels,shape",
+    [
+        ([1000], (1, 4, 16, 32)),
+        ([1000, 950], (2, 8, 16, 32)),
+        ([1000, 975, 950], (1, 12, 32, 64)),
+    ],
+)
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_derived_hdw(levels, shape, device):
+    model = DerivedHDW(levels, grid=_grid(shape)).to(device)
+
+    batch_size = shape[0]
+    n_levels = len(levels)
+    lat_size = shape[2]
+    lon_size = shape[3]
+
+    coords = OrderedDict(
+        {
+            "batch": np.arange(batch_size),
+            "variable": model.input_coords()["variable"],
+            "lat": np.linspace(-90, 90, lat_size),
+            "lon": np.linspace(0, 360, lon_size),
+        }
+    )
+
+    u = np.linspace(3.0, 9.0, n_levels)
+    v = np.linspace(4.0, 12.0, n_levels)
+    t = np.linspace(305.0, 295.0, n_levels)
+    r = np.linspace(20.0, 60.0, n_levels)
+    x = torch.ones(shape, device=device)
+    for i in range(n_levels):
+        x[:, 4 * i] = float(u[i])
+        x[:, 4 * i + 1] = float(v[i])
+        x[:, 4 * i + 2] = float(t[i])
+        x[:, 4 * i + 3] = float(r[i])
+
+    out, out_coords = model(_field(x, coords)).e2s.to_torch()
+
+    assert out.shape == (batch_size, 1, lat_size, lon_size)
+    assert list(out_coords["variable"]) == ["hdw"]
+    assert out.device == x.device
+
+    ws_max = np.sqrt(u[-1] ** 2 + v[-1] ** 2)
+    vpd_max = _vpd_reference(t[0], r[0])
+    expected = torch.full_like(out, float(ws_max * vpd_max))
+    assert torch.allclose(out, expected, rtol=1e-5)
+
+    x_sat = x.clone()
+    x_sat[:, 3::4] = 100
+    out_sat, _ = model(_field(x_sat, coords)).e2s.to_torch()
+    assert torch.allclose(out_sat, torch.zeros_like(out_sat), atol=1e-5)
+
+    x_supersat = x.clone()
+    x_supersat[:, 3::4] = 105
+    out_supersat, _ = model(_field(x_supersat, coords)).e2s.to_torch()
+    assert torch.all(out_supersat == 0)
+
+    x_calm = x.clone()
+    x_calm[:, 0::4] = 0
+    x_calm[:, 1::4] = 0
+    out_calm, _ = model(_field(x_calm, coords)).e2s.to_torch()
+    assert torch.allclose(out_calm, torch.zeros_like(out_calm), atol=1e-5)
+
+    x_hot_dry_windy = x.clone()
+    x_hot_dry_windy[:, 0::4] *= 2
+    x_hot_dry_windy[:, 2::4] += 5
+    x_hot_dry_windy[:, 3::4] -= 10
+    out_hot_dry_windy, _ = model(_field(x_hot_dry_windy, coords)).e2s.to_torch()
+    assert torch.all(out_hot_dry_windy > out)
+
+
+@pytest.mark.parametrize(
+    "invalid_coords",
+    [
+        OrderedDict({"batch": np.array([0]), "variable": np.array(["wrong_var"])}),
+        OrderedDict({"batch": np.array([0]), "variable": np.array(["u1000"])}),
+    ],
+)
+def test_derived_hdw_invalid_coords(invalid_coords):
+    model = DerivedHDW([1000], grid=_grid((16, 32)))
+    x = torch.randn(1, 1, 16, 32)
+    invalid_coords.update(
+        lat=model.input_coords()["lat"], lon=model.input_coords()["lon"]
+    )
+    field = _field(x, invalid_coords)
+
+    with pytest.raises(ValueError):
+        model(field)
+
+
 @pytest.mark.parametrize(
     "z_surf_constant,temperature_correction,sp_correct",
     [
@@ -846,6 +944,13 @@ def test_derivedrhdewpoint_conformance():
 
 def test_derivedvpd_conformance():
     model = DerivedVPD([100], grid=_grid())
+    assert check_diagnostic_contract(model) == [
+        "D10: model does not declare itself stochastic"
+    ]
+
+
+def test_derivedhdw_conformance():
+    model = DerivedHDW([1000, 950], grid=_grid())
     assert check_diagnostic_contract(model) == [
         "D10: model does not declare itself stochastic"
     ]

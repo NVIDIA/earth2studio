@@ -32,6 +32,13 @@ from earth2studio.utils.interp import hybrid_pressure, interpolate_vertical
 from earth2studio.utils.type import CoordinateSystem, CoordSystem
 
 
+def _vapor_pressure_deficit(t: torch.Tensor, r: torch.Tensor) -> torch.Tensor:
+    L = 2.26e6
+    Rv = 461
+    es = 6.11 * torch.exp((L / Rv) * ((1.0 / 273.16) - (1.0 / t)))
+    return es * ((100.0 - r) / 100.0)
+
+
 class _DerivedDiagnostic(torch.nn.Module):
     stochastic = False
 
@@ -322,12 +329,70 @@ class DerivedVPD(_DerivedDiagnostic):
         # This function expects [temp, rh] pairs
         t = x[..., ::2, :, :]
         r = x[..., 1::2, :, :]
-        L = 2.26e6
-        Rv = 461
-        es = 6.11 * torch.exp((L / Rv) * ((1.0 / 273.16) - (1.0 / t)))
-        out_tensor = es * ((100.0 - r) / 100.0)
+        return _vapor_pressure_deficit(t, r)
 
-        return out_tensor
+
+class DerivedHDW(_DerivedDiagnostic):
+    """Calculates the Hot-Dry-Windy Index (HDW), a fire weather index, from wind,
+    temperature and relative humidity on near-surface levels. The calculation is
+    based on the formula:
+
+    HDW = max(ws) * max(vpd)
+
+    where both maxima are taken over the given levels, ws = sqrt(u^2 + v^2) is the
+    wind speed in m/s and vpd is the vapor pressure deficit in hPa, computed in the
+    same way as :py:class:`DerivedVPD` with negative values set to zero.
+
+    Note
+    ----
+    The original index takes both maxima over the surface and the 500 m layer above
+    it. This diagnostic uses a fixed set of levels instead. The default pressure levels
+    cover roughly the lowest 500 m over low terrain. Over high terrain some of them
+    lie below the ground, so choose levels that fit the region. For additional
+    information on the HDW, please refer to:
+
+    - Srock et al. "The Hot-Dry-Windy Index: A New Fire Weather Index" Atmosphere 9(7)
+      279 (2018)
+    - https://doi.org/10.3390/atmos9070279
+
+    Parameters
+    ----------
+    levels : list[int  |  str], optional
+        Pressure levels to take the maxima over. The resulting expected input fields
+        are u, v, temperature and relative humidity for each level. E.g. for level 1000
+        the input fields should be [u1000, v1000, t1000, r1000], by default
+        [1000, 975, 950]
+    grid : str | GridDefinition, optional
+        Spatial grid configured before coordinate planning, by default "latlon-0.25deg"
+
+    Badges
+    ------
+    region:global product:wind product:atmos
+    provider:nvidia backend:pytorch
+    """
+
+    def __init__(
+        self,
+        levels: list[int | str] = [1000, 975, 950],
+        grid: str | GridDefinition = "latlon-0.25deg",
+    ) -> None:
+        super().__init__(grid)
+        self.levels = levels
+        self.in_variables = []
+        for level in levels:
+            self.in_variables.extend(
+                [f"u{level}", f"v{level}", f"t{level}", f"r{level}"]
+            )
+        self.out_variables = ["hdw"]
+
+    def _compute(self, x: torch.Tensor) -> torch.Tensor:
+        u = x[..., 0::4, :, :]
+        v = x[..., 1::4, :, :]
+        t = x[..., 2::4, :, :]
+        r = x[..., 3::4, :, :]
+        ws = torch.sqrt(u**2 + v**2)
+        vpd = _vapor_pressure_deficit(t, r).clamp(min=0)
+        return ws.amax(dim=-3, keepdim=True) * vpd.amax(dim=-3, keepdim=True)
 
 
 class DerivedSurfacePressure(_DerivedDiagnostic):

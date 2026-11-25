@@ -55,6 +55,7 @@ E2STUDIO_VOCAB = {
     "tp": "total precipitation (m)",
     "blh": "boundary layer height (m)",
     "cape": "convective available potential energy (J kg-1)",
+    "hdw": "hot-dry-windy index (hPa m s-1)",
     "lsp": "Large-scale precipitation accumulated over given time frame (m)",
     "cp": "Convective precipitation accumulated over given time frame (m)",
     "fdir": "surface direct short-wave radiation (J m-2)",
