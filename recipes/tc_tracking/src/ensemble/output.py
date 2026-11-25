@@ -18,8 +18,7 @@
 
 Fields go to one Zarr store shared by all ranks, or to one NetCDF file per
 batch with :class:`BatchNetCDFBackend`. :class:`SeedRecorder` adds the seed
-each member was run with as array ``random_seed``, and :class:`AttemptFlush`
-keeps the writes of a retry from racing those of the attempt it replaces.
+each member was run with as array ``random_seed``.
 """
 
 from collections import OrderedDict
@@ -254,38 +253,3 @@ class SeedRecorder:
                 name="random_seed",
             )
         )
-
-
-class AttemptFlush:
-    """Wait for the writes of an unstable attempt before NaN steps replace them.
-
-    The NaN steps of a failed batch write to the same store positions as its
-    last attempt. Stores that write in background threads, like the Zarr store,
-    do not order writes to the same chunk, so an earlier write could land after
-    its replacement. As a :class:`~src.ensemble.runner.BatchObserver`, this
-    flushes the store once an attempt was unstable. A retry needs no flush, as
-    the pipeline flushes the store after every attempt.
-
-    Parameters
-    ----------
-    store : IOBackend
-        Store of the fields
-    """
-
-    def __init__(self, store: IOBackend) -> None:
-        self.store = store
-
-    def batch_finished(self, item: WorkItem, seed: int | None, attempts: int) -> None:
-        """Flush once an attempt was unstable, before any NaN steps.
-
-        Parameters
-        ----------
-        item : WorkItem
-            The batch
-        seed : int | None
-            Seed of the attempt, None if it was unstable
-        attempts : int
-            Number of attempts made
-        """
-        if seed is None:
-            self.store.flush()

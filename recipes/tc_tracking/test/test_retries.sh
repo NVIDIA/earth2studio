@@ -1,4 +1,20 @@
 #!/bin/bash
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 # Check the retries of unstable batches on one GPU. With thresholds no forecast
 # can meet, every attempt of every batch is unstable, so each batch has to be
 # attempted max_retries + 1 times and then end as failed: recorded as such,
@@ -10,14 +26,12 @@ set -e
 
 model=${1:-fcn3}
 case "$model" in
-    fcn3) batch_size=2 ;;
-    # one member per batch keeps AIFS-ENS within 48 GB of GPU memory
-    aifs) batch_size=1 ;;
+    fcn3 | aifs) ;;
     *) echo "unknown model $model, choose from fcn3, aifs" >&2; exit 1 ;;
 esac
-members=3
+# one member per batch, which also keeps AIFS-ENS within 48 GB of GPU memory
+batches=3
 max_retries=1
-batches=$(( (members + batch_size - 1) / batch_size ))
 out_dir="outputs_retries"
 rm -rf "$out_dir"
 
@@ -36,7 +50,7 @@ fail() {
 
 banner "running $batches batches with $model, every attempt unstable..."
 python ../main.py --config-path="$(pwd)/cfg" --config-name=baseline_helene.yaml \
-    project=retries model="$model" ensemble_size="$members" batch_size="$batch_size" \
+    project=retries model="$model" ensemble_size="$batches" batch_size=1 \
     n_steps=4 store_type=netcdf "+out_vars=[msl]" \
     "stability_check.thresholds=[1e-6,1e-6,1e-6]" stability_check.max_retries="$max_retries"
 
@@ -51,7 +65,7 @@ if ls "$out_dir"/cyclone_tracks_te/tracks_*.csv > /dev/null 2>&1; then
     fail "failed batches have track files"
 fi
 
-python - "$out_dir" "$members" << 'EOF' || fail "fields or seeds of failed batches are wrong, see above"
+python - "$out_dir" "$batches" << 'EOF' || fail "fields or seeds of failed batches are wrong, see above"
 import glob
 import sys
 

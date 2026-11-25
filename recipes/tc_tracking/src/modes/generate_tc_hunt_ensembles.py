@@ -47,12 +47,7 @@ from earth2studio.models.px import PrognosticModel
 from earth2studio.run import Pipeline, WorkItem, work_items
 from earth2studio.run.work import barrier, broadcast, rank0_first, rank_info
 from src.data.tc_hunt_data_utils import CachedSource, data_source_from_config
-from src.ensemble.output import (
-    AttemptFlush,
-    BatchNetCDFBackend,
-    SeedRecorder,
-    zarr_backend,
-)
+from src.ensemble.output import BatchNetCDFBackend, SeedRecorder, zarr_backend
 from src.ensemble.progress import BatchProgress
 from src.ensemble.runner import BatchObserver, InstabilityDetection, StableRunner
 from src.ensemble.schedule import RetryPipeline, RetryQueue, RetryScheduler
@@ -432,7 +427,8 @@ def run_ensemble(cfg: DictConfig) -> None:
         if store is not None:
             seeds = SeedRecorder(store, items)
             rank0_first(seeds.add_array)
-            observers += [AttemptFlush(store), seeds]
+            observers.append(seeds)
+            runner.flush = store.flush
         if progress is not None:
             observers.append(progress)
         runner.observers = observers

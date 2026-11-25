@@ -54,12 +54,12 @@ python ../main.py --config-path=$(pwd)/cfg --config-name=reproduce_helene.yaml \
 ./test_retries.sh aifs     # AIFS-ENS v1
 ```
 
-The script runs three members on one GPU with stability thresholds no forecast
-can meet and `max_retries=1`, so every attempt of every batch is unstable. It
-checks that each batch was attempted twice and then ended as failed: recorded
-in `outputs_retries/retries_progress/failed-*.log`, with NaN fields, seed `-1`
-and no track files. The run takes one to two minutes, most of it loading the
-model.
+The script runs three batches of one member each on one GPU with stability
+thresholds no forecast can meet and `max_retries=1`, so every attempt of every
+batch is unstable. It checks that each batch was attempted twice and then ended
+as failed: recorded in `outputs_retries/retries_progress/failed-*.log`, with
+NaN fields, seed `-1` and no track files. The run takes one to two minutes,
+most of it loading the model.
 
 With several GPUs (`torchrun`), a retry runs on whichever rank is free, see
 the main README. How the ranks pass retries to each other is covered by unit

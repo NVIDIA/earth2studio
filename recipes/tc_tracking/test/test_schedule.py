@@ -17,7 +17,7 @@
 """Retries of unstable batches across ranks, ``src.ensemble.schedule``.
 
 Every rank is a thread with its own scheduler; all share one in-process store,
-which stands in for the TCP store of ``torch.distributed``. No model is run:
+which stands in for the TCP store served by the root process. No model is run:
 a rank only records the attempts its scheduler hands out.
 """
 
@@ -49,7 +49,7 @@ def _run_rank(
     scheduler: RetryScheduler,
     share: list[WorkItem],
     unstable: Callable[[WorkItem, int], bool],
-    during: Callable[[WorkItem, int], None],
+    during: Callable[[WorkItem, int], None] = lambda item, attempt: None,
 ) -> Attempts:
     """Run a rank's batches like the pipeline and the runner, one attempt each."""
     ran = []
@@ -76,106 +76,55 @@ def _start(target: Callable, *args: object) -> Future:
     return future
 
 
-def _run_ranks(
-    shares: list[list[WorkItem]],
-    max_retries: int,
-    unstable: Callable[[WorkItem, int], bool],
-    during: Callable[[WorkItem, int], None] = lambda item, attempt: None,
-    store: dist.Store | None = None,
-) -> list[Attempts]:
-    """Run every rank's share in its own thread, returning each rank's attempts."""
-    store = store or dist.HashStore()
-    ranks = [
-        _start(
-            _run_rank,
-            RetryScheduler(RetryQueue(store, len(shares)), max_retries),
-            share,
-            unstable,
-            during,
-        )
-        for share in shares
-    ]
-    return [rank.result(TIMEOUT) for rank in ranks]
-
-
-def _until_a_rank_waits(store: dist.Store) -> None:
-    """Block until a rank waits for a retry, i.e. has drawn a ticket."""
-    deadline = time.monotonic() + TIMEOUT
-    while store.add("tickets", 0) == 0:
-        assert time.monotonic() < deadline, "no rank waits for a retry"
-        time.sleep(0.01)
-
-
-def _members_and_attempts(ran: list[Attempts]) -> list[tuple[int, int]]:
-    return sorted(
-        (item.member_ids[0], attempt) for rank in ran for item, attempt in rank
-    )
-
-
-def test_uneven_shares_are_retried_once_each() -> None:
-    """Every batch of the only rank with batches needs one retry."""
-    batches = _batches(4)
-    ran = _run_ranks(
-        [batches, [], []], max_retries=2, unstable=lambda item, attempt: attempt == 0
-    )
-    assert _members_and_attempts(ran) == [(m, a) for m in range(4) for a in (0, 1)]
-    assert ran[0][:4] == [(batch, 0) for batch in batches]
-
-
-def test_batches_unstable_in_every_attempt_are_given_up() -> None:
-    batches = _batches(3)
-    ran = _run_ranks(
-        [batches[:2], batches[2:]], max_retries=2, unstable=lambda item, attempt: True
-    )
-    assert _members_and_attempts(ran) == [(m, a) for m in range(3) for a in range(3)]
-
-
-def test_free_rank_takes_the_retry_of_a_busy_rank() -> None:
-    first, second = _batches(2)
+def test_retries_run_on_free_ranks_until_stable_or_given_up() -> None:
+    """Rank 0 holds both batches; one recovers in its retry, one never does."""
+    recovers, fails = _batches(2)
     retried = threading.Event()
 
     def during(item: WorkItem, attempt: int) -> None:
-        if (item, attempt) == (first, 1):
+        if (item, attempt) == (recovers, 1):
             retried.set()
-        if item == second:
-            # rank 0 stays busy until the retry of its first batch has started
-            assert retried.wait(TIMEOUT), "the retry was not taken by the free rank"
+        if (item, attempt) == (fails, 0):
+            # rank 0 stays busy until a free rank has taken its first retry
+            assert retried.wait(TIMEOUT), "the retry was not taken by a free rank"
 
-    ran = _run_ranks(
-        [[first, second], []],
-        max_retries=1,
-        unstable=lambda item, attempt: (item, attempt) == (first, 0),
-        during=during,
-    )
-    assert ran == [[(first, 0), (second, 0)], [(first, 1)]]
-
-
-def test_waiting_ranks_are_released_once_all_batches_are_done() -> None:
     store = dist.HashStore()
-    (batch,) = _batches(1)
-    ran = _run_ranks(
-        [[batch], []],
-        max_retries=1,
-        unstable=lambda item, attempt: False,
-        # rank 0 finishes its batch only once rank 1 waits for retries
-        during=lambda item, attempt: _until_a_rank_waits(store),
-        store=store,
-    )
-    assert ran == [[(batch, 0)], []]
+    ranks = [
+        _start(
+            _run_rank,
+            RetryScheduler(RetryQueue(store, world_size=3), max_retries=1),
+            share,
+            lambda item, attempt: item == fails or attempt == 0,
+            during,
+        )
+        for share in ([recovers, fails], [], [])
+    ]
+    ran = [rank.result(TIMEOUT) for rank in ranks]
+
+    assert ran[0][:2] == [(recovers, 0), (fails, 0)]
+    assert (recovers, 1) in ran[1] + ran[2]
+    # every batch got both attempts, and none a third
+    assert sorted(sum(ran, []), key=lambda run: (run[0].member_ids, run[1])) == [
+        (recovers, 0),
+        (recovers, 1),
+        (fails, 0),
+        (fails, 1),
+    ]
 
 
-def test_abort_releases_waiting_ranks() -> None:
+def test_abort_releases_a_waiting_rank() -> None:
+    """Rank 1 waits for retries when rank 0 fails before finishing its batches."""
     store = dist.HashStore()
-    waiting = _start(
-        _run_rank,
-        RetryScheduler(RetryQueue(store, world_size=2), max_retries=1),
-        [],
-        lambda item, attempt: True,
-        lambda item, attempt: None,
+    rank0, rank1 = (
+        RetryScheduler(RetryQueue(store, world_size=2), max_retries=1) for _ in range(2)
     )
-    _until_a_rank_waits(store)
-    # the other rank fails before it has finished its batches
-    RetryScheduler(RetryQueue(store, world_size=2), max_retries=1).abort()
+    waiting = _start(_run_rank, rank1, [], lambda item, attempt: False)
+    deadline = time.monotonic() + TIMEOUT
+    while store.add("tickets", 0) == 0:  # until rank 1 has drawn a ticket
+        assert time.monotonic() < deadline, "rank 1 does not wait for a retry"
+        time.sleep(0.01)
+
+    rank0.abort()
     assert waiting.result(TIMEOUT) == []
 
 
@@ -187,10 +136,5 @@ def test_resume_continues_with_the_next_attempt() -> None:
         max_retries=2,
         first_attempt=lambda item: 2 if item == done_twice else 3,
     )
-    ran = _run_rank(
-        scheduler,
-        [done_twice, exhausted],
-        lambda item, attempt: True,
-        lambda item, attempt: None,
-    )
+    ran = _run_rank(scheduler, [done_twice, exhausted], lambda item, attempt: True)
     assert ran == [(done_twice, 2)]

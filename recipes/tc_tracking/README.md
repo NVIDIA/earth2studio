@@ -785,7 +785,7 @@ together:
   runs a rank's batches, to run the batches of a
   `RetryScheduler`: the rank's own, then retries of unstable
   batches of any rank, passed between the ranks by a
-  `RetryQueue` in the key-value store of `torch.distributed`.
+  `RetryQueue` in a key-value store served by the root process.
 - `BatchNetCDFBackend`, `zarr_backend` and `SeedRecorder`
   (`src/ensemble/output.py`): field and seed output.
 - `BatchProgress` (`src/ensemble/progress.py`): Earth2Studio's

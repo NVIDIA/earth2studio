@@ -22,14 +22,15 @@ share of the batches. An unstable batch is put into a :class:`RetryQueue`
 shared by all ranks as soon as its attempt is written, and every rank that has
 finished its share takes retries from it until no rank can produce any more.
 
-- :class:`RetryQueue` passes retries between ranks through the key-value store
-  that ``torch.distributed`` already runs on the root process.
+- :class:`RetryQueue` passes retries between ranks through a key-value store
+  served by the root process.
 - :class:`RetryScheduler` decides which batches a rank runs, in which attempt.
 - :class:`RetryPipeline` is an Earth2Studio :class:`~earth2studio.run.Pipeline`
   running the batches of the scheduler.
 """
 
 import pickle
+import socket
 import time
 from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass
@@ -41,7 +42,10 @@ import torch.distributed as dist
 from loguru import logger
 
 from earth2studio.run import Pipeline, WorkItem
-from earth2studio.run.work import rank_info
+from earth2studio.run.work import broadcast, rank_info
+
+# a rank waits for a retry for as long as other ranks are busy
+_NO_TIMEOUT = timedelta(days=365)
 
 
 @dataclass(frozen=True)
@@ -63,9 +67,9 @@ class Retry:
 class RetryQueue:
     """Queue of retries shared by all ranks.
 
-    The queue lives in a key-value store reachable from every rank, usually the
-    TCP store of the default process group on the root process. Its requests
-    are point to point, not collectives, so any rank can use it at any time.
+    The queue lives in a key-value store reachable from every rank, usually a
+    TCP store served by the root process. Its requests are point to point, not
+    collectives, so any rank can use it at any time.
 
     Every rank first runs its own batches, putting unstable ones into the
     queue, and reports with :meth:`finish_initial` once it is done. It then
@@ -82,43 +86,37 @@ class RetryQueue:
         Store shared by all ranks, see :meth:`shared`
     world_size : int
         Number of ranks
-    timeout : float, optional
-        Seconds a rank waits for a retry before it checks again whether the
-        queue was closed, a safeguard only, by default 60
     """
 
-    def __init__(self, store: dist.Store, world_size: int, timeout: float = 60) -> None:
+    def __init__(self, store: dist.Store, world_size: int) -> None:
         self.store = store
         self.world_size = world_size
-        self.timeout = timedelta(seconds=timeout)
 
     @classmethod
-    def shared(cls, **kwargs: Any) -> "RetryQueue":
-        """Queue in the store of the default process group, shared by all ranks.
+    def shared(cls) -> "RetryQueue":
+        """Queue in a store of its own, shared by all ranks. Collective.
 
-        Without a process group, the queue is local to the process. With one,
-        the queue serves a single run: its state stays in the group's store,
-        where a second queue would find it closed.
-
-        Parameters
-        ----------
-        **kwargs : Any
-            Further arguments of :class:`RetryQueue`
+        Rank 0 serves the store and tells the other ranks where to reach it, so
+        every rank has to call this at the same point of the run. Without a
+        process group, the queue is local to the process.
 
         Returns
         -------
         RetryQueue
             The queue
         """
-        _, world_size = rank_info()
-        if world_size > 1:
-            # private, but the only handle on the store torch.distributed runs
-            from torch.distributed.distributed_c10d import _get_default_store
-
-            store = _get_default_store()
-        else:
-            store = dist.HashStore()
-        return cls(dist.PrefixStore("tc_hunt/retries/", store), world_size, **kwargs)
+        rank, world_size = rank_info()
+        if world_size == 1:
+            return cls(dist.HashStore(), world_size)
+        server = None
+        if rank == 0:
+            # port 0: any free port
+            server = dist.TCPStore(
+                socket.gethostname(), 0, is_master=True, wait_for_workers=False
+            )
+        host, port = broadcast(None if server is None else (server.host, server.port))
+        store = server or dist.TCPStore(host, port, is_master=False)
+        return cls(store, world_size)
 
     def put(self, retry: Retry) -> None:
         """Queue a retry for any rank to take.
@@ -156,28 +154,25 @@ class RetryQueue:
         """
         ticket = self.store.add("tickets", 1) - 1
         key = f"retry/{ticket}"
-        while True:
-            if self.store.check(["aborted"]):
-                return None
-            # closed before this ticket was drawn, so no retry will come for it
-            if self.store.check(["closed"]) and not self.store.check([key]):
-                return None
-            try:
-                self.store.wait([key], self.timeout)
-            except dist.DistStoreError:
-                continue
-            entry = pickle.loads(self.store.get(key))  # noqa: S301 - own store
-            if entry is None:
-                return None
-            retry, queued_at = entry
-            rank, _ = rank_info()
-            logger.info(
-                f"rank {rank}: took the retry of "
-                f"{np.datetime_as_string(retry.item.time, unit='s')} members "
-                f"{list(retry.item.member_ids)}, {time.time() - queued_at:.2f} s "
-                "after it was queued"
-            )
-            return retry
+        if self.store.check(["aborted"]):
+            return None
+        # closed before this ticket was drawn, so no retry will come for it
+        if self.store.check(["closed"]) and not self.store.check([key]):
+            return None
+        # ends with a retry or, once the queue is closed, a release entry
+        self.store.wait([key], _NO_TIMEOUT)
+        entry = pickle.loads(self.store.get(key))  # noqa: S301 - own store
+        if entry is None:
+            return None
+        retry, queued_at = entry
+        rank, _ = rank_info()
+        logger.info(
+            f"rank {rank}: took the retry of "
+            f"{np.datetime_as_string(retry.item.time, unit='s')} members "
+            f"{list(retry.item.member_ids)}, {time.time() - queued_at:.2f} s "
+            "after it was queued"
+        )
+        return retry
 
     def task_done(self) -> None:
         """Report that a retry taken has been run and its outputs are written."""
@@ -237,8 +232,8 @@ class RetryScheduler:
         self.queue = queue
         self.max_retries = max_retries
         self.first_attempt = first_attempt or (lambda item: 0)
-        # attempt of each batch the pipeline is running
-        self._attempts: dict[WorkItem, int] = {}
+        # attempt of the batch the pipeline is running
+        self._attempt = 0
         self._unstable = False
 
     def schedule(self, items: Iterable[WorkItem]) -> Iterator[WorkItem]:
@@ -274,19 +269,22 @@ class RetryScheduler:
             self.queue.task_done()
 
     def attempt(self, item: WorkItem) -> int:
-        """Attempt of a batch the pipeline is running.
+        """Attempt of the batch the pipeline is running.
+
+        A rank runs one batch at a time, so this is the attempt of the batch
+        handed out last, whatever ``item`` is.
 
         Parameters
         ----------
         item : WorkItem
-            The batch
+            The batch, not used; part of the interface of the runner
 
         Returns
         -------
         int
             Number of the attempt
         """
-        return self._attempts[item]
+        return self._attempt
 
     def abort(self) -> None:
         """Stop the retries on all ranks, because this rank failed."""
@@ -308,10 +306,9 @@ class RetryScheduler:
 
     def _run(self, item: WorkItem, attempt: int) -> Iterator[WorkItem]:
         """Yield a batch for one attempt, then queue a retry if it was unstable."""
-        self._attempts[item] = attempt
+        self._attempt = attempt
         self._unstable = False
         yield item
-        del self._attempts[item]
         if self._unstable and attempt < self.max_retries:
             self.queue.put(Retry(item, attempt + 1))
 
