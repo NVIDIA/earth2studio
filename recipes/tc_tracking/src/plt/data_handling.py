@@ -180,19 +180,21 @@ def match_tracks(
 
 
 def extract_tracks_from_file(csv_file: str) -> pd.DataFrame:
-    """Read a TempestExtremes track CSV and convert date columns to a single ``time`` column.
+    """Read a track CSV and convert date columns to a single ``time`` column.
 
     Parameters
     ----------
     csv_file : str
-        Path to a CSV file produced by TempestExtremes ``StitchNodes``.
+        Path to a CSV file produced by TempestExtremes ``StitchNodes``, or by
+        the WN2 tracker in the same layout.
 
     Returns
     -------
     pd.DataFrame
         Track data with a ``time`` column (datetime64) prepended.
     """
-    tracks = pd.read_csv(csv_file, sep=",")
+    # track files of the WN2 tracker start with a "#" header
+    tracks = pd.read_csv(csv_file, sep=",", comment="#")
     tracks.columns = tracks.columns.str.strip()
 
     times = pd.to_datetime(tracks[["year", "month", "day", "hour"]].astype(int))

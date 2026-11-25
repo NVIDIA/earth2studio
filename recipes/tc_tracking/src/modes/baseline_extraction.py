@@ -15,7 +15,6 @@
 # limitations under the License.
 
 import os
-import urllib.request
 from concurrent.futures import ProcessPoolExecutor
 from functools import partial
 
@@ -26,43 +25,10 @@ from loguru import logger
 from omegaconf import DictConfig
 
 from earth2studio.data import DataSource, fetch_data
+from src.data.ibtracs import ensure_ibtracs
 from src.data.tc_hunt_data_utils import data_source_from_config
 from src.tc_hunt_utils import great_circle_distance
 from src.tempest_extremes import TempestExtremes
-
-IBTRACS_URL = (
-    "https://www.ncei.noaa.gov/data/international-best-track-archive-for-climate-stewardship-ibtracs"
-    "/v04r01/access/csv/ibtracs.ALL.list.v04r01.csv"
-)
-
-
-def ensure_ibtracs(path: str) -> str:
-    """Ensure the IBTrACS CSV exists at *path*, downloading it if necessary.
-
-    The full IBTrACS v04r01 dataset (~300 MB) is downloaded from NCEI on
-    first use and cached at the specified location for subsequent runs.
-
-    Parameters
-    ----------
-    path : str
-        Local file path where the IBTrACS CSV should reside.
-
-    Returns
-    -------
-    str
-        Absolute path to the IBTrACS CSV file.
-    """
-    path = os.path.abspath(path)
-    if os.path.isfile(path):
-        return path
-
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    logger.info(
-        f"IBTrACS file not found at {path} — downloading from NCEI (~300 MB)..."
-    )
-    urllib.request.urlretrieve(IBTRACS_URL, path)  # noqa: S310
-    logger.success(f"IBTrACS downloaded to {path}")
-    return path
 
 
 def extract_from_historic_data(

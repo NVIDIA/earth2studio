@@ -118,3 +118,35 @@ diff outputs_reference_tracks/reference_track_helene_2024_north_atlantic.csv \
 ```
 
 <!-- markdownlint-enable MD013 -->
+
+## Test 4: WeatherNext 2 Cyclones with Both Trackers
+
+```bash
+cd earth2studio/recipes/tc_tracking/test
+./test_wn2.sh
+```
+
+Runs two members of WeatherNext 2 Cyclones for Hurricane Melissa (needs an
+80 GB GPU), tracked by the model's built-in tracker and by TempestExtremes,
+and reproduces them. The test also checks that the built-in tracker is
+rejected for another model.
+
+WeatherNext 2 is not bitwise reproducible on GPU, so the reproduced tracks
+are compared with tolerances instead of byte by byte: over the first 48 h,
+every track has to stay within 100 km, 5 m/s and 5 hPa of the original, see
+`compare_tracks.py`. Reproduced members drift by up to a few hPa and tens of
+kilometres, mostly in weak systems; different members differ by hundreds of
+kilometres.
+
+### Expected Result: WeatherNext 2
+
+`outputs_baseline_melissa_wn2/cyclone_tracks_wn2` and
+`outputs_baseline_melissa_wn2/cyclone_tracks_te` hold two track files each,
+under the same names, and the script ends with `all good, yay (:`.
+
+The format of the built-in tracker's files is tested without model or GPU by
+
+```bash
+cd earth2studio/recipes/tc_tracking
+pytest test/test_wn2_tracks.py
+```

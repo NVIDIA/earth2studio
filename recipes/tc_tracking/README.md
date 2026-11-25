@@ -50,6 +50,9 @@ tracking adds little to the runtime.
    - [5.2 Produce Ensemble Forecasts](#52-produce-ensemble-forecasts)
    - [5.3 Analyse Tracks](#53-analyse-tracks)
    - [5.4 Reproduce Interesting Members](#54-reproduce-interesting-members-to-extract-fields)
+6. [WeatherNext 2 Cyclones and Its Built-in Tracker](#6-weathernext-2-cyclones-and-its-built-in-tracker)
+   - [6.1 Running the Cases](#61-running-the-cases)
+   - [6.2 Track Files](#62-track-files)
 
 ## 1. Setting up the Environment
 
@@ -269,7 +272,7 @@ be found at `cfg/helene.yaml`.
 ```yaml
 project: 'helene'             # project name
 mode: 'generate_ensemble'     # choose mode
-model: 'aifs'                 # 'fcn3', 'aifs' or 'aifs-v2'
+model: 'aifs'                 # 'fcn3', 'aifs', 'aifs-v2' or 'wn2' (see 6)
 # optional: bitwise reproducible runs, see 2.2 (default: False)
 deterministic: False
 # optional: random seed, from which the seed of every batch
@@ -1043,8 +1046,108 @@ correctly, point `track_dir` to the original Helene run
 (`outputs_helene/cyclone_tracks_te`) and confirm that the
 tracks are identical.
 
+## 6. WeatherNext 2 Cyclones and Its Built-in Tracker
+
+[WeatherNext 2 Cyclones][wn2-docs] (WN2, `model: 'wn2'`)
+tracks cyclones itself: next to the weather, the network
+predicts cyclone fields learnt from IBTrACS, and its own
+tracker turns them into tracks. Its intensities are
+best-track style (1-minute sustained wind, central
+pressure), while TempestExtremes reads grid-scale values off
+the 0.25° fields. Running both on the same members separates
+the two. [wn2_tracker_comparison.py](./wn2_tracker_comparison.py)
+compares them with the IBTrACS best track, for Hurricane
+Melissa and Typhoon Ragasa (2025), and adds TempestExtremes
+on FCN3 and AIFS-ENS v1 started from the same analysis.
+It runs without a GPU on the tracks of these forecasts in
+[aux_data/sample_tracks](./aux_data/sample_tracks).
+
 <!-- markdownlint-disable MD013 -->
 
+| Model | Created by | Reference | Weights |
+| --- | --- | --- | --- |
+| WeatherNext 2 Cyclones | Google DeepMind | Alet et al. (2026), [Nature][wn2-paper]; [code and checkpoints][wn2-repo] | CC BY 4.0 (code Apache 2.0) |
+| FourCastNet 3 | NVIDIA | Bonev et al. (2025), [arXiv:2507.12144][fcn3-paper] | [Apache 2.0][fcn3-weights] |
+| AIFS-ENS v1 | ECMWF | Lang et al. (2024), [arXiv:2412.15832][aifs-paper] | [CC BY 4.0][aifs-weights] |
+
+<!-- markdownlint-enable MD013 -->
+
+Tracker and data: TempestExtremes, Ullrich et al. (2021),
+[GMD][te-paper]. IBTrACS, Knapp et al. (2010),
+[BAMS][ibtracs-paper], downloaded from [NCEI][ibtracs] on
+first use and not redistributed. Initial conditions are
+based on data and products of ECMWF ([open data][ecmwf-open-data],
+CC BY 4.0); the sea surface temperature WN2 needs is ERA5
+([doi:10.24381/cds.adbb2d47][era5]) and contains modified
+Copernicus Climate Change Service information.
+
+### 6.1 Running the Cases
+
+```bash
+# WN2 with both trackers (80 GB GPU); also ragasa_wn2.yaml
+python main.py --config-name=melissa_wn2.yaml
+
+# the same storm with FCN3 and AIFS-ENS v1, TempestExtremes only
+python main.py --config-name=melissa_wn2.yaml model=fcn3 \
+    '~wn2_tracking' '~model_kwargs' project=melissa_fcn3
+python main.py --config-name=melissa_wn2.yaml model=aifs \
+    deterministic=True '~wn2_tracking' '~model_kwargs' \
+    project=melissa_aifs
+
+# optional: TempestExtremes on the IFS analysis
+python main.py --config-name=extract_ifs.yaml
+```
+
+The settings are explained in `cfg/melissa_wn2.yaml`. In
+short: `wn2_tracking: {}` switches the built-in tracker on.
+It needs `model: 'wn2'` and `batch_size: 1`, and the run
+stops with an error otherwise. The initial conditions are
+the IFS analysis, which WN2 was fine-tuned on; both
+trackers need rollouts of more than 2.5 days.
+
+**Several GPUs, first run:** every rank downloads what it
+needs on first use: checkpoints, and the initial conditions
+of its members. Ranks starting at once fetch the same IFS
+files, can read them half written and fail. Fill the cache
+first with a single process, e.g. one member:
+
+```bash
+python main.py --config-name=melissa_wn2.yaml ensemble_size=1 \
+    project=melissa_wn2_cache
+torchrun --nproc-per-node=8 main.py --config-name=melissa_wn2.yaml
+```
+
+or use a local data source. Later runs read from the cache.
+
+Reproduced WN2 members (`cfg/reproduce_melissa_wn2.yaml`,
+see [2.2](#22-reproduce-individual-ensemble-members)) are
+close to the original but not bitwise identical, as JAX's
+GPU kernels are not deterministic.
+
+### 6.2 Track Files
+
+The built-in tracker writes `<store_dir>/cyclone_tracks_wn2/`
+with the file names and columns TempestExtremes uses in
+`cyclone_tracks_te/`, so the recipe's analysis tools read
+both. Differences: `wind_speed` is the 1-minute sustained
+wind, `height` is always `nan`, size columns in km follow
+(`rmw_km`, `r34_<ne|se|sw|nw>_km`, ...), and `#` lines at
+the top name the model (`pd.read_csv(path, comment="#")`).
+
+<!-- markdownlint-disable MD013 -->
+
+[wn2-docs]: https://nvidia.github.io/earth2studio/main/modules/generated/models/px/WeatherNext2Cyclones/
+[wn2-paper]: https://doi.org/10.1038/s41586-026-10953-2
+[fcn3-paper]: https://arxiv.org/abs/2507.12144
+[fcn3-weights]: https://huggingface.co/nvidia/fourcastnet3
+[aifs-paper]: https://arxiv.org/abs/2412.15832
+[aifs-weights]: https://huggingface.co/ecmwf/aifs-ens-1.0
+[ecmwf-open-data]: https://www.ecmwf.int/en/forecasts/datasets/open-data
+[era5]: https://doi.org/10.24381/cds.adbb2d47
+[wn2-repo]: https://github.com/google-deepmind/weathernext
+[te-paper]: https://doi.org/10.5194/gmd-14-5023-2021
+[ibtracs-paper]: https://doi.org/10.1175/2009BAMS2755.1
+[ibtracs]: https://www.ncei.noaa.gov/products/international-best-track-archive
 [te-repo]: https://github.com/ClimateGlobalChange/tempestextremes
 [te-install]: https://github.com/ClimateGlobalChange/tempestextremes?tab=readme-ov-file#installation-via-cmake-recommended
 [flash-attn-help]: https://nvidia.github.io/earth2studio/userguide/support/troubleshooting.html#flash-attention-has-long-build-time-for-aifs-models

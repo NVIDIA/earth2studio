@@ -12,6 +12,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - `Pipeline` lead-time reductions per stream, such as weekly means with `LeadWindow`.
+- TC tracking recipe: WeatherNext 2 Cyclones with its built-in cyclone tracker,
+  and a notebook comparing its intensities with those of TempestExtremes.
 
 ### Changed
 
