@@ -256,9 +256,13 @@ class CachedSource(_SourceWrapper):
 class SupplementedSource(_SourceWrapper):
     """Data source taking a few variables from a second source.
 
-    For analyses lacking a variable a model needs: the IFS analysis of ECMWF's
-    open data, for example, has no sea surface temperature, which WeatherNext 2
-    reads. Both sources have to provide the same grid.
+    For analyses lacking a variable a model needs. In this recipe it is used
+    for one case only: WeatherNext 2 reads the sea surface temperature, which
+    the IFS produces but ECMWF's open data does not include, so the WN2
+    configs take ``sst`` from ERA5 and every other variable from the IFS. The
+    supplement is only contacted for its variables: a model not reading them,
+    such as FCN3 or AIFS-ENS, gets everything from ``source``. Both sources
+    have to provide the same grid.
 
     Parameters
     ----------

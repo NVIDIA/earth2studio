@@ -1179,9 +1179,19 @@ python main.py --config-name=extract_ifs.yaml
 The settings are explained in `cfg/melissa_wn2.yaml`. In
 short: `wn2_tracking: {}` switches the built-in tracker on.
 It needs `model: 'wn2'` and `batch_size: 1`, and the run
-stops with an error otherwise. The initial conditions are
-the IFS analysis, which WN2 was fine-tuned on; both
-trackers need rollouts of more than 2.5 days.
+stops with an error otherwise. Both trackers need rollouts
+of more than 2.5 days.
+
+The initial conditions are the IFS analysis from ECMWF's
+open data, which WN2 was fine-tuned on, for all three
+models. One variable is missing there: WN2 reads the sea
+surface temperature, which the IFS produces (parameter 34)
+but the open data does not include. The configs therefore
+take only `sst` from ERA5, through `SupplementedSource`. This
+is needed for WN2 alone; FCN3 and AIFS-ENS do not read the
+sea surface temperature (AIFS-ENS uses the skin temperature,
+which the open data has) and get every variable from the
+IFS.
 
 **Several GPUs, first run:** every rank downloads what it
 needs on first use: checkpoints, and the initial conditions

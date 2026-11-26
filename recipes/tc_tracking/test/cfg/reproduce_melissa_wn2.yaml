@@ -16,8 +16,11 @@ n_steps: 15
 ensemble_size: 2
 batch_size: 1
 
-# IFS analysis from ECMWF's open data, which WeatherNext 2 was fine-tuned on. It
-# lacks the sea surface temperature the model reads, taken from ERA5 instead.
+# IFS analysis from ECMWF's open data, which WeatherNext 2 was fine-tuned on.
+# The IFS produces sea surface temperature (parameter 34, in ECMWF's licensed
+# Set I), but the open data does not include it. Only WeatherNext 2 reads it, so
+# for WN2 runs it is taken from ERA5 instead; models without it (FCN3, AIFS-ENS)
+# never request it and get every variable from the IFS.
 data_source:
     _target_: src.data.tc_hunt_data_utils.SupplementedSource
     source:
