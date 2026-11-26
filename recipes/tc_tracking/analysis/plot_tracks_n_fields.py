@@ -37,8 +37,8 @@
 # in `cfg/reproduce_helene.yaml`.
 #
 # ### Running the notebook
-# In the analysis environment (`analysis/pyproject.toml`, see section 6.3 of
-# the recipe's README), from the `analysis` directory:
+# With the analysis environment (`analysis/pyproject.toml`, see section 3 of
+# the recipe's README) activated, from the `analysis` directory:
 #
 # ```bash
 # cd analysis

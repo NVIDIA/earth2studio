@@ -831,6 +831,7 @@ the `analysis` directory, with [uv](https://docs.astral.sh/uv/):
 ```bash
 cd analysis
 uv sync                        # creates analysis/.venv
+source .venv/bin/activate
 ```
 
 or with pip 25.1 or newer, in an environment of your choice
@@ -844,12 +845,13 @@ pip install --group analysis
 ```
 
 **Running.** The notebooks are [Jupytext](https://jupytext.readthedocs.io/)
-scripts, Python with `# %%` cells. Convert one to a notebook
-and open it, from the `analysis` directory:
+scripts, Python with `# %%` cells. With the environment
+activated, convert one to a notebook and open it, from the
+`analysis` directory:
 
 ```bash
 jupytext --to notebook wn2_tracker_comparison.py
-jupyter lab                    # with uv: uv run jupyter lab
+jupyter lab
 ```
 
 or open the `.ipynb` in an editor such as VS Code and select
@@ -1239,8 +1241,8 @@ GPU:
 `case` in the first code cell picks the storm, `melissa` or
 `ragasa`; add a storm to `CASES` to analyse another one.
 
-**Running.** In the analysis environment, from the `analysis`
-directory, see [section 3](#3-analysis-and-visualisation):
+**Running.** With the analysis environment activated, from the
+`analysis` directory, see [section 3](#3-analysis-and-visualisation):
 
 ```bash
 jupytext --to notebook wn2_tracker_comparison.py
