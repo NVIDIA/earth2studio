@@ -19,14 +19,16 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
-from src.plt.data_handling import (
+from tqdm import tqdm
+
+from .data_handling import (
     compute_averages_of_errors_over_lead_time,
     extract_tracks,
     extract_tracks_from_file,
     get_ensemble_averages,
     match_tracks,
 )
-from src.plt.plotting_helpers import (
+from .plotting_helpers import (
     plot_errors_over_lead_time,
     plot_extreme_extremes_histograms,
     plot_ib_era5,
@@ -34,7 +36,6 @@ from src.plt.plotting_helpers import (
     plot_relative_over_time,
     plot_spaghetti,
 )
-from tqdm import tqdm
 
 _DEFAULT_TIME_STEP = np.timedelta64(6, "h")
 

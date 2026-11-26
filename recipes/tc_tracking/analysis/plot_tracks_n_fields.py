@@ -36,6 +36,16 @@
 # `store_type: "netcdf"` and cyclone tracking switched on, as e.g. done
 # in `cfg/reproduce_helene.yaml`.
 #
+# ### Running the notebook
+# In the analysis environment (`analysis/pyproject.toml`, see section 6.3 of
+# the recipe's README), from the `analysis` directory:
+#
+# ```bash
+# cd analysis
+# jupytext --to notebook plot_tracks_n_fields.py
+# jupyter lab
+# ```
+#
 # ### Configuration
 #
 # **Path Settings**
@@ -158,7 +168,7 @@ display(ds)
 # frame-by-frame plotting without index errors.
 
 # %%
-from src.plt.data_handling import extract_tracks_from_file  # noqa: E402
+from plotting.data_handling import extract_tracks_from_file  # noqa: E402
 
 track_dir = os.path.abspath(track_dir)
 

@@ -76,12 +76,16 @@ TE_COLUMNS = [
     "height",
 ]
 
+# wind thresholds of WN2's wind radii: native name (in knots) and name in the
+# track file, the threshold in m/s: 17.5, 25.7 and 32.9 m/s
+RADIUS_THRESHOLDS = {"34": "17", "50": "26", "64": "33"}
+
 # storm size columns of the WN2 track table, and their names in the track file
 SIZE_COLUMNS = {
     "radius_of_maximum_winds_km": "rmw_km",
     **{
-        f"radius_{speed}_knot_winds_{quadrant}_km": f"r{speed}_{quadrant}_km"
-        for speed in (34, 50, 64)
+        f"radius_{native}_knot_winds_{quadrant}_km": f"r{ms}_{quadrant}_km"
+        for native, ms in RADIUS_THRESHOLDS.items()
         for quadrant in ("ne", "se", "sw", "nw")
     },
 }

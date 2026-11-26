@@ -25,7 +25,7 @@ from loguru import logger
 from omegaconf import DictConfig
 
 from earth2studio.data import DataSource, fetch_data
-from src.data.ibtracs import ensure_ibtracs
+from src.data.ibtracs import KNOTS_TO_MS, ensure_ibtracs
 from src.data.tc_hunt_data_utils import data_source_from_config
 from src.tc_hunt_utils import great_circle_distance
 from src.tempest_extremes import TempestExtremes
@@ -133,7 +133,8 @@ def extract_from_ibtracs(
             "hour": times.hour,
             "lat": storm.lat,
             "lon": storm.lon,
-            "wind_speed": storm.vmax,
+            # tropycal gives the wind in knots
+            "wind_speed": storm.vmax * KNOTS_TO_MS,
             "mslp": storm.mslp,
             "type": storm.type,
         }

@@ -3,7 +3,7 @@
 # tracker: WeatherNext 2 Cyclones built-in tracker
 # wind_speed: maximum 1-minute sustained 10 m wind [m/s]
 # msl: minimum sea-level pressure [Pa]
-track_id, year, month, day, hour, i, j, lon, lat, msl, wind_speed, height, rmw_km, r34_ne_km, r34_se_km, r34_sw_km, r34_nw_km, r50_ne_km, r50_se_km, r50_sw_km, r50_nw_km, r64_ne_km, r64_se_km, r64_sw_km, r64_nw_km
+track_id, year, month, day, hour, i, j, lon, lat, msl, wind_speed, height, rmw_km, r17_ne_km, r17_se_km, r17_sw_km, r17_nw_km, r26_ne_km, r26_se_km, r26_sw_km, r26_nw_km, r33_ne_km, r33_se_km, r33_sw_km, r33_nw_km
 0, 2025, 10, 24, 6, 1139, 298, 284.749158, 15.497603, 9.912892e+04, 3.094050e+01, nan, 8.197248e+01, 2.375648e+02, 2.069670e+02, 1.394044e+02, 1.807170e+02, 8.197248e+01, 7.505540e+01, 5.677138e+01, 5.767694e+01, 0.000000e+00, 0.000000e+00, 0.000000e+00, 0.000000e+00
 0, 2025, 10, 24, 12, 1140, 297, 285.024435, 15.689209, 9.974351e+04, 2.878044e+01, nan, 5.375964e+01, 9.944505e+01, 6.770527e+01, 2.433839e+01, 6.783324e+01, 5.375964e+01, 4.448529e+00, 1.101126e+00, 5.428298e+00, 0.000000e+00, 0.000000e+00, 0.000000e+00, 0.000000e+00
 0, 2025, 10, 24, 18, 1140, 297, 284.925023, 15.813857, 9.990841e+04, 2.689595e+01, nan, 1.162215e+02, 2.323388e+02, 2.206184e+02, 1.728300e+02, 1.877551e+02, 1.162215e+02, 8.454735e+01, 6.924898e+01, 6.495033e+01, 0.000000e+00, 0.000000e+00, 0.000000e+00, 0.000000e+00

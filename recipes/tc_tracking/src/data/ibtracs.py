@@ -119,7 +119,7 @@ def load_ibtracs_storm(
         - ``msl``: minimum central pressure in Pa,
         - ``wind_speed``: maximum 1-minute sustained wind in m/s,
         - ``rmw_km``: radius of maximum wind in km,
-        - ``r34_km``: mean radius of 34 kt wind over the quadrants having it,
+        - ``r17_km``: mean radius of 17.5 m/s wind over the quadrants having it,
         - ``nature``, ``agency`` and ``track_type``: storm type, the US agency
           and whether the track is final (``main``) or provisional
 
@@ -160,7 +160,7 @@ def load_ibtracs_storm(
             "msl": number("USA_PRES") * HPA_TO_PA,
             "wind_speed": number("USA_WIND") * KNOTS_TO_MS,
             "rmw_km": number("USA_RMW") * NAUTICAL_MILE_KM,
-            "r34_km": radii.where(radii > 0).mean(axis=1) * NAUTICAL_MILE_KM,
+            "r17_km": radii.where(radii > 0).mean(axis=1) * NAUTICAL_MILE_KM,
             "nature": storm["NATURE"].str.strip(),
             "agency": storm["USA_AGENCY"].str.strip(),
             "track_type": storm["TRACK_TYPE"].str.strip(),
@@ -183,7 +183,7 @@ def intensity_change(
     """Change of a variable over the preceding hours, NaN where undefined.
 
     Rapid intensification is commonly defined as a rise of the maximum wind of
-    at least 30 kt (15.4 m/s) in 24 h.
+    at least 15.4 m/s in 24 h.
 
     Parameters
     ----------

@@ -52,15 +52,13 @@
 #   achievable reference for reanalysis-driven forecasts
 #
 # ### Running the notebook
-# This script (and its sibling helpers) imports from `data_handling.py`,
-# `plotting_helpers.py` and `analyse_n_plot.py` using bare module names, so
-# the working directory must be `recipes/tc_tracking/plotting/`. From the
-# recipe root:
+# In the analysis environment (`analysis/pyproject.toml`, see section 6.3 of
+# the recipe's README), from the `analysis` directory:
 #
 # ```bash
-# cd plotting
-# jupytext --to notebook tracks_slayground_notebook.py
-# jupyter notebook tracks_slayground.ipynb
+# cd analysis
+# jupytext --to notebook plot_tracks_analysis.py
+# jupyter lab
 # ```
 #
 # ### Configuration
@@ -78,9 +76,9 @@
 
 # %%
 import numpy as np
-from src.plt.analyse_n_plot import load_tracks
-from src.plt.data_handling import compute_averages_of_errors_over_lead_time
-from src.plt.plotting_helpers import (
+from plotting.analyse_n_plot import load_tracks
+from plotting.data_handling import compute_averages_of_errors_over_lead_time
+from plotting.plotting_helpers import (
     plot_errors_over_lead_time,
     plot_extreme_extremes_histograms,
     plot_ib_era5,

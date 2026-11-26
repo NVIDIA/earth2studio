@@ -23,7 +23,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from matplotlib.collections import LineCollection
-from src.plt.data_handling import merge_tracks_by_time
+
+from .data_handling import merge_tracks_by_time
 
 _DEFAULT_TIME_STEP = np.timedelta64(6, "h")
 _DEFAULT_P_REF_PA = 101325

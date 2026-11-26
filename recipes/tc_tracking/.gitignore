@@ -16,3 +16,9 @@ aux_data/ibtracs*
 
 # Virtual environments
 .venv
+
+# lock file of the analysis environment, created by uv sync
+analysis/uv.lock
+
+# notebooks generated from the analysis scripts with jupytext
+analysis/*.ipynb

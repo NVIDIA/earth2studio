@@ -37,7 +37,7 @@ import pandas as pd
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from src.plt.data_handling import extract_tracks_from_file  # noqa: E402
+from analysis.plotting.data_handling import extract_tracks_from_file  # noqa: E402
 from src.tc_hunt_utils import great_circle_distance  # noqa: E402
 
 

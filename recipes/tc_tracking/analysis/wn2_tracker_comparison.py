@@ -72,8 +72,8 @@
 #
 # | Storm | Basin | Forecast start | What happened |
 # | --- | --- | --- | --- |
-# | [Melissa](https://en.wikipedia.org/wiki/Hurricane_Melissa) | North Atlantic | 24 Oct 2025, 00 UTC | Tropical storm that intensified for three days to 160 kt before landfall in Jamaica on 28 Oct |
-# | [Ragasa](https://en.wikipedia.org/wiki/Typhoon_Ragasa) | West Pacific | 18 Sep 2025, 12 UTC | Gained 68 kt in 24 h on 20 Sep, peaked near 145 kt east of the Luzon Strait |
+# | [Melissa](https://en.wikipedia.org/wiki/Hurricane_Melissa) | North Atlantic | 24 Oct 2025, 00 UTC | Tropical storm that intensified for three days to 82 m/s before landfall in Jamaica on 28 Oct |
+# | [Ragasa](https://en.wikipedia.org/wiki/Typhoon_Ragasa) | West Pacific | 18 Sep 2025, 12 UTC | Gained 35 m/s in 24 h on 20 Sep, peaked near 75 m/s east of the Luzon Strait |
 #
 # ### Data prerequisites
 #
@@ -107,12 +107,13 @@
 # IBTrACS is downloaded on first use (about 300 MB).
 #
 # ### Running the notebook
-#
-# From the recipe root, so that `src` can be imported:
+# In the analysis environment (`analysis/pyproject.toml`, see section 6.3 of
+# the recipe's README), from the `analysis` directory:
 #
 # ```bash
+# cd analysis
 # jupytext --to notebook wn2_tracker_comparison.py
-# jupyter notebook wn2_tracker_comparison.ipynb
+# jupyter lab
 # ```
 #
 # ### Configuration
@@ -127,10 +128,13 @@
 
 # %%
 import os
+import sys
 
 import matplotlib.pyplot as plt
-from src.data.ibtracs import load_ibtracs_storm
-from src.plt.tracker_comparison import (
+
+sys.path.insert(0, "..")  # the recipe root, for its IBTrACS loader in src
+
+from plotting.tracker_comparison import (  # noqa: E402
     load_analysis_track,
     load_runs,
     peak_intensity_table,
@@ -139,6 +143,7 @@ from src.plt.tracker_comparison import (
     plot_tracks,
     plot_wind_pressure,
 )
+from src.data.ibtracs import load_ibtracs_storm  # noqa: E402
 
 # storm: (IBTrACS name, season, basin as in the reference track file names)
 CASES = {
@@ -148,12 +153,12 @@ CASES = {
 case = "melissa"
 
 use_sample_tracks = True
-outputs_root = "."  # where main.py wrote outputs_<case>_<model>
-ibtracs_csv = "./aux_data/ibtracs.ALL.list.v04r01.csv"
+outputs_root = ".."  # where main.py wrote outputs_<case>_<model>: the recipe root
+ibtracs_csv = "../aux_data/ibtracs.ALL.list.v04r01.csv"
 
 prefix = "outputs_"  # of the run directories main.py writes
 if use_sample_tracks:
-    outputs_root, prefix = "./aux_data/sample_tracks", ""
+    outputs_root, prefix = "../aux_data/sample_tracks", ""
 
 name, season, basin = CASES[case]
 storm = case.title()
@@ -185,7 +190,7 @@ best_track[columns].dropna(subset=["wind_speed"]).head()
 # it. A member in which no track does is counted as a miss.
 #
 # All track files share one layout, whichever tracker wrote them, so one
-# function reads them all. `RUNS` in `src/plt/tracker_comparison.py` lists the
+# function reads them all. `RUNS` in `plotting/tracker_comparison.py` lists the
 # runs, their colours and where their files are.
 
 # %%
@@ -296,16 +301,16 @@ plt.show()
 # %% [markdown]
 # ### Rapid Intensification
 #
-# A storm intensifies rapidly if its maximum wind rises by at least 30 kt
-# (15.4 m/s) within 24 h. The plot shows, at each time, the share of members
+# A storm intensifies rapidly if its maximum wind rises by at least 15.4 m/s
+# within 24 h. The plot shows, at each time, the share of members
 # whose wind rose that much over the preceding 24 h; the shaded times are those
 # the storm itself did.
 #
 # A fixed wind threshold is a hard test for a tracker reading grid-scale winds:
 # if it sees only half of the storm's wind, it also sees only half of its
-# increase. With the sample tracks, every WN2 member intensifies rapidly in
-# the observed window, for both storms; no member does according to TE, on any
-# of the three models.
+# increase. With the sample tracks, every WN2 member intensifies rapidly at
+# some point, for both storms; according to TE, a single FCN3 member does, for
+# Melissa, and no member of the other models.
 
 # %%
 fig, ax = plt.subplots(figsize=(8, 4))
@@ -317,17 +322,17 @@ plt.show()
 # ### Storm Size
 #
 # The WN2 tracker also predicts the size of the storm, which TE does not
-# report: the radius of maximum wind and the radius of 34 kt wind, here
+# report: the radius of maximum wind and the radius of 17.5 m/s wind, here
 # averaged over the four quadrants. The best track's radius of maximum wind is
 # an estimate, reviewed by the agency only in the North Atlantic and East
 # Pacific.
 
 # %%
 fig, axes = plt.subplots(1, 2, figsize=(12, 4))
-for ax, variable in zip(axes, ("rmw_km", "r34_km")):
+for ax, variable in zip(axes, ("rmw_km", "r17_km")):
     plot_over_time(ax, {"wn2": ensembles["wn2"]}, variable, best_track)
 axes[0].set_title(f"{storm}: radius of maximum wind")
-axes[1].set_title(f"{storm}: radius of 34 kt wind")
+axes[1].set_title(f"{storm}: radius of 17.5 m/s wind")
 plt.show()
 
 # %% [markdown]

@@ -38,12 +38,12 @@ _RECIPE_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
 if _RECIPE_ROOT not in sys.path:
     sys.path.insert(0, _RECIPE_ROOT)
 
-from src.plt.data_handling import extract_tracks  # noqa: E402
 from src.tc_hunt_utils import great_circle_distance  # noqa: E402
 
-KNOTS_TO_MS = 0.514444
-# rapid intensification: maximum wind rising by at least 30 kt in 24 h
-RI_THRESHOLD_MS = 30 * KNOTS_TO_MS
+from .data_handling import extract_tracks  # noqa: E402
+
+# rapid intensification: maximum wind rising by at least 15.4 m/s in 24 h
+RI_THRESHOLD_MS = 15.4
 RI_HOURS = 24
 
 BEST_TRACK_COLOR = "#1a1a19"
@@ -79,7 +79,7 @@ VARIABLES = {
     "msl": ("minimum sea-level pressure [hPa]", 0.01),
     "track_error_km": ("distance to best track [km]", 1.0),
     "rmw_km": ("radius of maximum wind [km]", 1.0),
-    "r34_km": ("radius of 34 kt wind [km]", 1.0),
+    "r17_km": ("radius of 17.5 m/s wind [km]", 1.0),
 }
 
 
@@ -174,9 +174,9 @@ def load_storm_ensemble(
     ensemble = pd.concat(storm_tracks, ignore_index=True)
     lead_time = ensemble["time"] - ensemble["ic"]
     ensemble.insert(3, "lead_time_h", lead_time.dt.total_seconds() / 3600.0)
-    if "r34_ne_km" in ensemble:
-        quadrants = ensemble[[f"r34_{q}_km" for q in ("ne", "se", "sw", "nw")]]
-        ensemble["r34_km"] = quadrants.where(quadrants > 0).mean(axis=1)
+    if "r17_ne_km" in ensemble:
+        quadrants = ensemble[[f"r17_{q}_km" for q in ("ne", "se", "sw", "nw")]]
+        ensemble["r17_km"] = quadrants.where(quadrants > 0).mean(axis=1)
     ensemble.attrs["n_members"] = len(members)
     return ensemble
 
@@ -311,7 +311,7 @@ def rapid_intensification_probability(ensemble: pd.DataFrame) -> pd.Series:
     -------
     pd.Series
         Indexed by time: share of all members of the ensemble whose maximum
-        wind rose by at least 30 kt over the preceding 24 h. Members that do
+        wind rose by at least 15.4 m/s over the preceding 24 h. Members that do
         not track the storm count as not intensifying
     """
     change = add_intensity_change(ensemble)["wind_speed_change"]
@@ -523,7 +523,7 @@ def plot_rapid_intensification(
             label="observed (IBTrACS)" if n == 0 else None,
         )
     ax.set_ylim(0, 100)
-    ax.set_ylabel("members intensifying by 30 kt in 24 h [%]")
+    ax.set_ylabel("members intensifying by 15.4 m/s in 24 h [%]")
     _style_time_axis(ax)
     ax.legend(frameon=False)
 

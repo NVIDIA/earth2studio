@@ -30,6 +30,10 @@ from omegaconf import OmegaConf
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
+from analysis.plotting.data_handling import (  # noqa: E402
+    extract_tracks,
+    extract_tracks_from_file,
+)
 from src.ensemble.wn2_tracking import (  # noqa: E402
     KNOTS_TO_MS,
     TE_COLUMNS,
@@ -40,7 +44,6 @@ from src.ensemble.wn2_tracking import (  # noqa: E402
     wn2_tracks_to_te_frame,
     write_te_style_csv,
 )
-from src.plt.data_handling import extract_tracks, extract_tracks_from_file  # noqa: E402
 
 IC = np.datetime64("2025-10-24T00:00:00")
 
@@ -56,6 +59,7 @@ def wn2_table() -> pd.DataFrame:
             "minimum_sea_level_pressure_hpa": [1002.0, 1000.0, 998.0],
             "maximum_sustained_wind_speed_knots": [30.0, 35.0, 40.0],
             "radius_of_maximum_winds_km": [80.0, 70.0, 60.0],
+            "radius_34_knot_winds_ne_km": [150.0, 160.0, 170.0],
         }
     )
     early = pd.DataFrame(
@@ -67,6 +71,7 @@ def wn2_table() -> pd.DataFrame:
             "minimum_sea_level_pressure_hpa": [990.0, 985.0],
             "maximum_sustained_wind_speed_knots": [50.0, 60.0],
             "radius_of_maximum_winds_km": [40.0, 35.0],
+            "radius_34_knot_winds_ne_km": [120.0, 130.0],
         }
     )
     return pd.concat([late, early.iloc[::-1]], ignore_index=True)
@@ -75,7 +80,8 @@ def wn2_table() -> pd.DataFrame:
 def test_frame_has_te_layout_and_units():
     frame = wn2_tracks_to_te_frame(wn2_table())
 
-    assert list(frame.columns) == TE_COLUMNS + ["rmw_km"]
+    # radii named by their wind threshold in m/s: 34 kt is 17.5 m/s
+    assert list(frame.columns) == TE_COLUMNS + ["rmw_km", "r17_ne_km"]
     # tracks numbered by first valid time, points ordered by time
     assert frame["track_id"].tolist() == [0, 0, 1, 1, 1]
     assert frame["hour"].tolist() == [6, 12, 0, 6, 12]
