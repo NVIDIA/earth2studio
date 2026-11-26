@@ -35,7 +35,8 @@ class OPERALexicon(metaclass=LexiconType):
 
     VOCAB: dict[str, str] = {
         "refc": "DBZH",  # composite reflectivity (dBZ)
-        "tprate": "RATE",  # instantaneous surface rain rate (mm h-1)
+        "tprate": "RATE",  # instantaneous surface rain rate (mm h-1 -> kg m-2 s-1)
+        "tpf": "RATE",  # total precipitation flux, same quantity as tprate
         "tp01": "ACRR",  # 1-hour rainfall accumulation (m)
     }
 
@@ -61,7 +62,7 @@ class OPERALexicon(metaclass=LexiconType):
         -------
         tuple[str, Callable]
             ODIM quantity code (used to identify the dataset inside the HDF5
-            file) and an identity modifier function.
+            file) and a modifier function converting to Earth2Studio units.
 
         Raises
         ------
@@ -70,7 +71,12 @@ class OPERALexicon(metaclass=LexiconType):
         """
         quantity = cls.VOCAB[val]
 
-        if val == "tp01":
+        if val in ("tprate", "tpf"):
+
+            def mod(x: np.ndarray) -> np.ndarray:
+                return x / 3600.0  # mm h-1 -> kg m-2 s-1
+
+        elif val == "tp01":
 
             def mod(x: np.ndarray) -> np.ndarray:
                 return x / 1000.0  # mm -> m

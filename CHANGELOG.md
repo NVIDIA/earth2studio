@@ -21,6 +21,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `OPERA` returns `tprate` in kg m-2 s-1 (converted from the mm h-1 stored in the
+  files) and supports `tpf` as the same quantity, so `tprate` has one unit across
+  data sources. The vocabulary entry for `tprate` now documents kg m-2 s-1.
 - Fixed noisy StormScope Flash GOES forecasts when a missing input band masked
   every history patch; fill raw NaNs before normalization and patch masking.
 - `CAMulator` converts the CO2 forcing from ppm to mol mol-1 in float64; the
