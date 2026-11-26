@@ -251,6 +251,13 @@ plt.show()
 # models. So the grid is not the only limit: the forecasts lose intensity
 # against the analysis they start from. The WN2 tracker sidesteps both and
 # follows the best track closely, up to the peak.
+#
+# The decay is harder. Melissa made landfall in Jamaica on 28 Oct and crossed
+# Cuba on 29 Oct: the observed wind fell from 80 to about 41 m/s within a
+# day. WN2's tracker weakens the storm far more slowly, keeping it near
+# 60 m/s until 30 Oct, and only catches up once Melissa has left the
+# Caribbean. For Ragasa, it stays about 5 m/s below the best track from the
+# peak on.
 
 # %%
 fig, ax = plt.subplots(figsize=(8, 4.5))
@@ -312,8 +319,8 @@ plt.show()
 # A fixed wind threshold is a hard test for a tracker reading grid-scale winds:
 # if it sees only half of the storm's wind, it also sees only half of its
 # increase. With the sample tracks, every WN2 member intensifies rapidly at
-# some point, for both storms; according to TE, a single FCN3 member does, for
-# Melissa, and no member of the other models.
+# some point, for both storms; according to TE, a single member does, of
+# WN2 for Ragasa.
 
 # %%
 fig, ax = plt.subplots(figsize=(8, 4))
@@ -333,7 +340,9 @@ plt.show()
 # %%
 fig, axes = plt.subplots(1, 2, figsize=(12, 4))
 for ax, variable in zip(axes, ("rmw_km", "r17_km")):
-    plot_over_time(ax, {"wn2": ensembles["wn2"]}, variable, best_track)
+    # one legend, next to the right panel
+    legend = ax is axes[-1]
+    plot_over_time(ax, {"wn2": ensembles["wn2"]}, variable, best_track, legend=legend)
 axes[0].set_title(f"{storm}: radius of maximum wind")
 axes[1].set_title(f"{storm}: radius of 17.5 m/s wind")
 plt.show()
@@ -345,9 +354,10 @@ plt.show()
 #   fields contain; the WN2 tracker reports what the network expects a
 #   forecaster to analyse. Neither is the other's error.
 # - **Tracks agree, intensities do not.** All runs find the storm in every
-#   member and follow its track; WN2 has the smallest track error after four
-#   days for both storms (about 115 km for Melissa, 65 to 80 km for Ragasa,
-#   depending on the tracker). The intensities differ by a factor of two
+#   member and follow its track. After four days, the mean track error is
+#   about 140 to 170 km for Melissa, similar for all models, and 70 to 90 km
+#   for Ragasa, except for FCN3 (about 190 km); after a week it grows to
+#   several hundred kilometres. The intensities differ by a factor of two
 #   between the trackers.
 # - **Two storms are two storms.** The numbers above come from two cases, 32
 #   members each and one WN2 network; they illustrate the method, they are

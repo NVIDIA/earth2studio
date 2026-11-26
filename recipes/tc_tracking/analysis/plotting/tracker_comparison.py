@@ -32,6 +32,7 @@ from dataclasses import dataclass
 import pandas as pd
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
+from matplotlib.legend import Legend
 from matplotlib.lines import Line2D
 
 _RECIPE_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
@@ -383,6 +384,7 @@ def plot_over_time(
     variable: str,
     best_track: pd.DataFrame | None = None,
     analysis_track: pd.DataFrame | None = None,
+    legend: bool = True,
 ) -> None:
     """Plot a variable over time: every member thin and pale, the ensemble mean bold.
 
@@ -398,6 +400,9 @@ def plot_over_time(
         Best track, drawn in black if it has the variable, by default None
     analysis_track : pd.DataFrame | None, optional
         Track in the analysis, see :func:`load_analysis_track`, by default None
+    legend : bool, optional
+        Draw the legend, to the right of the axes, by default True; leave it
+        out for all but one of several axes showing the same runs
     """
     label, factor = VARIABLES[variable]
     start, end = None, None
@@ -435,7 +440,8 @@ def plot_over_time(
 
     ax.set_ylabel(label)
     _style_time_axis(ax)
-    ax.legend(frameon=False)
+    if legend:
+        _legend_outside(ax)
 
 
 def plot_wind_pressure(
@@ -476,7 +482,7 @@ def plot_wind_pressure(
     ax.set_xlabel(VARIABLES["msl"][0])
     ax.set_ylabel(VARIABLES["wind_speed"][0])
     _style_axes(ax)
-    legend = ax.legend(frameon=False)
+    legend = _legend_outside(ax)
     for handle in legend.legend_handles:
         handle.set_alpha(1.0)
 
@@ -525,7 +531,7 @@ def plot_rapid_intensification(
     ax.set_ylim(0, 100)
     ax.set_ylabel("members intensifying by 15.4 m/s in 24 h [%]")
     _style_time_axis(ax)
-    ax.legend(frameon=False)
+    _legend_outside(ax)
 
 
 def plot_tracks(
@@ -619,6 +625,11 @@ def plot_tracks(
         frameon=False,
     )
     return fig
+
+
+def _legend_outside(ax: Axes) -> Legend:
+    """Legend to the right of the axes, so that it hides no data."""
+    return ax.legend(frameon=False, loc="upper left", bbox_to_anchor=(1.01, 1.0))
 
 
 def _style_axes(ax: Axes) -> None:
