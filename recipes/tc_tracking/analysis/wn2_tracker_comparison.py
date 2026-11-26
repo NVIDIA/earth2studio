@@ -132,6 +132,10 @@ import sys
 
 import matplotlib.pyplot as plt
 
+if not os.path.isdir("plotting"):
+    raise RuntimeError(
+        f"run the notebook from the recipe's analysis directory, not {os.getcwd()}"
+    )
 sys.path.insert(0, "..")  # the recipe root, for its IBTrACS loader in src
 
 from plotting.tracker_comparison import (  # noqa: E402
