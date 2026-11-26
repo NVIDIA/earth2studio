@@ -35,6 +35,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   year when a window crosses a year boundary.
 - Fixed weighted running variance and standard deviation (`batch_update=True`) to use
   the same weighted denominator as the non-batched statistic.
+- CMIP6 `tcc` and `sic` are now returned as fractions (0-1) instead of percent, detecting
+  percent from the field maximum so sparse fields convert correctly.
 - Fixed asymmetric cyclic coordinate reorderings in map_coords bypassing the torch.roll
   path.
 
