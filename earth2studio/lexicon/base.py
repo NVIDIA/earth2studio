@@ -75,7 +75,7 @@ E2STUDIO_VOCAB = {
     "cos_mwd": "cosine of mean wave direction (unitless)",
     "sin_mwd": "sine of mean wave direction (unitless)",
     "tpf": "total precipitation flux (kg m-2 s-1)",
-    "tprate": "instantaneous surface rain rate (mm h-1)",
+    "tprate": "instantaneous surface precipitation rate (kg m-2 s-1)",
     "tcc": "total cloud cover (0 - 1)",
     "sd": "snow depth (m of water equivalent)",
     "sde": "snow depth (m)",

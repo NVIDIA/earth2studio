@@ -319,8 +319,11 @@ def test_opera_lexicon():
     quantity, mod = OPERALexicon["refc"]
     assert quantity == "DBZH"
 
-    quantity, mod = OPERALexicon["tprate"]
-    assert quantity == "RATE"
+    for name in ["tprate", "tpf"]:
+        quantity, mod = OPERALexicon[name]
+        assert quantity == "RATE"
+        # mm h-1 -> kg m-2 s-1
+        np.testing.assert_allclose(mod(np.array([3.6, 7.2])), np.array([0.001, 0.002]))
 
     quantity, mod = OPERALexicon["tp01"]
     assert quantity == "ACRR"
