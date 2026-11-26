@@ -21,6 +21,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Fixed noisy StormScope Flash GOES forecasts when a missing input band masked
+  every history patch; fill raw NaNs before normalization and patch masking.
+- `CAMulator` converts the CO2 forcing from ppm to mol mol-1 in float64; the
+  float32 round trip lost one ulp for some values and broke bitwise agreement
+  with the CREDIT toolbox after a few steps.
 - `CFS_FX_Flux` and `CFS_Reforecast_FX_Flux` return `tcc`, `hcc`, `mcc` and `lcc` as
   a 0-1 fraction instead of the percent stored in the GRIB files.
 - Fixed `ISD` returning multi-hour (3, 6, 12, 24 hour) precipitation totals as
@@ -32,6 +37,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the same weighted denominator as the non-batched statistic.
 - CMIP6 `tcc` and `sic` are now returned as fractions (0-1) instead of percent, detecting
   percent from the field maximum so sparse fields convert correctly.
+- Fixed asymmetric cyclic coordinate reorderings in map_coords bypassing the torch.roll
+  path.
 
 ### Security
 
