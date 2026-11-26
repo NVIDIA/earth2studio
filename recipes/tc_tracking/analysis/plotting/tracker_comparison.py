@@ -235,7 +235,7 @@ def load_analysis_track(reference_csv: str) -> pd.DataFrame:
 def ensemble_spread(
     ensemble: pd.DataFrame, variable: str, min_members: int = 3
 ) -> pd.DataFrame:
-    """Median and spread of a variable over the members, at every valid time.
+    """Mean and spread of a variable over the members, at every valid time.
 
     Parameters
     ----------
@@ -249,12 +249,12 @@ def ensemble_spread(
     Returns
     -------
     pd.DataFrame
-        Indexed by time, with ``median``, ``q10``, ``q90`` and ``members``
+        Indexed by time, with ``mean``, ``q10``, ``q90`` and ``members``
     """
     by_time = ensemble.dropna(subset=[variable]).groupby("time")[variable]
     spread = pd.DataFrame(
         {
-            "median": by_time.median(),
+            "mean": by_time.mean(),
             "q10": by_time.quantile(0.1),
             "q90": by_time.quantile(0.9),
             "members": by_time.count(),
@@ -335,7 +335,7 @@ def peak_intensity_table(
     -------
     pd.DataFrame
         One row for the best track and one per tracker, with the peak wind and
-        the minimum pressure within the forecast period (median over the
+        the minimum pressure within the forecast period (mean over the
         members, and 10 to 90 % range), and the share of members tracking the
         storm and intensifying rapidly
     """
@@ -359,8 +359,8 @@ def peak_intensity_table(
         rapid = change[change["wind_speed_change"] >= RI_THRESHOLD_MS]
         n_members = ensemble.attrs["n_members"]
         rows[RUNS[key].label] = {
-            "peak wind [m/s]": _median_and_range(members["wind_speed"].max()),
-            "minimum pressure [hPa]": _median_and_range(members["msl"].min() / 100),
+            "peak wind [m/s]": _mean_and_range(members["wind_speed"].max()),
+            "minimum pressure [hPa]": _mean_and_range(members["msl"].min() / 100),
             "storm tracked": f"{members.ngroups} of {n_members} members",
             "rapid intensification": (
                 f"{rapid['member'].nunique()} of {n_members} members"
@@ -369,9 +369,9 @@ def peak_intensity_table(
     return pd.DataFrame.from_dict(rows, orient="index")
 
 
-def _median_and_range(values: pd.Series) -> str:
-    q10, median, q90 = values.quantile([0.1, 0.5, 0.9])
-    return f"{median:.0f} ({q10:.0f} to {q90:.0f})"
+def _mean_and_range(values: pd.Series) -> str:
+    q10, q90 = values.quantile([0.1, 0.9])
+    return f"{values.mean():.0f} ({q10:.0f} to {q90:.0f})"
 
 
 # -------------------------------------------------------------------------- plots
@@ -384,7 +384,7 @@ def plot_over_time(
     best_track: pd.DataFrame | None = None,
     analysis_track: pd.DataFrame | None = None,
 ) -> None:
-    """Plot a variable over time: every member thin and pale, the median bold.
+    """Plot a variable over time: every member thin and pale, the ensemble mean bold.
 
     Parameters
     ----------
@@ -416,10 +416,10 @@ def plot_over_time(
         spread = ensemble_spread(ensemble, variable) * factor
         ax.plot(
             spread.index,
-            spread["median"],
+            spread["mean"],
             color=run.color,
             lw=2.5,
-            label=f"{run.label} (median)",
+            label=f"{run.label} (ensemble mean)",
         )
         start = spread.index.min() if start is None else min(start, spread.index.min())
         end = spread.index.max() if end is None else max(end, spread.index.max())

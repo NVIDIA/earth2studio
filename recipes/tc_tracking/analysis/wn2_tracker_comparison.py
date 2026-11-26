@@ -228,8 +228,7 @@ plt.show()
 
 # %% [markdown]
 # The distance to the best track over time. In this and the following plots,
-# each thin, pale line is one member and the bold line the median over the
-# members.
+# each thin, pale line is one member and the bold line the ensemble mean.
 
 # %%
 fig, ax = plt.subplots(figsize=(8, 4))
@@ -265,7 +264,7 @@ plt.show()
 # Pressure varies more smoothly in space than wind, so a coarse grid captures
 # more of it: TE comes closer to the best track here than for wind, and the
 # gap grows as the storm deepens and its core contracts. With the sample
-# tracks, WN2's tracker reaches 905 hPa for Melissa (best track 892 hPa), TE
+# tracks, WN2's tracker reaches 906 hPa for Melissa (best track 892 hPa), TE
 # on the three models' fields stays between 950 and 990 hPa.
 
 # %%
@@ -278,7 +277,7 @@ plt.show()
 # ### Peak Intensity in Numbers
 #
 # The strongest wind and lowest pressure each member reaches during the
-# forecast: median over the members, with the 10th to 90th percentile in
+# forecast: mean over the members, with the 10th to 90th percentile in
 # brackets, against the best track over the same period.
 
 # %%
@@ -347,7 +346,7 @@ plt.show()
 #   forecaster to analyse. Neither is the other's error.
 # - **Tracks agree, intensities do not.** All runs find the storm in every
 #   member and follow its track; WN2 has the smallest track error after four
-#   days for both storms (about 100 km for Melissa, 60 to 80 km for Ragasa,
+#   days for both storms (about 115 km for Melissa, 65 to 80 km for Ragasa,
 #   depending on the tracker). The intensities differ by a factor of two
 #   between the trackers.
 # - **Two storms are two storms.** The numbers above come from two cases, 32
