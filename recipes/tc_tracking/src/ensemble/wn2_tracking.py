@@ -33,7 +33,7 @@ Column          Content
 ``i``, ``j``    Longitude and latitude index of the nearest 0.25 degree point
 ``lon``         Longitude of the centre in degrees east, 0 to 360
 ``lat``         Latitude of the centre in degrees north
-``msl``         Minimum sea-level pressure in Pa
+``msl``         Minimum sea-level pressure in Pa (TE: grid-point minimum)
 ``wind_speed``  Maximum 1-minute sustained 10 m wind in m/s (TE: maximum
                 instantaneous grid-point wind)
 ``height``      Not predicted, always NaN (TE: terrain height)
@@ -50,34 +50,37 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 import pandas as pd
 from loguru import logger
+from omegaconf import DictConfig, OmegaConf
+
+from src.tc_hunt_utils import track_file_name
 
 if TYPE_CHECKING:
-    from omegaconf import DictConfig
-
     from earth2studio.run import WorkItem
 
 # name of the model in the config, and of its tracker's output directory
 WN2_MODEL = "wn2"
 WN2_TRACK_DIR = "cyclone_tracks_wn2"
 
-# columns of a TempestExtremes track file, in order
-TE_COLUMNS = [
-    "track_id",
-    "year",
-    "month",
-    "day",
-    "hour",
-    "i",
-    "j",
-    "lon",
-    "lat",
-    "msl",
-    "wind_speed",
-    "height",
-]
+# columns of a TempestExtremes track file, in order, and how StitchNodes
+# formats them: integers, positions with six decimals, values in scientific
+# notation
+TE_COLUMNS = {
+    "track_id": "%d",
+    "year": "%d",
+    "month": "%d",
+    "day": "%d",
+    "hour": "%d",
+    "i": "%d",
+    "j": "%d",
+    "lon": "%.6f",
+    "lat": "%.6f",
+    "msl": "%e",
+    "wind_speed": "%e",
+    "height": "%e",
+}
 
-# wind thresholds of WN2's wind radii: native name (in knots) and name in the
-# track file, the threshold in m/s: 17.5, 25.7 and 32.9 m/s
+# WN2 reports wind radii for the thresholds 34, 50 and 64 kt; the track file
+# names them by the threshold in m/s: 17.5, 25.7 and 32.9 m/s
 RADIUS_THRESHOLDS = {"34": "17", "50": "26", "64": "33"}
 
 # storm size columns of the WN2 track table, and their names in the track file
@@ -91,8 +94,6 @@ SIZE_COLUMNS = {
 }
 
 GRID_SPACING_DEG = 0.25
-HPA_TO_PA = 100.0
-KNOTS_TO_MS = 0.514444
 
 
 def validate_wn2_tracking(cfg: DictConfig) -> None:
@@ -125,29 +126,6 @@ def validate_wn2_tracking(cfg: DictConfig) -> None:
         )
 
 
-def track_file_name(ic: np.datetime64, member: int, seed: int, batch_size: int) -> str:
-    """Name of a member's track file, the same for every tracker.
-
-    Parameters
-    ----------
-    ic : np.datetime64
-        Initial time of the forecast
-    member : int
-        Member id
-    seed : int
-        Seed the member was run with
-    batch_size : int
-        Batch size of the run
-
-    Returns
-    -------
-    str
-        ``tracks_<ic>_mem_<member>_seed_<seed>_bs_<batch_size>.csv``
-    """
-    ic_str = np.datetime_as_string(ic, unit="s")
-    return f"tracks_{ic_str}_mem_{member:04d}_seed_{seed}_bs_{batch_size}.csv"
-
-
 def wn2_tracks_to_te_frame(tracks: pd.DataFrame) -> pd.DataFrame:
     """Convert a WN2 track table to the layout of a TempestExtremes track file.
 
@@ -156,55 +134,49 @@ def wn2_tracks_to_te_frame(tracks: pd.DataFrame) -> pd.DataFrame:
     tracks : pd.DataFrame
         Track table of one member, as returned by
         ``WeatherNext2Cyclones.cyclone_tracks``. Needs ``track_id``,
-        ``valid_time``, ``lat``, ``lon``,
-        ``minimum_sea_level_pressure_hpa`` and
-        ``maximum_sustained_wind_speed_knots``; may be empty
+        ``valid_time``, ``lat``, ``lon`` and the wrapper's metric columns
+        ``tcmsl`` (Pa) and ``tcw10m`` (m/s); may be empty
 
     Returns
     -------
     pd.DataFrame
-        One row per track point with :data:`TE_COLUMNS`, followed by those of
-        :data:`SIZE_COLUMNS` the table provides. Tracks are ordered by their
-        first valid time and numbered from 0, their points ordered by time
+        One row per track point with the columns of :data:`TE_COLUMNS`,
+        followed by those of :data:`SIZE_COLUMNS` the table provides. Tracks
+        are ordered by their first valid time and numbered from 0, their
+        points ordered by time
     """
     size_columns = {
         native: name for native, name in SIZE_COLUMNS.items() if native in tracks
     }
-    columns = TE_COLUMNS + list(size_columns.values())
+    columns = [*TE_COLUMNS, *size_columns.values()]
     if tracks.empty:
         return pd.DataFrame(columns=columns)
 
+    tracks = tracks.reset_index(drop=True)
     time = pd.to_datetime(tracks["valid_time"])
     lon = tracks["lon"].to_numpy(dtype=float) % 360.0
     lat = tracks["lat"].to_numpy(dtype=float)
     n_lon = round(360.0 / GRID_SPACING_DEG)
-
     frame = pd.DataFrame(
         {
             "track_id": _renumber_by_first_time(tracks["track_id"], time),
-            "year": time.dt.year.to_numpy(),
-            "month": time.dt.month.to_numpy(),
-            "day": time.dt.day.to_numpy(),
-            "hour": time.dt.hour.to_numpy(),
+            "year": time.dt.year,
+            "month": time.dt.month,
+            "day": time.dt.day,
+            "hour": time.dt.hour,
             "i": np.rint(lon / GRID_SPACING_DEG).astype(int) % n_lon,
             "j": np.rint((90.0 - lat) / GRID_SPACING_DEG).astype(int),
             "lon": lon,
             "lat": lat,
-            "msl": tracks["minimum_sea_level_pressure_hpa"].to_numpy(dtype=float)
-            * HPA_TO_PA,
-            "wind_speed": tracks["maximum_sustained_wind_speed_knots"].to_numpy(
-                dtype=float
-            )
-            * KNOTS_TO_MS,
+            "msl": tracks["tcmsl"].to_numpy(dtype=float),
+            "wind_speed": tracks["tcw10m"].to_numpy(dtype=float),
             "height": np.nan,
+            **{name: tracks[native] for native, name in size_columns.items()},
+            "_time": time,
         }
     )
-    for native, name in size_columns.items():
-        frame[name] = tracks[native].to_numpy(dtype=float)
-
-    frame["_time"] = time.to_numpy()
     frame = frame.sort_values(["track_id", "_time"], kind="stable")
-    return frame.drop(columns="_time").reset_index(drop=True)[columns]
+    return frame[columns].reset_index(drop=True)
 
 
 def _renumber_by_first_time(track_id: pd.Series, time: pd.Series) -> np.ndarray:
@@ -220,6 +192,9 @@ def write_te_style_csv(
 ) -> None:
     """Write tracks as a TempestExtremes-style CSV, with an optional comment header.
 
+    Formatted as StitchNodes does, see :data:`TE_COLUMNS`; further columns in
+    scientific notation.
+
     Parameters
     ----------
     frame : pd.DataFrame
@@ -229,27 +204,17 @@ def write_te_style_csv(
     header : Mapping[str, Any] | None, optional
         Written as ``# key: value`` lines above the column names, by default
         None. Readers skip them with ``pd.read_csv(..., comment="#")``
-
-    Notes
-    -----
-    Formatted as StitchNodes does: columns separated by ``", "``, positions
-    with six decimals, all other values in scientific notation.
     """
-    integers = TE_COLUMNS[:7]
-    with open(path, "w", encoding="utf-8") as file:
-        for key, value in (header or {}).items():
-            file.write(f"# {key}: {value}\n")
-        file.write(", ".join(frame.columns) + "\n")
-        for row in frame.itertuples(index=False):
-            values = [
-                (
-                    str(int(value))
-                    if column in integers
-                    else f"{value:.6f}" if column in ("lon", "lat") else f"{value:e}"
-                )
-                for column, value in zip(frame.columns, row)
-            ]
-            file.write(", ".join(values) + "\n")
+    comments = "".join(f"# {key}: {value}\n" for key, value in (header or {}).items())
+    np.savetxt(
+        path,
+        frame.to_numpy(dtype=float),
+        fmt=[TE_COLUMNS.get(column, "%e") for column in frame.columns],
+        delimiter=", ",
+        header=comments + ", ".join(frame.columns),
+        comments="",
+        encoding="utf-8",
+    )
 
 
 class WN2TrackWriter:
@@ -299,8 +264,29 @@ class WN2TrackWriter:
         }
         os.makedirs(self.out_dir, exist_ok=True)
 
+    @classmethod
+    def from_config(cls, cfg: DictConfig, model: Any) -> WN2TrackWriter:
+        """Writer of a run, with the model and its settings in the file header.
+
+        Parameters
+        ----------
+        cfg : DictConfig
+            Hydra configuration object of the run
+        model : Any
+            The run's ``WeatherNext2Cyclones``, loaded with
+            ``track_cyclones=True``
+
+        Returns
+        -------
+        WN2TrackWriter
+            Writer to ``<store_dir>/cyclone_tracks_wn2/``
+        """
+        model_kwargs = OmegaConf.to_container(cfg.get("model_kwargs", {}))
+        header = {"model": cfg.model, **model_kwargs}
+        return cls(model, cfg.store_dir, cfg.batch_size, header)
+
     def attempt_started(self, item: WorkItem, attempt: int, seed: int) -> None:
-        """Nothing to discard, the model resets its tracks with every rollout."""
+        """Nothing to discard: the model resets its tracks with every rollout."""
 
     def batch_finished(self, item: WorkItem, seed: int | None, attempts: int) -> None:
         """Write the member's tracks, unless the batch failed.

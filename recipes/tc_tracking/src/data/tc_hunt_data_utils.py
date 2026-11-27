@@ -27,7 +27,7 @@ import xarray as xr
 from huggingface_hub import hf_hub_download
 from omegaconf import DictConfig
 
-from earth2studio.data import DataSource
+from earth2studio.data import CompositeSource, DataSource
 from earth2studio.data.utils import datasource_cache_root
 from earth2studio.run.work import rank0_first
 from earth2studio.utils.time import to_time_array
@@ -253,76 +253,35 @@ class CachedSource(_SourceWrapper):
         return self._cache[key].copy(deep=False)
 
 
-class SupplementedSource(_SourceWrapper):
+def supplemented_source(
+    source: DataSource, supplement: DataSource, variables: Sequence[str]
+) -> CompositeSource:
     """Data source taking a few variables from a second source.
 
     For analyses lacking a variable a model needs. In this recipe it is used
     for one case only: WeatherNext 2 reads the sea surface temperature, which
     the IFS produces but ECMWF's open data does not include, so the WN2
-    configs take ``sst`` from ERA5 and every other variable from the IFS. The
-    supplement is only contacted for its variables: a model not reading them,
-    such as FCN3 or AIFS-ENS, gets everything from ``source``. Both sources
-    have to provide the same grid.
+    configs take ``sst`` from ERA5 and every other variable from the IFS. A
+    model not reading ``variables``, such as FCN3 or AIFS-ENS, gets everything
+    from ``source``.
 
     Parameters
     ----------
     source : DataSource
-        Source of all other variables
+        Source of all other variables, with a ``LEXICON`` listing them
     supplement : DataSource
-        Source of ``variables``
+        Source of ``variables``, on the same grid as ``source``
     variables : Sequence[str]
         Variables fetched from ``supplement``
+
+    Returns
+    -------
+    CompositeSource
+        Earth2Studio's composite of both sources
     """
-
-    def __init__(
-        self, source: DataSource, supplement: DataSource, variables: Sequence[str]
-    ) -> None:
-        self.source = source
-        self.supplement = supplement
-        self.variables = {str(variable) for variable in variables}
-
-    def __call__(
-        self,
-        time: datetime | list[datetime] | TimeArray,
-        variable: str | list[str] | VariableArray,
-    ) -> xr.DataArray:
-        """Fetch the fields, each variable from its source.
-
-        Parameters
-        ----------
-        time : datetime | list[datetime] | TimeArray
-            Times to fetch
-        variable : str | list[str] | VariableArray
-            Variables to fetch
-
-        Returns
-        -------
-        xr.DataArray
-            The fields, in the requested order of variables
-
-        Raises
-        ------
-        ValueError
-            If the sources return different grids
-        """
-        requested = [str(name) for name in np.atleast_1d(variable)]
-        supplemented = [name for name in requested if name in self.variables]
-        others = [name for name in requested if name not in self.variables]
-        if not supplemented:
-            return self.source(time, variable)
-        if not others:
-            return self.supplement(time, variable)
-
-        fields = self.source(time, others)
-        extra = self.supplement(time, supplemented)
-        for dim in ("lat", "lon"):
-            if fields[dim].shape != extra[dim].shape or not np.allclose(
-                fields[dim].values, extra[dim].values
-            ):
-                raise ValueError(f"the sources differ in their {dim} coordinate")
-        # coordinates of the main source, so rounding differences do not misalign
-        extra = extra.assign_coords(
-            time=fields.time, lat=fields.lat, lon=fields.lon
-        ).transpose(*fields.dims)
-        combined = xr.concat([fields, extra.astype(fields.dtype)], dim="variable")
-        return combined.sel(variable=requested)
+    supplied = [str(variable) for variable in variables]
+    provided = [name for name in source.LEXICON.VOCAB if name not in supplied]
+    return CompositeSource(
+        {"source": source, "supplement": supplement},
+        {"source": provided, "supplement": supplied},
+    )

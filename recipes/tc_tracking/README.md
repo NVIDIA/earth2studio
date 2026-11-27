@@ -33,6 +33,11 @@ executes TempestExtremes on completed time steps while the
 GPU continues producing subsequent predictions, so that
 tracking adds little to the runtime.
 
+The recipe also runs WeatherNext 2 Cyclones, a model with
+its own cyclone tracker, and compares the intensities of
+both trackers with observed best tracks, see
+[Section 6](#6-weathernext-2-cyclones-and-its-built-in-tracker).
+
 ## Table of Contents
 
 1. [Setting up the Environment](#1-setting-up-the-environment)
@@ -54,6 +59,7 @@ tracking adds little to the runtime.
    - [6.1 Running the Cases](#61-running-the-cases)
    - [6.2 Track Files](#62-track-files)
    - [6.3 The Comparison Notebook](#63-the-comparison-notebook)
+   - [6.4 Models and Data](#64-models-and-data)
 
 ## 1. Setting up the Environment
 
@@ -242,6 +248,19 @@ finish the remaining batches; it skips those the other ranks
 finished. See
 [Section 2.4](#24-how-the-ensemble-pipeline-is-built) for
 the components of the run.
+
+On the first run, every rank downloads what it needs:
+checkpoints, and the initial conditions of its members.
+Ranks starting at once fetch the same files, can read them
+half written and fail. Fill the cache first with a single
+process, e.g. one member, or use a local data source; later
+runs read from the cache:
+
+```bash
+python main.py --config-name=config.yaml ensemble_size=1 \
+    project=cache_fill
+torchrun --nproc-per-node=8 main.py --config-name=config.yaml
+```
 
 The CPU-bound `extract_baseline` mode does not use
   `torchrun` and does not require a GPU. Instead, individual
@@ -1128,25 +1147,7 @@ forecasts:
 The notebook
 [wn2_tracker_comparison.py](./analysis/wn2_tracker_comparison.py)
 shows the comparison, see [6.3](#63-the-comparison-notebook).
-
-<!-- markdownlint-disable MD013 -->
-
-| Model | Created by | Reference | Weights |
-| --- | --- | --- | --- |
-| WeatherNext 2 Cyclones | Google DeepMind | Alet et al. (2026), [Nature][wn2-paper]; [code and checkpoints][wn2-repo] | CC BY 4.0 (code Apache 2.0) |
-| FourCastNet 3 | NVIDIA | Bonev et al. (2025), [arXiv:2507.12144][fcn3-paper] | [Apache 2.0][fcn3-weights] |
-| AIFS-ENS v1 | ECMWF | Lang et al. (2024), [arXiv:2412.15832][aifs-paper] | [CC BY 4.0][aifs-weights] |
-
-<!-- markdownlint-enable MD013 -->
-
-Tracker and data: TempestExtremes, Ullrich et al. (2021),
-[GMD][te-paper]. IBTrACS, Knapp et al. (2010),
-[BAMS][ibtracs-paper], downloaded from [NCEI][ibtracs] on
-first use and not redistributed. Initial conditions are
-based on data and products of ECMWF ([open data][ecmwf-open-data],
-CC BY 4.0); the sea surface temperature WN2 needs is ERA5
-([doi:10.24381/cds.adbb2d47][era5]) and contains modified
-Copernicus Climate Change Service information.
+The models and data are credited in [6.4](#64-models-and-data).
 
 ### 6.1 Running the Cases
 
@@ -1187,25 +1188,17 @@ open data, which WN2 was fine-tuned on, for all three
 models. One variable is missing there: WN2 reads the sea
 surface temperature, which the IFS produces (parameter 34)
 but the open data does not include. The configs therefore
-take only `sst` from ERA5, through `SupplementedSource`. This
-is needed for WN2 alone; FCN3 and AIFS-ENS do not read the
+take only `sst` from ERA5: `supplemented_source` in
+`src/data/tc_hunt_data_utils.py` combines both sources with
+Earth2Studio's `CompositeSource`. This is needed for WN2
+alone; FCN3 and AIFS-ENS do not read the
 sea surface temperature (AIFS-ENS uses the skin temperature,
 which the open data has) and get every variable from the
 IFS.
 
-**Several GPUs, first run:** every rank downloads what it
-needs on first use: checkpoints, and the initial conditions
-of its members. Ranks starting at once fetch the same IFS
-files, can read them half written and fail. Fill the cache
-first with a single process, e.g. one member:
-
-```bash
-python main.py --config-name=melissa_wn2.yaml ensemble_size=1 \
-    project=melissa_wn2_cache
-torchrun --nproc-per-node=8 main.py --config-name=melissa_wn2.yaml
-```
-
-or use a local data source. Later runs read from the cache.
+On several GPUs, fill the data cache with a single process
+first, see the note on parallelism in
+[section 2](#2-configure-and-execute-runs).
 
 Reproduced WN2 members (`cfg/reproduce_melissa_wn2.yaml`,
 see [2.2](#22-reproduce-individual-ensemble-members)) are
@@ -1217,11 +1210,24 @@ GPU kernels are not deterministic.
 The built-in tracker writes `<store_dir>/cyclone_tracks_wn2/`
 with the file names and columns TempestExtremes uses in
 `cyclone_tracks_te/`, so the recipe's analysis tools read
-both. Differences: `wind_speed` is the 1-minute sustained
-wind, `height` is always `nan`, size columns in km follow
-(`rmw_km`, and per quadrant the radii of 17.5, 25.7 and
-32.9 m/s wind, `r17_<ne|se|sw|nw>_km`, `r26_...`, `r33_...`), and `#` lines at
-the top name the model (`pd.read_csv(path, comment="#")`).
+both. `#` lines at the top name the model and tracker; skip
+them with `pd.read_csv(path, comment="#")`.
+
+<!-- markdownlint-disable MD013 -->
+
+| Column | TempestExtremes | WN2 built-in tracker |
+| --- | --- | --- |
+| `track_id` | track number in the file, from 0 | same, ordered by first time |
+| `year`, `month`, `day`, `hour` | valid time | same |
+| `i`, `j` | grid indices of the centre | nearest 0.25° grid point |
+| `lon`, `lat` | centre, longitude 0 to 360 | same |
+| `msl` | grid-point minimum pressure [Pa] | central pressure [Pa] |
+| `wind_speed` | largest grid-point 10 m wind [m/s] | 1-minute sustained 10 m wind [m/s] |
+| `height` | terrain height [m] | not predicted, `nan` |
+| `rmw_km` | - | radius of maximum wind [km] |
+| `r17_<q>_km`, `r26_<q>_km`, `r33_<q>_km` | - | radius of 17.5, 25.7 and 32.9 m/s wind in quadrant `<q>` (`ne`, `se`, `sw`, `nw`) [km] |
+
+<!-- markdownlint-enable MD013 -->
 
 ### 6.3 The Comparison Notebook
 
@@ -1242,14 +1248,17 @@ GPU:
   directory per storm and model, plus TempestExtremes' track
   in the IFS analysis (`reference_tracks_ifs`).
 - `use_sample_tracks = False` reads your own runs from
-  `outputs_root`, the directory `main.py` wrote
-  `outputs_<case>_<model>` to (the recipe root by default).
+  `runs_dir`, the directory `main.py` wrote
+  `outputs_<storm>_<model>` to (the recipe root by default).
   Runs that do not exist are left out.
 - IBTrACS is downloaded from NCEI on first use (about
   300 MB) to `aux_data/`; it is not part of the recipe.
 
-`case` in the first code cell picks the storm, `melissa` or
-`ragasa`; add a storm to `CASES` to analyse another one.
+`storm` in the configuration cell picks the storm, `melissa`
+or `ragasa`; add a storm to `STORMS` to analyse another one.
+The helpers are in `analysis/plotting/`: `storm_ensembles.py`
+loads and summarises the tracks, `comparison_plots.py` draws
+the figures.
 
 **Running.** With the analysis environment activated, from the
 `analysis` directory, see [section 3](#3-analysis-and-visualisation):
@@ -1258,6 +1267,27 @@ GPU:
 jupytext --to notebook wn2_tracker_comparison.py
 jupyter lab
 ```
+
+### 6.4 Models and Data
+
+<!-- markdownlint-disable MD013 -->
+
+| Model | Created by | Reference | Weights |
+| --- | --- | --- | --- |
+| WeatherNext 2 Cyclones | Google DeepMind | Alet et al. (2026), [Nature][wn2-paper]; [code and checkpoints][wn2-repo] | CC BY 4.0 (code Apache 2.0) |
+| FourCastNet 3 | NVIDIA | Bonev et al. (2025), [arXiv:2507.12144][fcn3-paper] | [Apache 2.0][fcn3-weights] |
+| AIFS-ENS v1 | ECMWF | Lang et al. (2024), [arXiv:2412.15832][aifs-paper] | [CC BY 4.0][aifs-weights] |
+
+<!-- markdownlint-enable MD013 -->
+
+Tracker and data: TempestExtremes, Ullrich et al. (2021),
+[GMD][te-paper]. IBTrACS, Knapp et al. (2010),
+[BAMS][ibtracs-paper], downloaded from [NCEI][ibtracs] on
+first use and not redistributed. Initial conditions are
+based on data and products of ECMWF ([open data][ecmwf-open-data],
+CC BY 4.0); the sea surface temperature WN2 needs is ERA5
+([doi:10.24381/cds.adbb2d47][era5]) and contains modified
+Copernicus Climate Change Service information.
 
 <!-- markdownlint-disable MD013 -->
 

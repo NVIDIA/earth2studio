@@ -31,7 +31,8 @@ examples, built to be adapted for real projects.
     ---
 
     Track tropical cyclones in AI forecast output, from genesis detection
-    to track and intensity extraction.
+    to track and intensity extraction, and compare TempestExtremes with the
+    built-in tracker of WeatherNext 2 Cyclones.
 
     [:octicons-arrow-right-24: View recipe](https://github.com/NVIDIA/earth2studio/tree/main/recipes/tc_tracking)
 

@@ -22,7 +22,7 @@ batch_size: 1
 # for WN2 runs it is taken from ERA5 instead; models without it (FCN3, AIFS-ENS)
 # never request it and get every variable from the IFS.
 data_source:
-    _target_: src.data.tc_hunt_data_utils.SupplementedSource
+    _target_: src.data.tc_hunt_data_utils.supplemented_source
     source:
         _target_: earth2studio.data.IFS
         # the open data bucket throttles requests: allow for retries

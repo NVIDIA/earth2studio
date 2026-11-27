@@ -33,7 +33,6 @@ References
 import os
 import urllib.request
 
-import numpy as np
 import pandas as pd
 from loguru import logger
 
@@ -175,30 +174,3 @@ def load_ibtracs_storm(
             f"(track type {sorted(set(track['track_type']))})"
         )
     return track.reset_index(drop=True)
-
-
-def intensity_change(
-    track: pd.DataFrame, variable: str = "wind_speed", hours: int = 24
-) -> np.ndarray:
-    """Change of a variable over the preceding hours, NaN where undefined.
-
-    Rapid intensification is commonly defined as a rise of the maximum wind of
-    at least 15.4 m/s in 24 h.
-
-    Parameters
-    ----------
-    track : pd.DataFrame
-        Track with a ``time`` column and ``variable``
-    variable : str, optional
-        Column to difference, by default ``"wind_speed"``
-    hours : int, optional
-        Length of the period, by default 24
-
-    Returns
-    -------
-    np.ndarray
-        Change of ``variable`` since ``hours`` earlier, for every row
-    """
-    values = track.set_index("time")[variable]
-    earlier = values.reindex(values.index - pd.Timedelta(hours=hours))
-    return values.to_numpy() - earlier.to_numpy()

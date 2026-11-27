@@ -35,17 +35,17 @@ from analysis.plotting.data_handling import (  # noqa: E402
     extract_tracks_from_file,
 )
 from src.ensemble.wn2_tracking import (  # noqa: E402
-    KNOTS_TO_MS,
     TE_COLUMNS,
     WN2_TRACK_DIR,
     WN2TrackWriter,
-    track_file_name,
     validate_wn2_tracking,
     wn2_tracks_to_te_frame,
     write_te_style_csv,
 )
+from src.tc_hunt_utils import parse_track_file_name, track_file_name  # noqa: E402
 
 IC = np.datetime64("2025-10-24T00:00:00")
+KNOTS_TO_MS = 0.514444
 
 
 def wn2_table() -> pd.DataFrame:
@@ -74,14 +74,18 @@ def wn2_table() -> pd.DataFrame:
             "radius_34_knot_winds_ne_km": [120.0, 130.0],
         }
     )
-    return pd.concat([late, early.iloc[::-1]], ignore_index=True)
+    tracks = pd.concat([late, early.iloc[::-1]], ignore_index=True)
+    # metric columns the Earth2Studio wrapper adds
+    tracks["tcmsl"] = tracks["minimum_sea_level_pressure_hpa"] * 100.0
+    tracks["tcw10m"] = tracks["maximum_sustained_wind_speed_knots"] * KNOTS_TO_MS
+    return tracks
 
 
 def test_frame_has_te_layout_and_units():
     frame = wn2_tracks_to_te_frame(wn2_table())
 
     # radii named by their wind threshold in m/s: 34 kt is 17.5 m/s
-    assert list(frame.columns) == TE_COLUMNS + ["rmw_km", "r17_ne_km"]
+    assert list(frame.columns) == [*TE_COLUMNS, "rmw_km", "r17_ne_km"]
     # tracks numbered by first valid time, points ordered by time
     assert frame["track_id"].tolist() == [0, 0, 1, 1, 1]
     assert frame["hour"].tolist() == [6, 12, 0, 6, 12]
@@ -98,7 +102,7 @@ def test_frame_has_te_layout_and_units():
 def test_empty_table_gives_empty_frame_with_columns():
     frame = wn2_tracks_to_te_frame(pd.DataFrame())
     assert frame.empty
-    assert list(frame.columns) == TE_COLUMNS
+    assert list(frame.columns) == list(TE_COLUMNS)
 
 
 def test_file_is_read_like_a_tempest_extremes_file(tmp_path):
@@ -108,7 +112,7 @@ def test_file_is_read_like_a_tempest_extremes_file(tmp_path):
 
     lines = path.read_text().splitlines()
     assert lines[0] == "# model: wn2"
-    assert lines[2].split(", ")[: len(TE_COLUMNS)] == TE_COLUMNS
+    assert lines[2].split(", ")[: len(TE_COLUMNS)] == list(TE_COLUMNS)
     # formatted as StitchNodes does
     assert lines[3].startswith("0, 2025, 10, 24, 6, 1139, 297, 284.700000, 15.800000, ")
     assert lines[3].split(", ")[9:12] == ["9.900000e+04", "2.572220e+01", "nan"]
@@ -135,6 +139,7 @@ def test_writer_writes_one_file_per_stable_member(tmp_path):
     writer.batch_finished(item, seed=11, attempts=1)
     (path,) = out_dir.iterdir()
     assert path.name == "tracks_2025-10-24T00:00:00_mem_0005_seed_11_bs_1.csv"
+    assert parse_track_file_name(str(path)) == (pd.Timestamp(IC), 5, 11)
     assert len(extract_tracks_from_file(str(path))) == 5
 
 
@@ -144,20 +149,16 @@ def test_writer_needs_a_tracking_model(tmp_path):
 
 
 @pytest.mark.parametrize(
-    "overrides, error",
+    "cfg, error",
     [
-        ({}, None),
-        ({"wn2_tracking": None}, None),  # not configured
-        ({"model": "fcn3"}, "needs model 'wn2'"),
-        ({"model": "aifs"}, "needs model 'wn2'"),
-        ({"batch_size": 2}, "batch_size 1"),
+        ({"model": "wn2", "batch_size": 1, "wn2_tracking": {}}, None),
+        ({"model": "fcn3", "batch_size": 2}, None),  # not configured: no check
+        ({"model": "fcn3", "batch_size": 1, "wn2_tracking": {}}, "needs model 'wn2'"),
+        ({"model": "aifs", "batch_size": 1, "wn2_tracking": {}}, "needs model 'wn2'"),
+        ({"model": "wn2", "batch_size": 2, "wn2_tracking": {}}, "batch_size 1"),
     ],
 )
-def test_guard(overrides, error):
-    cfg = {"model": "wn2", "batch_size": 1, "wn2_tracking": {}, **overrides}
-    if cfg["wn2_tracking"] is None:
-        del cfg["wn2_tracking"]
-        cfg["model"] = "fcn3"
+def test_guard(cfg, error):
     cfg = OmegaConf.create(cfg)
     if error is None:
         validate_wn2_tracking(cfg)

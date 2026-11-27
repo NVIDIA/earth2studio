@@ -14,4 +14,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Plotting and analysis helpers of the recipe's analysis notebooks."""
+"""Plotting and analysis helpers of the recipe's analysis notebooks.
+
+The helpers use a few functions of the recipe's ``src`` package, such as the
+track matcher and the IBTrACS reader. Importing this package makes ``src``
+importable, from the notebooks in ``analysis/`` as from anywhere else.
+"""
+
+import os
+import sys
+
+_RECIPE_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
+if _RECIPE_ROOT not in sys.path:
+    sys.path.insert(0, _RECIPE_ROOT)

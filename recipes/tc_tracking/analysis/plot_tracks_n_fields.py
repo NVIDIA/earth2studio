@@ -169,6 +169,7 @@ display(ds)
 
 # %%
 from plotting.data_handling import extract_tracks_from_file  # noqa: E402
+from src.tc_hunt_utils import parse_track_file_name  # noqa: E402
 
 track_dir = os.path.abspath(track_dir)
 
@@ -179,8 +180,7 @@ time_stamps = ds.time.values + ds.lead_time.values
 track_file = [
     f
     for f in os.listdir(track_dir)
-    if f.endswith(".csv")
-    and int(f.split("_mem_")[-1].split("_seed_")[0]) == ensemble_member
+    if f.endswith(".csv") and parse_track_file_name(f)[1] == ensemble_member
 ][0]
 track_file = os.path.join(track_dir, track_file)
 

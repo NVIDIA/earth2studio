@@ -14,12 +14,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
+import re
+
 import numpy as np
+import pandas as pd
 from omegaconf import DictConfig
 
 from earth2studio.utils.time import to_time_array
 
 EARTH_RADIUS_M = 6371000
+
+_TRACK_FILE = re.compile(
+    r"tracks_(?P<ic>[\dT:-]+)_mem_(?P<member>\d+)_seed_(?P<seed>\d+)_bs_\d+\.csv"
+)
 
 
 def set_initial_times(cfg: DictConfig) -> np.ndarray:
@@ -93,3 +101,100 @@ def great_circle_distance(
     cc = 2 * np.arctan2(np.sqrt(aa), np.sqrt(1 - aa))
 
     return radius * cc
+
+
+def track_file_name(ic: np.datetime64, member: int, seed: int, batch_size: int) -> str:
+    """Name of a member's track file, the same for every tracker.
+
+    Parameters
+    ----------
+    ic : np.datetime64
+        Initial time of the forecast
+    member : int
+        Member id
+    seed : int
+        Seed the member was run with
+    batch_size : int
+        Batch size of the run
+
+    Returns
+    -------
+    str
+        ``tracks_<ic>_mem_<member>_seed_<seed>_bs_<batch_size>.csv``, see
+        :func:`parse_track_file_name`
+    """
+    ic_str = np.datetime_as_string(ic, unit="s")
+    return f"tracks_{ic_str}_mem_{member:04d}_seed_{seed}_bs_{batch_size}.csv"
+
+
+def parse_track_file_name(path: str) -> tuple[pd.Timestamp, int, int]:
+    """Initial time, member and seed of a track file, see :func:`track_file_name`.
+
+    Parameters
+    ----------
+    path : str
+        Track file, with or without directory
+
+    Returns
+    -------
+    tuple[pd.Timestamp, int, int]
+        Initial time, member id and seed
+
+    Raises
+    ------
+    ValueError
+        If the file name does not follow :func:`track_file_name`
+    """
+    match = _TRACK_FILE.fullmatch(os.path.basename(path))
+    if match is None:
+        raise ValueError(f"not a track file name: {path}")
+    return (
+        pd.Timestamp(match["ic"]),
+        int(match["member"]),
+        int(match["seed"]),
+    )
+
+
+def match_track(
+    tracks: pd.DataFrame, reference: pd.DataFrame, max_dist: float = 300_000.0
+) -> pd.DataFrame:
+    """Track following a reference track, e.g. a storm's best track.
+
+    The match is the track closest to the reference at the first time any
+    track lies within ``max_dist`` of it. The same rule identifies a storm in
+    reference tracks, in forecasts and in reproduced members.
+
+    Parameters
+    ----------
+    tracks : pd.DataFrame
+        Tracks with ``track_id``, ``time``, ``lat`` and ``lon``
+    reference : pd.DataFrame
+        Reference track with ``time``, ``lat`` and ``lon``
+    max_dist : float, optional
+        Largest distance to the reference counting as a match in metres, by
+        default 300 km
+
+    Returns
+    -------
+    pd.DataFrame
+        The rows of the matching track, with its distance to the reference in
+        ``dist`` (metres, NaN at times the reference lacks); empty, with the
+        columns of ``tracks``, if no track matches
+    """
+    pairs = tracks[["track_id", "time", "lat", "lon"]].merge(
+        reference[["time", "lat", "lon"]], on="time", suffixes=("", "_ref")
+    )
+    pairs["dist"] = great_circle_distance(
+        pairs["lat_ref"].to_numpy(),
+        pairs["lon_ref"].to_numpy(),
+        pairs["lat"].to_numpy(),
+        pairs["lon"].to_numpy(),
+    )
+    close = pairs[pairs["dist"] < max_dist]
+    if close.empty:
+        return tracks.iloc[0:0].assign(dist=[])
+
+    track_id = close.sort_values(["time", "dist"]).iloc[0]["track_id"]
+    track = tracks[tracks["track_id"] == track_id]
+    dist = pairs.loc[pairs["track_id"] == track_id, ["time", "dist"]]
+    return track.merge(dist, on="time", how="left").reset_index(drop=True)

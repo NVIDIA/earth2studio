@@ -445,8 +445,7 @@ def run_ensemble(cfg: DictConfig) -> None:
         scorer = None if tracker is None else TrackingScorer(tracker, cfg.batch_size)
         wn2_tracks = None
         if "wn2_tracking" in cfg:
-            header = {"model": cfg.model, **dict(cfg.get("model_kwargs", {}))}
-            wn2_tracks = WN2TrackWriter(model, cfg.store_dir, cfg.batch_size, header)
+            wn2_tracks = WN2TrackWriter.from_config(cfg, model)
         if store is None and scorer is None and wn2_tracks is None:
             raise ValueError("the run neither stores fields nor tracks cyclones")
 

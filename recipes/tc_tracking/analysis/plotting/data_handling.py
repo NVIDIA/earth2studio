@@ -15,23 +15,16 @@
 # limitations under the License.
 
 import glob
-import os
-import sys
 from typing import Any
 
 import numpy as np
 import pandas as pd
 from loguru import logger
-
-# Make ``src/`` importable when the plotting modules are run from
-# ``recipes/tc_tracking/`` (the conventional working directory for
-# the notebooks).  Mirrors how ``main.py`` exposes ``src`` to the rest of
-# the recipe.
-_RECIPE_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
-if _RECIPE_ROOT not in sys.path:
-    sys.path.insert(0, _RECIPE_ROOT)
-
-from src.tc_hunt_utils import EARTH_RADIUS_M, great_circle_distance  # noqa: E402
+from src.tc_hunt_utils import (
+    EARTH_RADIUS_M,
+    great_circle_distance,
+    parse_track_file_name,
+)
 
 _DEFAULT_TIME_STEP = np.timedelta64(6, "h")
 
@@ -228,12 +221,10 @@ def extract_tracks(in_dir: str) -> list[dict[str, Any]]:
     files.sort()
 
     for csv_file in files:
-        _tracks = extract_tracks_from_file(csv_file)
-
-        mem = int(csv_file.split("_mem_")[-1].split("_seed_")[0])
-        ic = pd.to_datetime(csv_file.split("_mem_")[0][-19:])
-
-        tracks.append({"ic": ic, "member": mem, "tracks": _tracks})
+        ic, member, _ = parse_track_file_name(csv_file)
+        tracks.append(
+            {"ic": ic, "member": member, "tracks": extract_tracks_from_file(csv_file)}
+        )
 
     return tracks
 

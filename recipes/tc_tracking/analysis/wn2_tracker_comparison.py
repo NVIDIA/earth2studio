@@ -77,34 +77,19 @@
 #
 # ### Data prerequisites
 #
-# None, with `use_sample_tracks = True` below: the tracks of the forecasts
-# shown here come with the recipe, in `aux_data/sample_tracks`, and
-# IBTrACS is downloaded from NOAA on first use (about 300 MB). To produce the
-# tracks yourself:
+# None with `use_sample_tracks = True` below: the tracks of the forecasts shown
+# here come with the recipe, in `aux_data/sample_tracks`, and IBTrACS is
+# downloaded from NOAA on first use (about 300 MB). To produce the tracks
+# yourself, see section 6.1 of the recipe's README:
 #
-# 1. The WN2 forecast of the storm, with both trackers enabled (an 80 GB GPU
-#    per process):
-#    ```bash
-#    python main.py --config-name=melissa_wn2.yaml
-#    ```
-#    It writes `outputs_melissa_wn2/cyclone_tracks_wn2/` and
-#    `outputs_melissa_wn2/cyclone_tracks_te/` with one file per member, under the
-#    same name in both. Use `ragasa_wn2.yaml` for Ragasa.
-# 2. Optional: the same storm with FCN3 and AIFS-ENS, tracked by TE only. The
-#    WN2 config is reused, with another model and without the WN2 tracker:
-#    ```bash
-#    python main.py --config-name=melissa_wn2.yaml model=fcn3 \
-#        '~wn2_tracking' '~model_kwargs' project=melissa_fcn3
-#    python main.py --config-name=melissa_wn2.yaml model=aifs deterministic=True \
-#        '~wn2_tracking' '~model_kwargs' project=melissa_aifs
-#    ```
+# 1. The WN2 forecast of the storm, with both trackers (an 80 GB GPU per
+#    process): `python main.py --config-name=melissa_wn2.yaml`. It writes
+#    `outputs_melissa_wn2/cyclone_tracks_wn2/` and `cyclone_tracks_te/`, one
+#    file per member, under the same name in both.
+# 2. Optional: the same storm with FCN3 and AIFS-ENS, tracked by TE only.
 # 3. Optional: TE's track of the storm in the IFS analysis the forecasts start
-#    from, as a measure of what a 0.25° grid can show at best:
-#    ```bash
-#    python main.py --config-name=extract_ifs.yaml
-#    ```
-#
-# IBTrACS is downloaded on first use (about 300 MB).
+#    from, `python main.py --config-name=extract_ifs.yaml`, as a measure of
+#    what a 0.25° grid can show at best.
 #
 # ### Running the notebook
 # With the analysis environment (`analysis/pyproject.toml`, see section 3 of
@@ -118,17 +103,16 @@
 #
 # ### Configuration
 #
-# - `case` - the storm, a key of `CASES`; add a storm there with its IBTrACS
+# - `storm` - the storm, one of `STORMS`; add a storm there with its IBTrACS
 #   name, season and basin
 # - `use_sample_tracks` - use the tracks that come with the recipe, or read
-#   your own runs from `outputs_root`
-# - `outputs_root` - directory holding your runs' outputs, `outputs_<case>_wn2`
+#   your own runs from `runs_dir`
+# - `runs_dir` - directory holding your runs' outputs, `outputs_<storm>_wn2`
 #   and so on, as written by `main.py`; runs that do not exist are left out
 # - `ibtracs_csv` - where IBTrACS is, or will be, stored
 
 # %%
 import os
-import sys
 
 import matplotlib.pyplot as plt
 
@@ -136,37 +120,34 @@ if not os.path.isdir("plotting"):
     raise RuntimeError(
         f"run the notebook from the recipe's analysis directory, not {os.getcwd()}"
     )
-sys.path.insert(0, "..")  # the recipe root, for its IBTrACS loader in src
 
-from plotting.tracker_comparison import (  # noqa: E402
-    add_header,
-    load_analysis_track,
-    load_runs,
-    peak_intensity_table,
+# importing plotting also makes the recipe's src package importable
+from plotting.comparison_plots import (  # noqa: E402
     plot_over_time,
     plot_rapid_intensification,
+    plot_storm_size,
     plot_tracks,
     plot_wind_pressure,
 )
+from plotting.storm_ensembles import (  # noqa: E402
+    Storm,
+    load_analysis_track,
+    load_runs,
+    peak_intensity_table,
+)
 from src.data.ibtracs import load_ibtracs_storm  # noqa: E402
 
-# storm: (IBTrACS name, season, basin as in the reference track file names)
-CASES = {
-    "melissa": ("melissa", 2025, "north_atlantic"),
-    "ragasa": ("ragasa", 2025, "west_pacific"),
+STORMS = {
+    "melissa": Storm("melissa", 2025, "north_atlantic"),
+    "ragasa": Storm("ragasa", 2025, "west_pacific"),
 }
-case = "melissa"
+storm = STORMS["melissa"]
 
 use_sample_tracks = True
-outputs_root = ".."  # where main.py wrote outputs_<case>_<model>: the recipe root
-ibtracs_csv = "../aux_data/ibtracs.ALL.list.v04r01.csv"
-
-prefix = "outputs_"  # of the run directories main.py writes
+runs_dir, run_prefix = "..", "outputs_"  # main.py writes ../outputs_<storm>_<model>
 if use_sample_tracks:
-    outputs_root, prefix = "../aux_data/sample_tracks", ""
-
-name, season, basin = CASES[case]
-storm = case.title()
+    runs_dir, run_prefix = "../aux_data/sample_tracks", ""
+ibtracs_csv = "../aux_data/ibtracs.ALL.list.v04r01.csv"
 
 # %% [markdown]
 # ### Load the Best Track
@@ -181,7 +162,7 @@ storm = case.title()
 # provisional, and the loader says so.
 
 # %%
-best_track = load_ibtracs_storm(ibtracs_csv, name, season)
+best_track = load_ibtracs_storm(ibtracs_csv, storm.name, storm.season)
 # early points can lack intensities, before the US agency took the storm over
 columns = ["time", "lat", "lon", "msl", "wind_speed", "rmw_km", "nature"]
 best_track[columns].dropna(subset=["wind_speed"]).head()
@@ -195,24 +176,24 @@ best_track[columns].dropna(subset=["wind_speed"]).head()
 # it. A member in which no track does is counted as a miss.
 #
 # All track files share one layout, whichever tracker wrote them, so one
-# function reads them all. `RUNS` in `plotting/tracker_comparison.py` lists the
+# function reads them all. `RUNS` in `plotting/storm_ensembles.py` lists the
 # runs, their colours and where their files are.
 
 # %%
-ensembles = load_runs(outputs_root, case, best_track, prefix)
+ensembles = load_runs(runs_dir, storm, best_track, run_prefix)
 
 reference_csv = os.path.join(
-    outputs_root,
-    f"{prefix}reference_tracks_ifs",
-    f"reference_track_{name}_{season}_{basin}.csv",
+    runs_dir, f"{run_prefix}reference_tracks_ifs", storm.reference_file
 )
 analysis_track = (
     load_analysis_track(reference_csv) if os.path.isfile(reference_csv) else None
 )
 
-for key, ensemble in ensembles.items():
-    found = ensemble["member"].nunique()
-    print(f"{key}: storm found in {found} of {ensemble.attrs['n_members']} members")
+for ensemble in ensembles.values():
+    found = ensemble.tracks["member"].nunique()
+    print(
+        f"{ensemble.run.label}: storm found in {found} of {ensemble.n_members} members"
+    )
 
 # %% [markdown]
 # ### Where Does the Storm Go?
@@ -223,8 +204,7 @@ for key, ensemble in ensembles.items():
 # means.
 
 # %%
-fig = plot_tracks(ensembles, best_track)
-add_header(fig, f"Spaghetti plots {storm}")
+plot_tracks(ensembles, best_track, storm)
 plt.show()
 
 # %% [markdown]
@@ -232,9 +212,7 @@ plt.show()
 # each thin, pale line is one member and the bold line the ensemble mean.
 
 # %%
-fig, ax = plt.subplots(figsize=(10, 4.5), layout="constrained")
-plot_over_time(ax, ensembles, "track_error_km")
-add_header(fig, f"Ensemble mean track error {storm}")
+plot_over_time(ensembles, "track_error_km", storm)
 plt.show()
 
 # %% [markdown]
@@ -247,38 +225,24 @@ plt.show()
 #   average over a grid cell of about 28 km.
 #
 # The dashed line is TE on the IFS analysis: what a 0.25° field can show at
-# best. With the sample tracks, TE finds 46 m/s for Melissa and 59 m/s for
-# Ragasa there, but only about 27 to 35 m/s in the forecast fields of all three
-# models. So the grid is not the only limit: the forecasts lose intensity
-# against the analysis they start from. The WN2 tracker sidesteps both and
-# follows the best track closely, up to the peak.
-#
-# The decay is harder. Melissa made landfall in Jamaica on 28 Oct and crossed
-# Cuba on 29 Oct: the observed wind fell from 80 to about 41 m/s within a
-# day. WN2's tracker weakens the storm far more slowly, keeping it near
-# 60 m/s until 30 Oct, and only catches up once Melissa has left the
-# Caribbean. For Ragasa, it stays about 5 m/s below the best track from the
-# peak on.
+# best. Where TE on the forecasts stays below it, the forecast fields have lost
+# intensity against the analysis they start from; where the analysis itself
+# stays below the best track, the grid is the limit. The WN2 tracker reports
+# best-track quantities and is subject to neither.
 
 # %%
-fig, ax = plt.subplots(figsize=(10, 5), layout="constrained")
-plot_over_time(ax, ensembles, "wind_speed", best_track, analysis_track)
-add_header(fig, f"Ensemble mean maximum wind {storm}")
+plot_over_time(ensembles, "wind_speed", storm, best_track, analysis_track)
 plt.show()
 
 # %% [markdown]
 # ### Minimum Pressure
 #
 # Pressure varies more smoothly in space than wind, so a coarse grid captures
-# more of it: TE comes closer to the best track here than for wind, and the
-# gap grows as the storm deepens and its core contracts. With the sample
-# tracks, WN2's tracker reaches 906 hPa for Melissa (best track 892 hPa), TE
-# on the three models' fields stays between 950 and 990 hPa.
+# more of it: expect TE to come closer to the best track here than for wind,
+# and the gap to grow as the storm deepens and its core contracts.
 
 # %%
-fig, ax = plt.subplots(figsize=(10, 5), layout="constrained")
-plot_over_time(ax, ensembles, "msl", best_track, analysis_track)
-add_header(fig, f"Ensemble mean minimum sea-level pressure {storm}")
+plot_over_time(ensembles, "msl", storm, best_track, analysis_track)
 plt.show()
 
 # %% [markdown]
@@ -298,35 +262,28 @@ peak_intensity_table(ensembles, best_track)
 # the two are tightly linked: the deeper the low, the stronger the wind.
 #
 # - Points **below** the best track have too little wind for their pressure,
-#   the signature of fields too smooth for the eyewall. TE's points on all
-#   three models lie there.
+#   the signature of fields too smooth for the eyewall.
 # - Points **along** it show a tracker that reproduces the observed
-#   relationship, here learnt from the best tracks: WN2's tracker.
+#   relationship, here learnt from the best tracks.
 
 # %%
-fig, ax = plt.subplots(figsize=(10, 6), layout="constrained")
-plot_wind_pressure(ax, ensembles, best_track)
-add_header(fig, f"Wind-pressure relationship {storm}")
+plot_wind_pressure(ensembles, best_track, storm)
 plt.show()
 
 # %% [markdown]
 # ### Rapid Intensification
 #
 # A storm intensifies rapidly if its maximum wind rises by at least 15.4 m/s
-# within 24 h. The plot shows, at each time, the share of members
-# whose wind rose that much over the preceding 24 h; the shaded times are those
-# the storm itself did.
+# within 24 h. The plot shows, at each time, the share of members whose wind
+# rose that much over the preceding 24 h; the shaded times are those the storm
+# itself did.
 #
 # A fixed wind threshold is a hard test for a tracker reading grid-scale winds:
 # if it sees only half of the storm's wind, it also sees only half of its
-# increase. With the sample tracks, every WN2 member intensifies rapidly at
-# some point, for both storms; according to TE, a single member does, of
-# WN2 for Ragasa.
+# increase.
 
 # %%
-fig, ax = plt.subplots(figsize=(10, 4.5), layout="constrained")
-plot_rapid_intensification(ax, ensembles, best_track)
-add_header(fig, f"Rapid intensification {storm}")
+plot_rapid_intensification(ensembles, best_track, storm)
 plt.show()
 
 # %% [markdown]
@@ -339,28 +296,45 @@ plt.show()
 # Pacific.
 
 # %%
-fig, axes = plt.subplots(1, 2, figsize=(12, 4.5), layout="constrained")
-for ax, variable in zip(axes, ("rmw_km", "r17_km")):
-    plot_over_time(ax, {"wn2": ensembles["wn2"]}, variable, best_track)
-axes[0].set_title("Radius of maximum wind")
-axes[1].set_title("Radius of 17.5 m/s wind")
-add_header(fig, f"Ensemble mean storm size {storm}")
+plot_storm_size(ensembles["wn2"], best_track, storm)
 plt.show()
 
 # %% [markdown]
+# ### Findings with the Sample Tracks
+#
+# The sample tracks are 10-day forecasts of 32 members, one WN2 network. For
+# both storms:
+#
+# - **Tracks:** all runs find the storm in every member. After four days, the
+#   mean track error is about 140 to 170 km for Melissa, similar for all
+#   models, and 70 to 90 km for Ragasa, except for FCN3 (about 190 km); after
+#   a week, several hundred kilometres.
+# - **Peak intensity:** WN2's tracker comes close to the best track, 83 m/s and
+#   905 hPa for Melissa against 85 m/s and 892 hPa, 73 m/s against 74 m/s for
+#   Ragasa. TE on the three models' fields reaches 28 to 35 m/s and 957 to
+#   976 hPa on average.
+# - **Grid or forecast:** TE on the IFS analysis finds 46 m/s for Melissa and
+#   59 m/s for Ragasa, well above TE on any forecast. So the grid is not the
+#   only limit: the forecasts lose intensity against the analysis they start
+#   from.
+# - **Decay:** Melissa made landfall in Jamaica on 28 Oct and crossed Cuba on
+#   29 Oct; the observed wind fell from 80 to about 41 m/s within a day. WN2's
+#   tracker weakens the storm far more slowly, keeping it near 60 m/s until
+#   30 Oct. For Ragasa, it stays about 5 m/s below the best track from the peak
+#   on.
+# - **Wind-pressure relationship:** WN2's points follow the observed
+#   relationship; TE's points on all three models lie below it.
+# - **Rapid intensification:** every WN2 member intensifies rapidly at some
+#   point, for both storms; according to TE, a single member does, of WN2 for
+#   Ragasa.
+#
 # ### What to Keep in Mind
 #
 # - **The trackers answer different questions.** TE reports what the forecast
 #   fields contain; the WN2 tracker reports what the network expects a
 #   forecaster to analyse. Neither is the other's error.
-# - **Tracks agree, intensities do not.** All runs find the storm in every
-#   member and follow its track. After four days, the mean track error is
-#   about 140 to 170 km for Melissa, similar for all models, and 70 to 90 km
-#   for Ragasa, except for FCN3 (about 190 km); after a week it grows to
-#   several hundred kilometres. The intensities differ by a factor of two
-#   between the trackers.
-# - **Two storms are two storms.** The numbers above come from two cases, 32
-#   members each and one WN2 network; they illustrate the method, they are
+# - **Two storms are two storms.** The findings above come from two cases,
+#   32 members each and one WN2 network; they illustrate the method, they are
 #   not a verification.
 # - **Wind definitions differ.** Best track and WN2 tracker use 1-minute
 #   sustained wind, TE an instantaneous grid-cell wind. Compare TE with the

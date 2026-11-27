@@ -27,7 +27,7 @@ from omegaconf import DictConfig
 from earth2studio.data import DataSource, fetch_data
 from src.data.ibtracs import KNOTS_TO_MS, ensure_ibtracs
 from src.data.tc_hunt_data_utils import data_source_from_config
-from src.tc_hunt_utils import great_circle_distance
+from src.tc_hunt_utils import match_track
 from src.tempest_extremes import TempestExtremes
 
 
@@ -164,7 +164,7 @@ def match_tracks(
 
     A match is the track closest to the IBTrACS position at the first
     IBTrACS time at which any extracted track lies within ``max_dist``
-    metres of it.
+    metres of it, see :func:`~src.tc_hunt_utils.match_track`.
 
     Parameters
     ----------
@@ -187,29 +187,13 @@ def match_tracks(
     hist_tracks.insert(
         0, "time", pd.to_datetime(hist_tracks[["year", "month", "day", "hour"]])
     )
-
-    # all (track point, IBTrACS position) pairs at the same time
-    pairs = hist_tracks[["track_id", "time", "lat", "lon"]].merge(
-        ib_storm[["time", "lat", "lon"]], on="time", suffixes=("", "_ib")
-    )
-    pairs["dist"] = great_circle_distance(
-        pairs["lat_ib"].to_numpy(),
-        pairs["lon_ib"].to_numpy(),
-        pairs["lat"].to_numpy(),
-        pairs["lon"].to_numpy(),
-    )
-    pairs = pairs[pairs["dist"] < max_dist]
-    if pairs.empty:
-        return hist_tracks.iloc[0:0].reset_index(drop=True)
-
-    best = pairs.sort_values(["time", "dist"]).iloc[0]
-    logger.info(
-        f"matched track {best['track_id']} for storm {case} "
-        f"with distance {best['dist'] / 1000:.2f} km"
-    )
-    return hist_tracks[hist_tracks["track_id"] == best["track_id"]].reset_index(
-        drop=True
-    )
+    matched = match_track(hist_tracks, ib_storm, max_dist)
+    if not matched.empty:
+        logger.info(
+            f"matched track {matched['track_id'].iloc[0]} for storm {case}, "
+            f"closest distance {matched['dist'].min() / 1000:.2f} km"
+        )
+    return matched.drop(columns="dist")
 
 
 def add_ibtracs_data(

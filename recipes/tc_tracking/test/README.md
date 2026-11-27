@@ -133,8 +133,9 @@ rejected for another model.
 
 WeatherNext 2 is not bitwise reproducible on GPU, so the reproduced tracks
 are compared with tolerances instead of byte by byte: over the first 48 h,
-every track has to stay within 100 km, 5 m/s and 5 hPa of the original, see
-`compare_tracks.py`. Reproduced members drift by up to a few hPa and tens of
+every track lasting 2.5 days has to stay within 100 km, 5 m/s and 5 hPa of
+the original. `python test/compare_tracks.py --help` lists these tolerances
+as options. Reproduced members drift by up to a few hPa and tens of
 kilometres, mostly in weak systems; different members differ by hundreds of
 kilometres.
 
