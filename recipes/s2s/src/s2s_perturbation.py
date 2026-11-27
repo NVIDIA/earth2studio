@@ -16,6 +16,7 @@
 
 from typing import Any
 
+import xarray as xr
 from numpy import asarray
 from omegaconf import DictConfig
 from torch import Tensor, inference_mode
@@ -27,7 +28,6 @@ from earth2studio.perturbation import (
     CorrelatedSphericalGaussian,
     HemisphericCentredBredVector,
 )
-from earth2studio.utils.coords import CoordSystem
 
 
 def initialize_perturbation(
@@ -47,8 +47,11 @@ def initialize_perturbation(
     Returns
     -------
     perturbation : Any
-        The perturbation method
+        The perturbation method, or None for ``type: none`` (members then
+        differ only through a stochastic model's sampling)
     """
+    if cfg.perturbation.type == "none":
+        return None
     if cfg.perturbation.type == "HENSPerturbation":
         return HENSPerturbation(
             model=model,
@@ -125,7 +128,17 @@ class HENSPerturbation:
             seeding_perturbation_method=seed_perturbation,
         )
 
-        return
+    def set_rng(self, seed: int, reset: bool = True) -> None:
+        """Seed the breeding noise, clearing carried +/- pairs on reset.
+
+        Parameters
+        ----------
+        seed : int
+            Seed for the noise draws
+        reset : bool, optional
+            Reset an existing stream, by default True
+        """
+        self.perturbation.set_rng(seed, reset=reset)
 
     def get_noise_vector(
         self,
@@ -169,47 +182,44 @@ class HENSPerturbation:
                 f"provide path to data set containing {lead_time}h deterministic [r]mse"
             )
 
-        model_vars = model.input_coords()["variable"]
+        inputs = model.input_coords()
+        if isinstance(inputs, tuple):
+            raise ValueError("HENS perturbations require a single model input field")
+        model_vars = inputs["variable"].values
         if perturbed_var is None:
             perturbed_var = model_vars
         elif isinstance(perturbed_var, str):
             perturbed_var = [perturbed_var]
 
         # set noise for variables which shall not be perturbed to 0.
-        skill = open_dataset(skill_path)
-        scale_vec = Tensor(
-            asarray(
-                [
-                    (
-                        skill.sel(channel=var, lead_time=lead_time)["value"].item()
-                        if var in perturbed_var
-                        else 0.0
-                    )
-                    for var in model_vars
-                ]
+        with open_dataset(skill_path) as skill:
+            scale_vec = Tensor(
+                asarray(
+                    [
+                        (
+                            skill.sel(channel=var, lead_time=lead_time)["value"].item()
+                            if var in perturbed_var
+                            else 0.0
+                        )
+                        for var in model_vars
+                    ]
+                )
             )
-        )
 
         return scale_vec.reshape(1, 1, 1, -1, 1, 1) * noise_amplification
 
     @inference_mode()
-    def __call__(
-        self,
-        x: Tensor,
-        coords: CoordSystem,
-    ) -> tuple[Tensor, CoordSystem]:
+    def __call__(self, x: xr.DataArray) -> xr.DataArray:
         """Apply the perturbation.
 
         Parameters
         ----------
-        x : torch.Tensor
-            Input tensor to be perturbed
-        coords : CoordSystem
-            Coordinate system describing the input tensor
+        x : xr.DataArray
+            Input data array to be perturbed
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]
-            The perturbed tensor and its corresponding coordinate system
+        xr.DataArray
+            The perturbed data array
         """
-        return self.perturbation(x, coords)
+        return self.perturbation(x)

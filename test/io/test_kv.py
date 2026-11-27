@@ -14,7 +14,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections import OrderedDict
+"""Backend-specific tests for :class:`earth2studio.io.KVBackend`.
+
+Protocol behavior is covered by test_io_contract.py.
+"""
 
 import numpy as np
 import pytest
@@ -22,321 +25,111 @@ import torch
 import xarray as xr
 
 from earth2studio.io import KVBackend
-from earth2studio.utils.coords import convert_multidim_to_singledim, split_coords
+from earth2studio.utils.coords import coord_array
+from earth2studio.utils.cupy import from_torch
 
 
-@pytest.mark.parametrize(
-    "time",
-    [
-        [np.datetime64("1958-01-31")],
-        [np.datetime64("1971-06-01T06:00:00"), np.datetime64("2021-11-23T12:00:00")],
-    ],
-)
-@pytest.mark.parametrize(
-    "variable",
-    [["t2m"], ["t2m", "tcwv"]],
-)
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_kv_fields(time: list[np.datetime64], variable: list[str], device: str) -> None:
+def test_kv_device(device: str) -> None:
+    if device.startswith("cuda") and not torch.cuda.is_available():
+        pytest.skip("CUDA is unavailable")
+    io = KVBackend(device=device)
+    assert io.device == device
 
-    total_coords = OrderedDict(
-        {
-            "time": np.asarray(time),
-            "variable": np.asarray(variable),
-            "lat": np.linspace(-90, 90, 180),
-            "lon": np.linspace(0, 360, 360, endpoint=False),
-        }
+    template = coord_array(
+        ("time", "lat"),
+        {"time": np.array(["2024-01-01"], dtype="datetime64[ns]"), "lat": [0.0, 1.0]},
+        name="field",
     )
-
-    # Test Memory Store
-    z = KVBackend(device=device)
-    assert isinstance(z.root, dict)
-
-    array_name = "fields"
-    z.add_array(total_coords, array_name)
-    for dim in total_coords:
-        assert dim in z.coords
-        assert z.coords[dim].shape == total_coords[dim].shape
-
-    # Test __contains__
-    assert array_name in z
-
-    # Test __getitem__
-    shape = tuple([len(dim) for dim in total_coords.values()])
-    assert z[array_name].shape == shape
-
-    # Test __len__
-    assert len(z) == 5
-
-    # Test __iter__
-    for array in z:
-        assert array in ["fields", "time", "variable", "lat", "lon"]
-
-    # Test add_array with torch.Tensor
-    z.add_array(
-        total_coords,
-        "dummy_1",
-        data=torch.randn(shape, device=device, dtype=torch.float32),
-    )
-
-    assert "dummy_1" in z
-    assert z["dummy_1"].shape == shape
-
-    # Test writing
-
-    # Test full write
-    x = torch.randn(shape, device=device, dtype=torch.float32)
-    z.write(x, total_coords, "fields_1")
-    assert "fields_1" in z
-    assert z["fields_1"].shape == x.shape
-
-    partial_coords = OrderedDict(
-        {
-            "time": np.asarray(time)[:1],
-            "variable": np.asarray(variable)[:1],
-            "lat": total_coords["lat"],
-            "lon": total_coords["lon"][:180],
-        }
-    )
-    partial_data = torch.randn((1, 1, 180, 180), device=device)
-    z.write(partial_data, partial_coords, array_name)
-    assert torch.allclose(z[array_name][0, 0, :, :180], partial_data)
-
-    xx, _ = z.read(partial_coords, array_name, device=device)
-    assert torch.allclose(partial_data, xx)
-
-    # test to xarray
-    ds = z.to_xarray()
-    assert isinstance(ds, xr.Dataset)
+    io.add_array(template)
+    if device == "cpu" or torch.cuda.is_available():
+        assert io["field"].device.type == device.split(":")[0]
 
 
-@pytest.mark.parametrize(
-    "time",
-    [
-        [np.datetime64("1958-01-31")],
-        [np.datetime64("1971-06-01T06:00:00"), np.datetime64("2021-11-23T12:00:00")],
-    ],
-)
-@pytest.mark.parametrize(
-    "variable",
-    [["t2m"], ["t2m", "tcwv"]],
-)
-@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_kv_variable(
-    time: list[np.datetime64], variable: list[str], device: str
-) -> None:
-
-    total_coords = OrderedDict(
-        {
-            "time": np.asarray(time),
-            "variable": np.asarray(variable),
-            "lat": np.linspace(-90, 90, 180),
-            "lon": np.linspace(0, 360, 360, endpoint=False),
-        }
-    )
-
-    # Remove var names
-    coords = total_coords.copy()
-    var_names = coords.pop("variable")
-
-    # Test Memory Store
-    z = KVBackend(device=device)
-    assert isinstance(z.root, dict)
-
-    z.add_array(coords, var_names)
-    for dim in coords:
-        assert z.coords[dim].shape == coords[dim].shape
-
-    for var_name in var_names:
-        assert var_name in z
-        assert z[var_name].shape == tuple([len(values) for values in coords.values()])
-
-    # Test writing
-    partial_coords = OrderedDict(
-        {
-            "time": np.asarray(time)[:1],
-            "variable": np.asarray(variable)[:1],
-            "lat": total_coords["lat"],
-            "lon": total_coords["lon"][:180],
-        }
-    )
-    partial_data = torch.randn((1, 1, 180, 180), device=device)
-
-    z.write(*split_coords(partial_data, partial_coords, "variable"))
-    assert torch.allclose(z[variable[0]][0, :, :180], partial_data)
-
-    # test to xarray
-    ds = z.to_xarray()
-    assert isinstance(ds, xr.Dataset)
-
-
-@pytest.mark.parametrize(
-    "time",
-    [
-        [np.datetime64("1958-01-31")],
-        [np.datetime64("1971-06-01T06:00:00"), np.datetime64("2021-11-23T12:00:00")],
-    ],
-)
-@pytest.mark.parametrize(
-    "variable",
-    [["t2m"], ["t2m", "tcwv"]],
-)
-@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_kv_exceptions(
-    time: list[np.datetime64], variable: list[str], device: str
-) -> None:
-
-    total_coords = OrderedDict(
-        {
-            "time": np.asarray(time),
-            "variable": np.asarray(variable),
-            "lat": np.linspace(-90, 90, 180),
-            "lon": np.linspace(0, 360, 360, endpoint=False),
-        }
-    )
-
-    # Test Memory Store
-    z = KVBackend(device=device)
-    assert isinstance(z.root, dict)
-
-    # Test mismatch between len(array_names) and len(data)
-    shape = tuple([len(values) for values in total_coords.values()])
-    array_name = "fields"
-    dummy = torch.randn(shape, device=device, dtype=torch.float32)
-    with pytest.raises(ValueError):
-        z.add_array(total_coords, array_name, data=[dummy] * 2)
-
-    # Test trying to add the same array twice.
-    z.add_array(
-        total_coords,
-        ["dummy_1"],
-        data=[dummy],
-    )
-    z.add_array(
-        total_coords,
-        ["dummy_1"],
-        data=[dummy + 1.0],
-    )
-    assert torch.allclose(z["dummy_1"], dummy)
-
-    # Try to write with bad coords
-    bad_coords = {"ensemble": np.arange(0)} | total_coords
-    bad_shape = (1,) + shape
-    dummy = torch.randn(bad_shape, device=device, dtype=torch.float32)
-    with pytest.raises(AssertionError):
-        z.write(dummy, bad_coords, "dummy_1")
-
-    # Try to write with too many array names
-    with pytest.raises(ValueError):
-        z.write([dummy, dummy], bad_coords, "dummy_1")
-
-
-@pytest.mark.parametrize(
-    "time",
-    [
-        [np.datetime64("1958-01-31")],
-        [np.datetime64("1971-06-01T06:00:00"), np.datetime64("2021-11-23T12:00:00")],
-    ],
-)
-@pytest.mark.parametrize(
-    "variable",
-    [["t2m"], ["t2m", "tcwv"]],
-)
-@pytest.mark.parametrize("device", ["cpu"])
-def test_kv_fields_multidim(
-    time: list[np.datetime64], variable: list[str], device: str
-) -> None:
-
-    lat = np.linspace(-90, 90, 180)
-    lon = np.linspace(0, 360, 360, endpoint=False)
-    LON, LAT = np.meshgrid(lon, lat)
-
-    total_coords = OrderedDict(
-        {
-            "time": np.asarray(time),
-            "variable": np.asarray(variable),
-            "lat": LAT,
-            "lon": LON,
-        }
-    )
-
-    adjusted_coords, _ = convert_multidim_to_singledim(total_coords)
-
-    # Test Memory Store
-    z = KVBackend(device=device)
-    assert isinstance(z.root, dict)
-
-    array_name = "fields"
-    z.add_array(total_coords, array_name)
-    for dim in adjusted_coords:
-        assert dim in z.coords
-        assert z.coords[dim].shape == adjusted_coords[dim].shape
-
-    # Test __contains__
-    assert array_name in z
-
-    # Test __getitem__
-    shape = tuple([len(dim) for dim in adjusted_coords.values()])
-    assert z[array_name].shape == shape
-
-    # Test __len__
-    assert len(z) == (7)
-
-    # Test __iter__
-    for array in z:
-        assert array in ["fields", "time", "variable", "lat", "lon", "ilat", "ilon"]
-
-    for array in ["fields", "time", "variable", "lat", "lon", "ilat", "ilon"]:
-        assert array in z
-
-    # Test add_array with torch.Tensor
-    z.add_array(
-        total_coords,
-        "dummy_1",
-        data=torch.randn(shape, device=device, dtype=torch.float32),
-    )
-
-    assert "dummy_1" in z
-    assert z["dummy_1"].shape == shape
-
-    # Test writing
-
-    # Test full write
-    x = torch.randn(shape, device=device, dtype=torch.float32)
-    z.write(x, adjusted_coords, array_name)
-
-    xx, _ = z.read(adjusted_coords, array_name, device=device)
-    assert torch.allclose(x, xx)
-
-    # Test separate write
-    z.write(x, total_coords, "fields_1")
-    assert "fields_1" in z
-    assert z["fields_1"].shape == x.shape
-
-    xx, _ = z.read(total_coords, "fields_1", device=device)
-    assert torch.allclose(x, xx)
-
-
-def test_kv_write_uninitialized_array(tmp_path: str) -> None:
-    lat = np.arange(4)
-    lon = np.arange(10)
-    coords = OrderedDict({"lat": lat, "lon": lon})
-
+def test_kv_dataset() -> None:
     io = KVBackend()
-    io.add_array(coords, ["init"])
-    io.write(
-        torch.zeros((4, 2), dtype=torch.float32),
-        {"lat": lat, "lon": lon[:2]},
-        "init",
+    assert isinstance(io.root, dict)
+    assert len(io) == 0
+
+    template = coord_array(
+        ("time", "variable", "lat"),
+        {
+            "time": np.array(["2024-01-01"], dtype="datetime64[ns]"),
+            "variable": ["t2m", "u10m"],
+            "lat": [0.0, 1.0],
+        },
     )
-    io.write(
-        torch.ones((4, 5), dtype=torch.float32),
-        {"lat": lat, "lon": lon[:5]},
-        "newvar",
+    io.add_array(template)
+    assert len(io) == 2
+    assert list(io) == ["t2m", "u10m"]
+    assert "t2m" in io and "lat" in io and "v10m" not in io
+    assert isinstance(io["t2m"], torch.Tensor)
+    assert io["t2m"].shape == (1, 2)
+
+    ds = io.to_xarray()
+    assert isinstance(ds, xr.Dataset)
+    assert list(ds.data_vars) == ["t2m", "u10m"]
+    assert ds["t2m"].dims == ("time", "lat")
+
+
+def test_kv_integer_fill() -> None:
+    io = KVBackend()
+    io.add_array(coord_array(("sample",), {"sample": [0, 1]}, dtype=np.int32, name="n"))
+    assert io["n"].dtype == torch.int32
+    np.testing.assert_array_equal(io["n"].numpy(), [0, 0])
+
+
+def test_kv_read_by_label() -> None:
+    io = KVBackend()
+    template = coord_array(
+        ("time", "variable", "lat"),
+        {
+            "time": np.array(["2024-01-01T00", "2024-01-01T06"], dtype="datetime64[h]"),
+            "variable": ["t2m", "u10m"],
+            "lat": [0.0, 1.0],
+        },
+    )
+    io.add_array(template)
+    field = xr.DataArray(
+        np.arange(8, dtype=np.float32).reshape(2, 2, 2),
+        dims=("time", "variable", "lat"),
+        coords={
+            "time": template.coords["time"].values,
+            "variable": ["t2m", "u10m"],
+            "lat": [0.0, 1.0],
+        },
+    )
+    io.write(field)
+
+    selection = {
+        "variable": ["u10m"],
+        "time": template.coords["time"].values[::-1],
+        "lat": [1.0, 0.0],
+    }
+    result = io.read(selection)
+    assert result.dims == ("variable", "time", "lat")
+    np.testing.assert_array_equal(
+        result.values, field.sel(selection).transpose(*selection).values
     )
 
-    # Verify via xarray
-    assert "init" in io.root.keys()
-    assert "newvar" in io.root.keys()
-    assert np.allclose(io["init"][slice(0, 2)], 0.0)
-    assert np.allclose(io["newvar"][slice(0, 5)], 1.0)
+    # Reads return host-resident NumPy payloads by default
+    assert isinstance(result.values, np.ndarray)
+
+
+def test_kv_torch_backed_write() -> None:
+    io = KVBackend()
+    template = coord_array(
+        ("time", "lat"),
+        {"time": np.array(["2024-01-01"], dtype="datetime64[ns]"), "lat": [0.0, 1.0]},
+        name="field",
+    )
+    io.add_array(template)
+    tensor = torch.tensor([[1.0, 2.0]], dtype=torch.float32)
+    io.write(
+        from_torch(
+            tensor,
+            {"time": template.coords["time"].values, "lat": [0.0, 1.0]},
+            name="field",
+        )
+    )
+    np.testing.assert_array_equal(io["field"].numpy(), [[1.0, 2.0]])

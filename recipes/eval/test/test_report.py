@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Tests for the report generation module (src/report.py)."""
+"""Tests for the report generation package (src/report)."""
 
 from __future__ import annotations
 
@@ -783,7 +783,7 @@ def _create_forecast_zarr(path):
 
 
 def _create_verif_zarr(path):
-    """Write a minimal data.zarr with all needed valid times."""
+    """Write a minimal verification.zarr with all needed valid times."""
     rng = np.random.default_rng(77)
     all_valid = set()
     for t in VIS_TIMES:
@@ -927,7 +927,7 @@ class TestPlotPredictionVsTruth:
 class TestRenderHeaderVisualization:
     def test_basic(self, tmp_path):
         _create_forecast_zarr(tmp_path / "out" / "forecast.zarr")
-        _create_verif_zarr(tmp_path / "out" / "data.zarr")
+        _create_verif_zarr(tmp_path / "out" / "verification.zarr")
 
         ds = _create_score_dataset()
         groups = parse_score_arrays(ds)
@@ -981,7 +981,7 @@ class TestRenderHeaderVisualization:
 class TestRenderVisualization:
     def test_basic(self, tmp_path):
         _create_forecast_zarr(tmp_path / "out" / "forecast.zarr")
-        _create_verif_zarr(tmp_path / "out" / "data.zarr")
+        _create_verif_zarr(tmp_path / "out" / "verification.zarr")
 
         ds = _create_score_dataset()
         groups = parse_score_arrays(ds)
@@ -1045,7 +1045,7 @@ class TestGenerateReportWithVisualization:
         score_path = tmp_path / "out" / "scores.zarr"
         _write_score_zarr(score_path, ds)
         _create_forecast_zarr(tmp_path / "out" / "forecast.zarr")
-        _create_verif_zarr(tmp_path / "out" / "data.zarr")
+        _create_verif_zarr(tmp_path / "out" / "verification.zarr")
 
         cfg = OmegaConf.create(
             {
@@ -1272,10 +1272,10 @@ class TestResolveProjection:
         assert _resolve_projection("nonexistent_projection") is None
 
 
-class TestOpenDataStoresMultiStore:
-    """``_open_data_stores`` falls back to merging ``data_*.zarr`` stores
-    when neither ``verification.zarr`` nor ``data.zarr`` is present —
-    the layout StormScope's predownload writes."""
+class TestOpenDataStores:
+    """``_open_data_stores`` reads ``verification.zarr`` under the output
+    path, else a bring-your-own ``verification_source`` backed by a local
+    zarr store, else nothing."""
 
     def _write_yx_zarr(self, path, variables):
         t = np.array(["2024-01-01", "2024-01-02"], dtype="datetime64[ns]")
@@ -1291,40 +1291,56 @@ class TestOpenDataStoresMultiStore:
         path.parent.mkdir(parents=True, exist_ok=True)
         ds.to_zarr(str(path), mode="w")
 
-    def test_merges_per_model_stores(self, tmp_path):
+    def test_prefers_verification_zarr(self, tmp_path):
         from src.report import _open_data_stores
 
         out = tmp_path / "out"
         out.mkdir()
-        # No verification.zarr / data.zarr — just per-model stores.
-        self._write_yx_zarr(out / "data_goes.zarr", ["abi01c", "abi02c"])
-        self._write_yx_zarr(out / "data_mrms.zarr", ["refc"])
-        # Prediction store (forecast.zarr) is optional; omit here to
-        # focus the test on verification resolution.
+        self._write_yx_zarr(out / "verification.zarr", ["refc"])
+        self._write_yx_zarr(out / "forecast.zarr", ["refc"])
         cfg = OmegaConf.create({"output": {"path": str(out)}})
 
-        _, verif_ds = _open_data_stores(cfg)
-        assert verif_ds is not None
-        # Merged dataset has variables from both stores.
-        assert "abi01c" in verif_ds
-        assert "abi02c" in verif_ds
-        assert "refc" in verif_ds
+        pred_ds, verif_ds = _open_data_stores(cfg)
+        assert pred_ds is not None and "refc" in pred_ds
+        assert verif_ds is not None and "refc" in verif_ds
 
-    def test_prefers_verification_zarr_when_present(self, tmp_path):
-        """When ``verification.zarr`` exists, the per-model fallback is
-        not consulted — the legacy path wins."""
+    def test_byo_predownloaded_source(self, tmp_path):
         from src.report import _open_data_stores
 
         out = tmp_path / "out"
         out.mkdir()
-        self._write_yx_zarr(out / "verification.zarr", ["legacy_var"])
-        self._write_yx_zarr(out / "data_goes.zarr", ["abi01c"])
-        cfg = OmegaConf.create({"output": {"path": str(out)}})
+        byo = tmp_path / "elsewhere" / "truth.zarr"
+        self._write_yx_zarr(byo, ["abi01c"])
+        cfg = OmegaConf.create(
+            {
+                "output": {"path": str(out)},
+                "verification_source": {
+                    "_target_": "src.data.PredownloadedSource",
+                    "store_path": str(byo),
+                },
+            }
+        )
 
+        pred_ds, verif_ds = _open_data_stores(cfg)
+        assert pred_ds is None
+        assert verif_ds is not None and "abi01c" in verif_ds
+
+    def test_byo_remote_source_is_not_opened(self, tmp_path):
+        from src.report import _open_data_stores
+
+        out = tmp_path / "out"
+        out.mkdir()
+        cfg = OmegaConf.create(
+            {
+                "output": {"path": str(out)},
+                "verification_source": {
+                    "_target_": "earth2studio.data.Random",
+                    "domain_coords": {"lat": [0.0, 1.0], "lon": [0.0, 1.0]},
+                },
+            }
+        )
         _, verif_ds = _open_data_stores(cfg)
-        assert verif_ds is not None
-        assert "legacy_var" in verif_ds
-        assert "abi01c" not in verif_ds
+        assert verif_ds is None
 
     def test_returns_none_when_no_stores(self, tmp_path):
         from src.report import _open_data_stores
@@ -1339,8 +1355,8 @@ class TestOpenDataStoresMultiStore:
 
 class TestGenerateReportStormScope:
     """Smoke-level end-to-end generator run with a StormScope-shaped
-    layout: prediction zarr on ``(y, x)`` HRRR meters, per-model
-    verification zarrs, ``hrrr_lambert`` projection, and multi-group
+    layout: prediction zarr on ``(y, x)`` HRRR meters, a verification zarr
+    on the same grid, ``hrrr_lambert`` projection, and multi-group
     variable layout."""
 
     def test_end_to_end_hrrr_layout(self, tmp_path):
@@ -1377,25 +1393,20 @@ class TestGenerateReportStormScope:
         )
         pred_ds.to_zarr(str(out / "forecast.zarr"), mode="w")
 
-        # --- Per-model verification zarrs keyed by valid time ---
-        valid_times = ic_times + lead_times[-1]  # simple case
+        # --- Verification zarr keyed by valid time ---
         valid_times = np.concatenate([ic_times + lt for lt in lead_times])
-        for fname, vs in [
-            ("data_goes.zarr", ["abi01c"]),
-            ("data_mrms.zarr", ["refc"]),
-        ]:
-            xr.Dataset(
-                {
-                    v: xr.DataArray(
-                        rng.standard_normal((len(valid_times), len(y), len(x))).astype(
-                            "float32"
-                        ),
-                        dims=["time", "y", "x"],
-                        coords={"time": valid_times, "y": y, "x": x},
-                    )
-                    for v in vs
-                }
-            ).to_zarr(str(out / fname), mode="w")
+        xr.Dataset(
+            {
+                v: xr.DataArray(
+                    rng.standard_normal((len(valid_times), len(y), len(x))).astype(
+                        "float32"
+                    ),
+                    dims=["time", "y", "x"],
+                    coords={"time": valid_times, "y": y, "x": x},
+                )
+                for v in ["abi01c", "refc"]
+            }
+        ).to_zarr(str(out / "verification.zarr"), mode="w")
 
         # --- Minimal score zarr ---
         score_ds = xr.Dataset(

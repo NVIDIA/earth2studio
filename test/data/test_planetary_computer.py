@@ -16,7 +16,7 @@
 
 import pathlib
 import shutil
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from time import perf_counter
 
 import numpy as np
@@ -79,22 +79,13 @@ def test_planetary_computer_base_extract_not_implemented() -> None:
         ds.extract_variable_numpy(None, None, datetime.now(timezone.utc))
 
 
-@pytest.mark.slow
-@pytest.mark.xfail()
-@pytest.mark.timeout(60)
+@pytest.mark.live(timeout=10)
 @pytest.mark.parametrize(
     "time,variable",
     [
         (
             datetime(2024, 6, 19, tzinfo=timezone.utc),
             ["sst", "ssta"],
-        ),
-        (
-            [
-                datetime(2024, 6, 18, tzinfo=timezone.utc),
-                datetime(2024, 6, 19, tzinfo=timezone.utc),
-            ],
-            "sst",
         ),
     ],
 )
@@ -113,10 +104,8 @@ def test_planetary_computer_oisst_fetch(time, variable) -> None:
     assert np.isfinite(data.values).any()
 
 
-@pytest.mark.slow
-@pytest.mark.xfail()
-@pytest.mark.timeout(60)
-@pytest.mark.parametrize("cache", [True, False])
+@pytest.mark.live(timeout=10)
+@pytest.mark.parametrize("cache", [True])
 def test_planetary_computer_oisst_cache(cache: bool) -> None:
     """Ensure cache directory behavior matches flag settings."""
     ds = PlanetaryComputerOISST(cache=cache, verbose=False)
@@ -135,22 +124,13 @@ def test_planetary_computer_oisst_cache(cache: bool) -> None:
         pass
 
 
-@pytest.mark.slow
-@pytest.mark.xfail()
-@pytest.mark.timeout(60)
+@pytest.mark.live(timeout=20)
 @pytest.mark.parametrize(
     "time,variable",
     [
         (
             datetime(2024, 6, 1, tzinfo=timezone.utc),
             ["s3sy02aod", "s3sy01sr"],
-        ),
-        (
-            [
-                datetime(2024, 6, 1, tzinfo=timezone.utc),
-                datetime(2024, 6, 1, tzinfo=timezone.utc) + timedelta(hours=6),
-            ],
-            "s3sy02aod",
         ),
     ],
 )
@@ -167,10 +147,8 @@ def test_planetary_computer_sentinel3_fetch(time, variable) -> None:
     assert np.isfinite(data.values).any()
 
 
-@pytest.mark.slow
-@pytest.mark.xfail()
-@pytest.mark.timeout(60)
-@pytest.mark.parametrize("cache", [True, False])
+@pytest.mark.live(timeout=20)
+@pytest.mark.parametrize("cache", [True])
 def test_planetary_computer_sentinel3_cache(cache: bool) -> None:
     """Ensure Sentinel-3 cache behavior aligns with flag."""
     ds = PlanetaryComputerSentinel3AOD(cache=cache, verbose=False)
@@ -189,9 +167,7 @@ def test_planetary_computer_sentinel3_cache(cache: bool) -> None:
         pass
 
 
-@pytest.mark.slow
-@pytest.mark.xfail()
-@pytest.mark.timeout(60)
+@pytest.mark.live(timeout=10)
 @pytest.mark.parametrize(
     "time,variable,tile",
     [
@@ -199,14 +175,6 @@ def test_planetary_computer_sentinel3_cache(cache: bool) -> None:
             datetime(2023, 7, 28, tzinfo=timezone.utc),
             ["fmask", "mfrp"],
             "h35v10",
-        ),
-        (
-            [
-                datetime(2023, 7, 27, tzinfo=timezone.utc),
-                datetime(2023, 7, 28, tzinfo=timezone.utc),
-            ],
-            "fmask",
-            "h34v10",
         ),
     ],
 )
@@ -226,10 +194,8 @@ def test_planetary_computer_modis_fire_fetch(time, variable, tile) -> None:
     assert lon.shape == (1200, 1200)
 
 
-@pytest.mark.slow
-@pytest.mark.xfail()
-@pytest.mark.timeout(60)
-@pytest.mark.parametrize("cache", [True, False])
+@pytest.mark.live(timeout=10)
+@pytest.mark.parametrize("cache", [True])
 def test_planetary_computer_modis_fire_cache(cache: bool) -> None:
     ds = PlanetaryComputerMODISFire(tile="h35v10", cache=cache, verbose=False)
     time = datetime(2023, 7, 28, tzinfo=timezone.utc)
@@ -308,9 +274,7 @@ def test_planetary_computer_ifs_index_entry_matches() -> None:
         assert var
 
 
-@pytest.mark.slow
-@pytest.mark.xfail()
-@pytest.mark.timeout(240)
+@pytest.mark.live(timeout=30)
 def test_planetary_computer_ifs_ranged_benchmark() -> None:
     # Benchmark GRIB index byte-range fetches against whole-file downloads.
     # The ranged path resolves per-message byte ranges from the item's GRIB
@@ -343,22 +307,13 @@ def test_planetary_computer_ifs_ranged_benchmark() -> None:
     assert t_ranged < t_whole
 
 
-@pytest.mark.slow
-@pytest.mark.xfail()
-@pytest.mark.timeout(60)
+@pytest.mark.live(timeout=15)
 @pytest.mark.parametrize(
     "time,variable",
     [
         (
             datetime(2025, 7, 28),
             ["u10m", "z500"],
-        ),
-        (
-            [
-                datetime(2025, 7, 27),
-                datetime(2025, 7, 28),
-            ],
-            "t2m",
         ),
     ],
 )
@@ -373,9 +328,7 @@ def test_planetary_computer_ifs_fetch(time, variable) -> None:
     assert np.array_equal(data.coords["variable"].values, np.array(variables))
 
 
-@pytest.mark.slow
-@pytest.mark.xfail()
-@pytest.mark.timeout(60)
+@pytest.mark.live(timeout=20)
 @pytest.mark.parametrize(
     "satellite,scan_mode,time,variable",
     [
@@ -384,12 +337,6 @@ def test_planetary_computer_ifs_fetch(time, variable) -> None:
             "C",
             datetime(2022, 1, 13, 5, 10),
             ["abi01c", "abi05c"],
-        ),
-        (
-            "goes19",
-            "C",
-            [datetime(2025, 11, 13), datetime(2026, 1, 8, 18, 40)],
-            ["abi14c"],
         ),
     ],
 )

@@ -26,7 +26,8 @@
 # Details:
 #   * 24 scored variables (every model output that ERA5 provides; not scored: r500, r850)
 #   * 1 member — deterministic
-#   * 56 steps of 6 h, native 720x1440 grid regridded onto ERA5's 721x1440
+#   * 56 steps of 6 h, native 720x1440 grid gathered onto ERA5's 721x1440
+#     (output.regrid, nearest)
 #   * single-frame input; keeps its own IC store (NCAR ERA5: ARCO lacks r500/r850).
 # ---------------------------------------------------------------------------
 defaults:
@@ -103,6 +104,13 @@ data_source:
     verbose: false
 output:
     path: ${oc.env:SCORECARD_OUT,/code/earth2studio_eval/recipes/eval/scorecard/models/fcn/outputs}/${project}_${run_id}
+    # Gather the model's native 720 x 1440 output onto ERA5's 721 x 1440
+    # grid before scoring: its 720 latitudes are the target's first 720,
+    # and the appended -90 row carries zero latitude weight, so the shared
+    # verification store applies as is.
+    regrid:
+        grid: latlon-0.25deg
+        method: nearest
     # Online scoring: never write the raw forecast store; stats.zarr is
     # the artifact.
     retain: none
@@ -152,16 +160,10 @@ scoring:
     resume: true
 predownload:
     verification:
-        # Verification is already predownloaded; the run dir symlinks it.
+        # Verification comes from the shared ERA5 store: scoring reads
+        # <output.path>/verification.zarr, so symlink the shared store there
+        # (it must carry every scored variable, including sp) rather than
+        # refetching it.  Alternatively point `verification_source` at a
+        # src.data.PredownloadedSource of that store, as the baselines do.
         enabled: false
-pipeline:
-    _target_: scorecard.utils.pipelines.RegriddedForecastPipeline
-    target_lat:
-        start: 90.0
-        stop: -90.0
-        num: 721
-    target_lon:
-        start: 0.0
-        stop: 359.75
-        num: 1440
-    share_verification: true
+runner: forecast

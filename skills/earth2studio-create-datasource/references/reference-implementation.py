@@ -21,14 +21,55 @@ section marked with ``# FILL:``.  Each ``# FILL:`` comment describes
 exactly what to replace.
 
 See real examples:
-- Gridded DataSource / ForecastSource: earth2studio/data/cfs.py
+- Gridded DataSource / ForecastSource with statistics: earth2studio/data/gfs.py
+- Zarr with statistics: earth2studio/data/arco.py (ARCO_ERA5)
+- Projected grid (auxiliary 2D lat/lon): earth2studio/data/hrrr.py
 - DataFrame DataFrameSource: earth2studio/data/nnja.py
 - HTTP-based: earth2studio/data/gdas.py
 
+Contracts (source of truth, read before deviating from this template):
+- earth2studio/data/base.py, earth2studio/lexicon/base.py and earth2studio/utils/time.py
+- earth2studio/data/utils.py (fetch_data, plan_statistics, reduce_statistics),
+  earth2studio/grids/__init__.py (infer_grid, resolve_grid) and MIGRATION.md
+
 Conventions:
-- File lives at earth2studio/data/<source_name>.py
+- Local wrappers live in the user's project; only contributions use
+  earth2studio/data/<source_name>.py and the registration checklist below.
+- Adapt lexicon imports and optional dependency guards to the destination project.
+  Use earth2studio-install for setup; Earth2Studio extras registration is contributor only.
+- Preserve this template's SPDX/license when copying code. It does not impose
+  NVIDIA copyright on newly authored local code.
 - Class name: PascalCase (e.g. GFS, ARCO_ERA5, CFS_FX, HimawariAHI)
 - File name: lowercase with underscores (e.g. gfs.py, cfs.py)
+
+Output conventions (1.0):
+- Optional ``device`` constructor keyword (default "cpu"), stored as a
+  ``torch.device`` in ``self.device``; NumPy output on CPU, CuPy on CUDA. It is
+  not part of the protocol and gfs.py/arco.py/hrrr.py do not implement it yet, so
+  add it only for sources that can produce CUDA output. Never add ``device`` to
+  ``__call__`` or ``fetch``.
+- Dims start ``[time, variable, ...]`` (``[time, lead_time, variable, ...]`` for
+  forecasts); values in unnormalized physical units. ``fetch_data`` reorders
+  and adds ``lead_time`` for analysis sources.
+- Regular lat/lon sources use 1D ``lat``/``lon`` dims. Projected sources use
+  ``y``/``x`` axes in projected units plus 2D ``lat``/``lon`` coordinates and the
+  ``earth2studio_crs`` attr (or ``earth2studio_grid_id`` for a registered grid) so
+  ``infer_grid`` can recognize them; see hrrr.py's ``y``/``x`` axes and
+  ``with_grid_metadata`` call. ``fetch_data`` does not fix grid metadata. If the
+  grid is registered (``earth2studio.grids.resolve_grid``), build coordinates from
+  ``resolve_grid(<id>).coords()`` so downstream regridders recognize it.
+- Time tolerance (DataFrame sources): ``time_tolerance: TimeTolerance`` parsed
+  with ``normalize_time_tolerance``; a single value is a symmetric +/-, a tuple is
+  (lower, upper).
+
+Native temporal statistics (default for regular-cadence gridded sources): follow
+``temporal-statistics.py``. Expose the
+lexicon via ``lexicon = SourceNameLexicon`` and declare supported methods on that
+lexicon. Use ``plan_statistics`` to split plain variables from statistics and plan the
+sample coordinates, validate them, then ``reduce_statistics`` with a source
+``fetch(coord, base)`` coroutine (lexicon converted). Plain variables keep the
+source's ordinary request path. For forecasts reduce each initialization's view
+separately and vary leads within that cycle. Attach ``attrs`` to the output.
 """
 
 from __future__ import annotations
@@ -42,6 +83,7 @@ from dataclasses import dataclass
 from datetime import datetime
 
 import numpy as np
+import torch
 import xarray as xr
 from loguru import logger
 from obstore.store import ObjectStore
@@ -58,11 +100,15 @@ from earth2studio.data.utils import (
     # prep_forecast_inputs,
     resolve_async_workers,
 )
+from earth2studio.grids import (
+    with_grid_metadata,
+)
 
-# FILL: Import your lexicon class
+# FILL: Import your lexicon class from the destination project
 # from earth2studio.lexicon import SourceNameLexicon
 # ---------------------------------------------------------------------------
-# Optional dependency imports (only if you need packages in the `data` extra)
+# Contributor optional dependency imports (registered `data` extra only).
+# Local wrappers use their project's dependency guards instead.
 # ---------------------------------------------------------------------------
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
@@ -139,6 +185,9 @@ class SourceName:
     retries : int, optional
         Number of retry attempts per failed fetch with exponential backoff,
         by default 3.
+    device : torch.device | str, optional
+        Device of the returned data. CPU returns NumPy-backed arrays and CUDA returns
+        CuPy-backed arrays on that device, by default "cpu".
 
     Warning
     -------
@@ -155,6 +204,9 @@ class SourceName:
     FILL: Add provider:<provider> when known. Add dataset:<family> only when
     this source belongs to a named dataset family.
     """
+
+    # FILL: Expose the lexicon (declare TIME_STATISTICS there if supported)
+    # lexicon = SourceNameLexicon
 
     # FILL: If this is a DataFrameSource, define SCHEMA here:
     # SCHEMA = pa.schema([
@@ -173,7 +225,9 @@ class SourceName:
         async_timeout: int = 600,
         async_workers: int | None = None,
         retries: int = 3,
+        device: torch.device | str = "cpu",
     ) -> None:
+        self.device = torch.device(device)
         self._cache = cache
         self._verbose = verbose
         self._async_workers = async_workers
@@ -205,7 +259,7 @@ class SourceName:
         variable: str | list[str] | VariableArray,
         # FILL: ForecastSource adds: lead_time: timedelta | list[timedelta] | LeadTimeArray,
         # FILL: DataFrameSource adds: fields: str | list[str] | pa.Schema | None = None,
-    ) -> xr.DataArray:
+    ) -> xr.DataArray:  # FILL: pd.DataFrame for DataFrameSource
         """Retrieve data for given times and variables.
 
         Parameters
@@ -221,14 +275,7 @@ class SourceName:
             Fetched data array with dims (time, variable, lat, lon).
         """
         # FILL: For ForecastSource return shape is (time, lead_time, variable, lat, lon)
-        try:
-            xr_array = _sync_async(
-                self.fetch, time, variable, timeout=self.async_timeout
-            )
-        finally:
-            if not self._cache:
-                shutil.rmtree(self.cache, ignore_errors=True)
-        return xr_array
+        return _sync_async(self.fetch, time, variable, timeout=self.async_timeout)
 
     # ------------------------------------------------------------------
     # Async fetch
@@ -252,6 +299,17 @@ class SourceName:
         xr.DataArray
             Data array with dims (time, variable, lat, lon).
         """
+        try:
+            return await self._fetch(time, variable)
+        finally:
+            if not self._cache:
+                shutil.rmtree(self.cache, ignore_errors=True)
+
+    async def _fetch(
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        variable: str | list[str] | VariableArray,
+    ) -> xr.DataArray:
         if self.store is None:
             await self._async_init()
 
@@ -289,9 +347,15 @@ class SourceName:
             max_workers=resolve_async_workers(self._async_workers, len(coros)),
             task_timeout=60.0,
             desc="Fetching SourceName data",  # FILL: source name
-            verbose=(not self._verbose),
+            verbose=self._verbose,
         )
 
+        # FILL: Temporal statistics (Step 7b): ``xr_array.attrs.update(attrs)``
+        # FILL: Reuse a registered grid when the axes match; otherwise omit the
+        # name to describe the actual rectilinear lat/lon axes.
+        xr_array = with_grid_metadata(xr_array, "latlon-1deg")
+        if self.device.type == "cuda":
+            xr_array = xr_array.e2s.as_cupy(self.device.index)
         return xr_array
 
     # ------------------------------------------------------------------
@@ -386,8 +450,7 @@ class SourceName:
         for t in times:
             if (t - datetime(1900, 1, 1)).total_seconds() % INTERVAL_SECONDS != 0:
                 raise ValueError(
-                    f"Requested {t} must align to "
-                    f"{INTERVAL_SECONDS // 3600}h intervals"
+                    f"Requested {t} must align to {INTERVAL_SECONDS // 3600}h intervals"
                 )
             if t < MIN_DATE:
                 raise ValueError(f"Requested {t} is before minimum date {MIN_DATE}")
@@ -433,7 +496,7 @@ class SourceName:
 
 
 # ===========================================================================
-# REGISTRATION CHECKLIST
+# REGISTRATION CHECKLIST (CONTRIBUTOR ONLY)
 # ===========================================================================
 #
 # 1. earth2studio/data/__init__.py
@@ -446,6 +509,7 @@ class SourceName:
 #
 # 3. docs/modules/datasources_analysis.md (or _forecast.md, _dataframe.md)
 #    Add class to the {% autosummary %} block in alphabetical order.
+#    (DataFrameSource goes in datasources_dataframe.md.)
 #
 # 4. CHANGELOG.md
 #    Under the current unreleased version, add:

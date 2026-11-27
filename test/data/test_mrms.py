@@ -24,9 +24,7 @@ import pytest
 from earth2studio.data import MRMS
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(60)
+@pytest.mark.live(timeout=60)
 @pytest.mark.parametrize(
     "time",
     [
@@ -67,9 +65,7 @@ def test_mrms_fetch(time, variable):
         assert data.coords[actual_time_coord].shape[0] == len(time)
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(60)
+@pytest.mark.live(timeout=60)
 @pytest.mark.parametrize(
     "time",
     [
@@ -107,9 +103,7 @@ def test_mrms_fetch_multivar(time):
         assert data.coords[actual_time_coord].shape[0] == len(time)
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(60)
+@pytest.mark.live(timeout=60)
 @pytest.mark.parametrize("max_offset_minutes", [5, 10, 15])
 def test_mrms_time_tolerance(max_offset_minutes):
     """Requested time may not match an exact file; ensure resolution within tolerance."""
@@ -122,9 +116,7 @@ def test_mrms_time_tolerance(max_offset_minutes):
     assert diff <= np.timedelta64(max_offset_minutes, "m")
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(60)
+@pytest.mark.live(timeout=60)
 @pytest.mark.parametrize(
     "time",
     [
@@ -171,8 +163,7 @@ def test_mrms_available():
         ds([datetime(2019, 1, 1, 0, 0, 0)], "refc")
 
 
-@pytest.mark.slow
-@pytest.mark.timeout(120)
+@pytest.mark.live(timeout=120)
 def test_mrms_corrupted_nearest_file_fallback():
     """Corrupted nearest file fallback behavior.
 
@@ -232,9 +223,7 @@ def test_mrms_corrupted_nearest_file_fallback():
     )
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(60)
+@pytest.mark.live(timeout=60)
 def test_mrms_partial_missing_time_nan_fill():
     # https://noaa-mrms-pds.s3.amazonaws.com/index.html#CONUS/MergedReflectivityComposite_00.50/20251107/
     # MRMS_MergedReflectivityComposite_00.50_20251107-000040.grib2.gz

@@ -1,302 +1,151 @@
 ---
 name: earth2studio-create-prognostic
-version: 0.16.0
+version: 1.0.0
 license: Apache-2.0
 metadata:
   author: NVIDIA Earth-2 Team <agent-skills@nvidia.com>
   tags: [earth2studio, prognostic-model, python]
 description: >
-  Create Earth2Studio prognostic (time-stepping forecast) model wrappers.
-  Do NOT use for diagnostic models, data sources, or installation.
-  The user may optionally supply a URL or a local path to a reference
-  inference script.
+  Use when creating or migrating Earth2Studio prognostic time-stepping model
+  wrappers, including explicit-state, forced, coupled, stochastic and multi-output
+  forecasts. Not for diagnostic models, data sources, or installation.
+argument-hint: URL or local path to reference inference script (optional)
 ---
 
-## Quick Start Checklist
+# Create a Prognostic Model
 
-**Do these steps IN ORDER. Do not skip any step.**
+## Scope
 
-- [ ] Read this SKILL.md completely first
-- [ ] Get reference script (Step 0)
-- [ ] Create `earth2studio/models/px/<name>.py` with triple inheritance
-- [ ] Create `test/models/px/test_<name>.py` with mock tests
-- [ ] Run: `uv run pytest test/models/px/test_<name>.py -v`
-- [ ] Add/update model extra, install docs, API docs, and changelog (Steps 1-2, 9)
-- [ ] Run: `make format && make lint`
+Default to a protocol-compatible wrapper in the user's separate Python project.
+Unless intent is already explicit, ask:
+**"Are you planning to contribute this to NVIDIA Earth2Studio?"**
+Only an affirmative answer or explicit contribution intent enables contributor steps.
+For local wrappers, use the project's layout, dependencies, style and test conventions;
+no Earth2Studio repository changes or full repository test suite are required.
+Use `earth2studio-install` for dependency setup, including NATTEN and FlashAttention.
+Repository paths below are source references or contributor destinations, not local output paths.
+If unavailable locally, consult matching-version sources on GitHub or the documentation site.
+Preserve existing licenses in copied code, including reference skeleton SPDX headers.
+These samples do not impose NVIDIA copyright on newly authored local code.
 
-> **⚠️ CRITICAL:** Always use `uv run` for Python commands:
-> - ✅ `uv run pytest ...` / `uv run python ...`
-> - ❌ `pytest ...` / `python ...` (missing dependencies)
->
-> **Stuck or wrong output:** Do not keep retrying the same fix. Follow
-> [Self-Improvement](#self-improvement) to patch this skill before continuing.
+Implement the [PrognosticModel protocol](../../earth2studio/models/px/base.py).
+Read [E2S-06: Model Contract][model-spec] before coding, including its prognostic
+rules and conformance sections. The selected version's spec is authoritative;
+use its requirements directly rather than maintaining a separate skill contract.
+Use [PrognosticMixin](../../earth2studio/models/px/utils.py) optionally: it supplies
+no public execution methods; explicit wrapper methods can delegate to its private
+helpers.
 
-## Purpose
+## Workflow
 
-Implement a prognostic model wrapper connecting third-party ML weather models
-to Earth2Studio. Prognostic models time-integrate forward—given initial state,
-they predict future states by stepping through time (e.g., 6-hour increments).
+1. **Understand the reference.** Use the supplied script, repository, paper or
+   specification; ask for missing details only when needed. Record inputs, history
+   windows, output chunks, grids, statistics, forcing, statics, latent state,
+   randomness, core shapes and checkpoints.
+   Configure domains and variables before querying signatures.
+   Unless already specified, ask: “Do you want checkpoint/restart integration? I recommend no for the
+   initial implementation because it adds storage, restore and testing complexity.”
+   Add it only if requested; see [explicit state][state-spec].
+   Explicit `initialize`/`step` state remains required either way.
+2. **Propose dependencies.** Use the local project's dependency conventions and
+   `earth2studio-install` for setup. For contributions only, every packaged
+   prognostic gets a named optional extra, even if empty. Confirm changes to the
+   repository's `pyproject.toml`; add extras alphabetically and include them in `all`.
+3. **Implement** in the user's project, or for contributions in
+   `earth2studio/models/px/<name>.py`, using the
+   [single-frame skeleton](references/skeleton-template.py) and
+   [history methods](references/method-templates.py). `torch.nn.Module` supplies
+   device movement; `AutoModelMixin` is for packaged weights. Protocol compliance,
+   not triple inheritance, is required.
+4. **Declare slots and sources** following the spec's [model interface][interface-spec]
+   and coordinate requirements. Use the templates as implementation examples.
+5. **Implement explicit execution methods** following the spec's
+   [state and continuation requirements][state-spec], iteration and hooks sections.
+   Check the selected version's `PrognosticMixin` before using its private helpers.
+6. **Handle weights and RNG.** Resolve immutable `Package` assets, load on CPU,
+   call `eval()`, register buffers and guard optional backend dependencies.
+   Override `to` for non-Torch state. Follow the spec's stochasticity requirements
+   and [domain selection][domain-spec] when applicable.
+7. **Validate locally** with a small numerical smoke case and
+   `check_prognostic_contract(model)` using mock weights; check replay and relevant
+   forcing/RNG behavior and report skipped checks. Follow the project's test layout.
+   **For contributions**, use `test/models/px/test_<name>.py` and the full
+   [testing patterns](references/testing-guide.py). Cover numerical values,
+   initialization/step/iterator equivalence, replay, hooks, ownership, metadata,
+   invalid coordinates and forcing, slots and seeding. Include the sample
+   `test_model_conformance` using `check_prognostic_contract(model)` for the new
+   forecasts-only, explicit-state contract. Retain direct numerical tests and
+   assert the exact expected skips. Mock tests require no downloads;
+   real-weight tests use `@pytest.mark.package`.
+8. **Contributor only: integrate public models.** Add alphabetical exports in
+   `earth2studio/models/px/__init__.py`, API entries in
+   `docs/modules/models_px.md`, and `CHANGELOG.md`. For extras, update
+   `docs/userguide/about/install_options.yml` with install notes and `api_refs`.
+9. **Verify** local wrappers with the project's relevant smoke/contract checks.
+   For contributions, run the new component's test suite, relevant regression tests
+   and the repository checks below. Report exact failures and skipped
+   coverage; do not claim unrun checks passed.
 
-## Workspace
-
-| Context | Location |
-|---------|----------|
-| Harbor eval | Write to `/workspace/output/earth2studio/models/px/...` |
-| Harbor + `--copy-repo` | Full checkout at `/workspace/repo` |
-| Local clone | Directory with `pyproject.toml` |
-
-**Never read `evals/targets/`** — grader references only.
-
-### Reference Files
-
-Load on demand during the matching step:
-
-| File | Content | Load at |
-|------|---------|---------|
-| `references/skeleton-template.py` | Full model skeleton with FILL comments | Steps 3–6 |
-| `references/method-templates.py` | Canonical method implementations | Steps 4–6 |
-| `references/testing-guide.py` | Test skeleton and mock patterns | Step 7 |
-| `references/validation-guide.md` | Comparison scripts, PR, code review | Steps 10–11 |
-
----
-
-## Workflow Steps
-
-### Step 0 — Get Reference Script
-
-If `$ARGUMENTS` provided, use it. Otherwise ask:
-> Please provide a reference inference script URL/path.
-
-### Step 1 — Analyze & Propose Dependencies
-
-Analyze: packages, architecture, I/O shapes, time step, resolution, checkpoint.
-
-Propose `pyproject.toml` group (alphabetical, add to `all`). Every
-prognostic model must have an optional dependency extra, even when no packages
-are required:
-```toml
-model-name = ["package1>=version", "package2"]
-# or, when no additional packages are required:
-model-name = []
-```
-
-**[CONFIRM]** Present dependencies and ask user to approve.
-
-### Step 2 — Add Dependencies
-
-Edit `pyproject.toml`: add the model extra alphabetically, even if it is
-empty, and update the `all` aggregate.
-
-### Step 3 — Create Model File
-
-**File:** `earth2studio/models/px/<lowercase>.py`
-
-**Required inheritance (all three):**
-```python
-class ModelName(torch.nn.Module, AutoModelMixin, PrognosticMixin):
-```
-
-**Required imports:**
-```python
-import numpy as np
-import torch
-from earth2studio.models.auto import AutoModelMixin, Package
-from earth2studio.models.batch import batch_coords, batch_func
-from earth2studio.models.px.base import PrognosticMixin
-from earth2studio.models.utils import create_coords_from_lat_lon, handshake_dim
-from earth2studio.lexicon import E2STUDIO_VOCAB
-from earth2studio.utils import check_optional_dependencies
-from loguru import logger
-```
-
-**SPDX header (required at top of every .py file):**
-```python
-# SPDX-FileCopyrightText: Copyright (c) 2024-2025 NVIDIA CORPORATION & AFFILIATES.
-# SPDX-License-Identifier: Apache-2.0
-```
-
-**Canonical method order:**
-1. `__init__` 2. `input_coords` 3. `output_coords` (@batch_coords)
-4. `load_default_package` 5. `load_model` 6. `to` (optional)
-7. Private methods 8. `__call__` (@batch_func) 9. `_default_generator`
-10. `create_iterator`
-
-### Step 4 — Implement Coordinates
-
-**input_coords rules:**
-- `batch`: `np.empty(0)`
-- `time`: `np.empty(0)` (dynamic)
-- `lead_time`: starts at `np.timedelta64(0, "h")`
-- `lat`: 90 to -90 (north to south); this is the public Earth2Studio convention even if the source model uses the opposite order
-- `lon`: 0 to 360
-- If a checkpoint/model core expects south-to-north latitude, flip tensors internally before/after the core model; do not expose flipped latitude in `input_coords` or `output_coords`
-- Map variables to `E2STUDIO_VOCAB` (282 entries in `earth2studio/lexicon/base.py`)
-
-**output_coords:** Use `handshake_dim`/`handshake_coords` for input validation, then increment `lead_time`. Prefer a shared coordinate-check helper and call it from `output_coords`, `__call__`, and iterator setup before model execution.
-
-### Step 5 — Implement Forward Pass
-
-**`__call__`:** @batch_func decorated, shape (batch, time, lead_time, var, lat, lon).
-Reshape to model format → call model → reshape back.
-
-**`create_iterator`:** MUST yield initial condition first (step 0).
-Use `front_hook`/`rear_hook` for perturbation injection.
-
-### Step 6 — Implement Model Loading
-
-**`load_default_package`:** Lock HuggingFace URLs: `hf://org/repo@commit`
-
-**`load_model`:** Use `package.resolve()`, `map_location="cpu"`, `eval()` mode,
-decorate with `@check_optional_dependencies()`.
-
-### Step 7 — Write Tests
-
-**File:** `test/models/px/test_<name>.py`
-
-**Required tests:**
-| Function | Purpose |
-|----------|---------|
-| `test_<model>_call` | Single forward pass (parametrize device/time) |
-| `test_<model>_iter` | Iterator produces sequence |
-| `test_<model>_exceptions` | Invalid coords raise errors |
-| `test_<model>_package` | Real weights (`@pytest.mark.package`) |
-
-Create `PhooModelName` dummy matching interface for mock tests.
-
-**Run tests:**
 ```bash
 uv run pytest test/models/px/test_<name>.py -m "not package" -v
-uv run pytest test/models/px/test_<name>.py::test_<model>_package --package -v
-```
-
-Do not omit the package test. If arbitrary random inputs are not physically
-valid for the real checkpoint, use a stable model-appropriate synthetic input
-while still loading real weights and running a forward pass.
-
-### Step 8 — Register Model (if requested)
-
-- Add to `earth2studio/models/px/__init__.py` (alphabetical)
-- Verify deps in pyproject.toml
-
-### Step 9 — Documentation
-
-- Add to `docs/modules/models_px.md` (alphabetical). This is required for
-  every new prognostic model so the API docs include the generated page.
-- Add an entry to `docs/userguide/about/install_options.yml` for the model
-  extra, even when the extra is empty. Include model-specific notes,
-  source-specific preinstall commands, and `api_refs` for any model classes
-  that should show a View Install Notes button in the generated API docs.
-- Update `CHANGELOG.md` under `### Added`. This is required for every new
-  prognostic model.
-
-**Format and lint:**
-```bash
+# When real-weight validation is requested and dependencies are available:
+uv run pytest test/models/px/test_<name>.py -m package --package -v
 make format && make lint && make license
 ```
 
-### Step 10 - Validation (if requested)
+Use `uv run` or the project virtualenv for Python. For contributions, include
+SPDX headers in newly authored repository code, typed public methods and
+NumPy-style docstrings; use `loguru.logger` in library code.
+Use the complete docstrings in the templates. Adapt descriptions to the model's
+state, forcing windows and forecast chunk; avoid stale initial-condition-first
+or single-frame wording from older wrappers.
 
-Follow `references/validation-guide.md`. Create uncommitted vanilla, E2S,
-comparison, and sanity-check scripts; do not commit generated outputs or images.
-Use PR-safe placeholders for plots so the user can upload images manually.
+## Contributor Checklist
 
-**[CONFIRM]** User must visually inspect plots before proceeding.
+Only for confirmed contributions, follow [CONTRIBUTING.md](../../CONTRIBUTING.md)
+and the [developer guide](../../docs/userguide/developer/overview.md):
 
-### Step 11 - PR (if requested)
+- Register approved extras, exports, API/catalog entries and changelog updates.
+- Apply repository style and SPDX requirements; preserve copied licenses.
+- Add and run component tests and relevant regressions, plus `make format`, `make lint`,
+  `make license`; report unavailable dependencies and skipped coverage.
+- Use the PR references when submission is requested. Commit, push and open a PR
+  only when explicitly requested.
 
-Follow `references/validation-guide.md` and use:
-- `references/pr-body-template.md`
-- `references/pr-comment-template.md`
+## Reference Map
 
-Before creating the PR, verify `pyproject.toml` has the model extra, the
-`all` extra includes it, `docs/userguide/about/install_options.yml` has the
-install entry and `api_refs`, and `docs/modules/models_px.md` plus
-`CHANGELOG.md` are updated.
+| Reference | Read when |
+| --- | --- |
+| [Model contract][model-spec] | Always, before implementation |
+| [Skeleton](references/skeleton-template.py) | Starting a single-frame wrapper |
+| [Method examples](references/method-templates.py) | Retaining history in explicit state |
+| [Forcing and slots][interface-spec] | Forced or coupled execution |
+| [Regional views][domain-spec] | The model supports sub-domains |
+| [Testing guide](references/testing-guide.py) | Building mock/contract tests |
+| [Validation guide](references/validation-guide.md) | Comparing with upstream inference |
+| [PR body](references/pr-body-template.md), [validation comment](references/pr-comment-template.md) | A PR is requested |
 
-Do not include machine names, absolute paths, device inventory, or uploaded image
-links in PR text. Use plot placeholders instead.
+## Common Mistakes
 
----
+- Copying `*x`/`*y` from the protocol into wrappers: declare fixed named slots.
+- Yielding the initial condition: first yield is the first forecast; drivers use
+  `initial_condition(x)` separately when publishing the starting fields.
+- Keeping history/latents in a generator frame: save everything needed alongside
+  `y` in serializable state so a checkpoint can resume with `step`.
+- Applying hooks inside `__call__`, `initialize` or `step`: hooks are iterator-only.
+- Copying hook inputs: both hooks receive `y` directly and their returned values
+  feed recurrence; in-place front hooks can edit a previously yielded array.
+- Fetching conditioning internally: declare forcing and require caller-supplied
+  data. Static forcing is supplied only at initialization.
 
-## Examples
+For local work, use the user's project root. For contributor Harbor tasks only,
+output goes under `/workspace/output/earth2studio/models/px/`; a copied repo is at
+`/workspace/repo`. Never read `evals/targets/` (grader-only material). Keep
+validation scripts, checkpoints, images and credentials out of contribution commits.
+If a template or implementation conflicts with the selected version's spec, report
+the discrepancy; do not redefine the contract in this skill.
 
-### Simple Identity Model
-```text
-User: Create IdentityModel - returns input unchanged, 6h step, 181x360, vars: t2m, u10m, v10m, msl
-
-Agent: [reads SKILL.md, creates identity.py with triple inheritance,
-        creates test_identity.py, runs pytest, runs make format && lint]
-```
-
-### External Model (Pangu)
-```text
-User: Add Pangu-Weather wrapper
-      GitHub: https://github.com/198808xc/Pangu-Weather
-
-Agent: [reads SKILL.md, fetches inference.py, creates pangu.py,
-        creates test_pangu.py, runs pytest]
-```
-
----
-
-## Key Patterns
-
-### Coordinate Template
-```python
-@property
-def input_coords(self) -> CoordSystem:
-    return CoordSystem({
-        "batch": np.empty(0),
-        "time": np.empty(0),
-        "lead_time": np.array([np.timedelta64(0, "h")]),
-        "variable": np.array(["t2m", "u10m", ...]),
-        # Public Earth2Studio convention is north-to-south latitude.
-        "lat": np.linspace(90, -90, 181),
-        "lon": np.linspace(0, 359, 360),
-    })
-
-@batch_coords()
-def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
-    output = input_coords.copy()
-    output["lead_time"] = input_coords["lead_time"] + np.timedelta64(6, "h")
-    return output
-```
-
-### Iterator Template
-```python
-def create_iterator(self, x, coords):
-    yield x, coords  # Initial condition (step 0)
-    while True:
-        x, coords = self.front_hook(x, coords)
-        x, coords = self(x, coords)
-        x, coords = self.rear_hook(x, coords)
-        yield x, coords
-```
-
----
-
-## Troubleshooting
-
-| Error | Solution |
-|-------|----------|
-| `OptionalDependencyFailure` | `uv add --optional <group> <pkg>` |
-| Coordinate handshake fails | Check `handshake_dim` indices match dim position |
-| Iterator wrong shapes | Debug reshape logic with random input |
-| `ModuleNotFoundError: pytest` | Use `uv run pytest` not `pytest` |
-
----
-
-## Reminders
-
-**DO:**
-- Use `uv run python` for ALL Python commands
-- Use `loguru.logger`, never `print()`
-- Inherit `torch.nn.Module + AutoModelMixin + PrognosticMixin`
-- Yield initial condition first in `create_iterator`
-- Use `front_hook()`/`rear_hook()` in `_default_generator`
-- Include SPDX header in every .py file
-
-**DON'T:**
-- Create general base classes for reuse
-- Commit API keys or comparison scripts
-- Read from `evals/targets/`
+[model-spec]: ../../docs/specs/E2S-06_MODEL_CONTRACT_SPEC.md
+[interface-spec]: ../../docs/specs/E2S-06_MODEL_CONTRACT_SPEC.md#model-interface
+[state-spec]: ../../docs/specs/E2S-06_MODEL_CONTRACT_SPEC.md#explicit-state
+[domain-spec]: ../../docs/specs/E2S-06_MODEL_CONTRACT_SPEC.md#domain-selection

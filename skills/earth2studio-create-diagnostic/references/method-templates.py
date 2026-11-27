@@ -14,156 +14,151 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Method templates for Earth2Studio diagnostic wrappers.
+"""Native packaged diagnostic methods; see skeleton-template.py for a simple model.
 
-Use these snippets to implement one model. Keep public diagnostic coordinates in
-single-step order: batch, variable, lat, lon. Generative diagnostics add sample
-only in output coordinates.
+Generative outputs declare their sample axis and output grid explicitly. Follow
+model-contract.md for set_rng and isolated RNG ownership. The multi-grid example
+below demonstrates fixed parameters for execution and coordinate planning.
 """
 
-from collections import OrderedDict
-
-import numpy as np
 import torch
-from loguru import logger
+import xarray as xr
 
-from earth2studio.models.auto import Package
-from earth2studio.models.dx.base import DiagnosticModel
-from earth2studio.utils import handshake_coords, handshake_dim
-from earth2studio.utils.imports import check_optional_dependencies
-from earth2studio.utils.type import CoordSystem
-
-INPUT_VARIABLES = ["u10m", "v10m", "t2m", "msl"]
-OUTPUT_VARIABLES = ["tp"]
-
-
-def input_coords_template(self) -> CoordSystem:
-    """Diagnostic public input coordinate order."""
-    return OrderedDict(
-        {
-            "batch": np.empty(0),
-            "variable": np.array(INPUT_VARIABLES),
-            "lat": np.linspace(90, -90, 721),
-            "lon": np.linspace(0, 360, 1440, endpoint=False),
-        }
-    )
+from earth2studio.grids import GridDefinition
+from earth2studio.models.batch import batch_func
+from earth2studio.utils.coords import (
+    coord_array,
+    coord_array_like,
+    handshake_dataarray,
+    handshake_nonempty,
+)
+from earth2studio.utils.cupy import from_torch
+from earth2studio.utils.type import CoordinateSystem
 
 
-def output_coords_template(self, input_coords: CoordSystem) -> CoordSystem:
-    """Validate input coordinates and replace output variables."""
-    target = self.input_coords()
-    handshake_dim(input_coords, "variable", 1)
-    handshake_dim(input_coords, "lat", 2)
-    handshake_dim(input_coords, "lon", 3)
-    handshake_coords(input_coords, target, "variable")
-    handshake_coords(input_coords, target, "lat")
-    handshake_coords(input_coords, target, "lon")
+def output_coords_template(self, input_coords: CoordinateSystem) -> CoordinateSystem:
+    """Plan output variables while preserving leading axes and grid metadata.
 
-    output_coords = input_coords.copy()
-    output_coords["variable"] = np.array(OUTPUT_VARIABLES)
-    return output_coords
+    Parameters
+    ----------
+    input_coords : CoordinateSystem
+        Input coordinate signature or DataArray to validate and transform.
 
-
-def generative_output_coords_template(self, input_coords: CoordSystem) -> CoordSystem:
-    """Validate input and return output with a sample dimension."""
-    target = self.input_coords()
-    handshake_dim(input_coords, "variable", 1)
-    handshake_dim(input_coords, "lat", 2)
-    handshake_dim(input_coords, "lon", 3)
-    handshake_coords(input_coords, target, "variable")
-    handshake_coords(input_coords, target, "lat")
-    handshake_coords(input_coords, target, "lon")
-
-    return OrderedDict(
-        {
-            "batch": input_coords["batch"],
-            "sample": np.arange(self.number_of_samples),
-            "variable": np.array(self.output_variables),
-            "lat": self.lat_output_numpy,
-            "lon": self.lon_output_numpy,
-        }
-    )
+    Returns
+    -------
+    CoordinateSystem
+        Allocation-free signature with the configured output variables.
+    """
+    handshake_dataarray(input_coords, self.input_coords())
+    return coord_array_like(input_coords, {"variable": self.output_variables})
 
 
-def simple_call_template(
-    self,
-    x: torch.Tensor,
-    coords: CoordSystem,
-) -> tuple[torch.Tensor, CoordSystem]:
-    """Example derived diagnostic forward pass."""
-    output_coords = self.output_coords(coords)
-    u = x[:, 0:1]
-    v = x[:, 1:2]
-    return torch.sqrt(u**2 + v**2), output_coords
+@torch.inference_mode()
+@batch_func()
+def automodel_call_template(self, x: xr.DataArray) -> xr.DataArray:
+    """Normalize, execute a Torch core, and restore labelled output metadata.
+
+    Parameters
+    ----------
+    x : xr.DataArray
+        Input fields matching ``input_coords()`` with arbitrary leading dimensions.
+
+    Returns
+    -------
+    xr.DataArray
+        Diagnostic fields matching ``output_coords(x)`` on the model device.
+    """
+    handshake_nonempty(x)
+    signature = self.output_coords(x)
+    tensor, _ = x.e2s.to_torch()
+    tensor = (tensor.to(self.center.device) - self.center) / self.scale
+    output = self.core_model(tensor)
+    return from_torch(output, signature)
 
 
-def automodel_call_template(
-    self,
-    x: torch.Tensor,
-    coords: CoordSystem,
-) -> tuple[torch.Tensor, CoordSystem]:
-    """Example packaged deterministic diagnostic forward pass."""
-    output_coords = self.output_coords(coords)
-    x = (x - self.center) / self.scale
-    out = self.core_model(x)
-    return out, output_coords
+class MultiGridDiagnostic(torch.nn.Module):
+    """Copy fields on two different grids, preserving each slot's leading axes.
 
+    Parameters
+    ----------
+    fine_grid, coarse_grid : GridDefinition | str
+        Distinct configured lat/lon grids for the two slots.
+    """
 
-def generative_call_template(
-    self,
-    x: torch.Tensor,
-    coords: CoordSystem,
-) -> tuple[torch.Tensor, CoordSystem]:
-    """Example generative diagnostic forward pass."""
-    output_coords = self.output_coords(coords)
-    out = torch.empty(
-        [len(v) for v in output_coords.values()],
-        device=x.device,
-        dtype=x.dtype,
-    )
-    x = (x - self.in_center) / self.in_scale
-    for batch_index in range(x.shape[0]):
-        samples = []
-        for sample_index in range(self.number_of_samples):
-            if self.seed is not None:
-                torch.manual_seed(self.seed + sample_index)
-            samples.append(self._forward_one(x[batch_index], sample_index))
-        out[batch_index] = torch.stack(samples, dim=0)
-    return out, output_coords
+    stochastic: bool = False
 
+    def __init__(
+        self, fine_grid: GridDefinition | str, coarse_grid: GridDefinition | str
+    ) -> None:
+        super().__init__()
+        self.grids = (fine_grid, coarse_grid)
 
-def load_default_package_template(cls) -> Package:
-    """Return an immutable package URL and stable cache name."""
-    return Package(
-        "hf://org/repo@commit-or-ngc-version",
-        cache_options={
-            "cache_storage": Package.default_cache("model_name"),
-            "same_names": True,
-        },
-    )
+    def input_coords(self) -> tuple[CoordinateSystem, CoordinateSystem]:
+        """Declare fine-grid and coarse-grid temperature inputs, in that order.
 
+        Returns
+        -------
+        tuple[CoordinateSystem, CoordinateSystem]
+            Allocation-free signatures for the fine and coarse input slots,
+            each with its own grid and leading dimensions.
+        """
+        fine, coarse = (
+            coord_array(
+                ("batch", "variable", "lat", "lon"),
+                {"variable": ["t2m"]},
+                dynamic=("batch",),
+                grid=grid,
+            )
+            for grid in self.grids
+        )
+        return fine, coarse
 
-@check_optional_dependencies()
-def load_model_template(cls, package: Package) -> DiagnosticModel:
-    """Resolve package assets, load on CPU first, and return the wrapper."""
-    logger.info("Loading model-name diagnostic package")
-    model_path = package.resolve("model.pt")
-    center_path = package.resolve("center.npy")
-    scale_path = package.resolve("scale.npy")
+    def output_coords(
+        self, fine: CoordinateSystem, coarse: CoordinateSystem
+    ) -> tuple[CoordinateSystem, CoordinateSystem]:
+        """Validate separate signatures and plan one output per distinct grid.
 
-    core_model = torch.load(model_path, map_location="cpu", weights_only=False)
-    if isinstance(core_model, torch.nn.Module):
-        core_model.eval()
-        core_model.requires_grad_(False)
+        Parameters
+        ----------
+        fine, coarse : CoordinateSystem
+            Separate input signatures or DataArrays, in ``input_coords()`` order.
 
-    center = torch.as_tensor(np.load(center_path), dtype=torch.float32)
-    scale = torch.as_tensor(np.load(scale_path), dtype=torch.float32)
-    return cls(core_model=core_model, center=center, scale=scale)
+        Returns
+        -------
+        tuple[CoordinateSystem, CoordinateSystem]
+            Allocation-free output signatures on the fine and coarse grids.
+        """
+        fine_signature, coarse_signature = self.input_coords()
+        handshake_dataarray(fine, fine_signature)
+        handshake_dataarray(coarse, coarse_signature)
+        return coord_array_like(fine), coord_array_like(coarse)
 
+    def default_sources(self) -> None:
+        """Recommend no providers for either slot.
 
-def to_template(self, device: torch.device | str) -> DiagnosticModel:
-    """Move non-PyTorch state only when inherited torch.nn.Module.to is insufficient."""
-    torch.nn.Module.to(self, device)
-    if hasattr(self, "non_torch_state"):
-        self.non_torch_state = self.non_torch_state.to(device)
-    return self
+        Returns
+        -------
+        None
+            No source recommendations; the caller supplies both input fields.
+        """
+        return None
+
+    def __call__(
+        self, fine: xr.DataArray, coarse: xr.DataArray
+    ) -> tuple[xr.DataArray, xr.DataArray]:
+        """Copy the two input fields on their respective devices.
+
+        Parameters
+        ----------
+        fine, coarse : xr.DataArray
+            Separate positional fields, in ``input_coords()`` order.
+
+        Returns
+        -------
+        tuple[xr.DataArray, xr.DataArray]
+            Independent field copies on the fine and coarse grids.
+        """
+        self.output_coords(fine, coarse)
+        handshake_nonempty(fine)
+        handshake_nonempty(coarse)
+        return fine.copy(deep=True), coarse.copy(deep=True)

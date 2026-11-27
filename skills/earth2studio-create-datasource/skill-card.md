@@ -11,6 +11,10 @@ Apache-2.0 <br>
 ## Use Case: <br>
 Developers and engineers building new data source integrations for the Earth2Studio weather and climate AI framework, connecting remote data stores (S3, GCS, Azure, HTTP, HuggingFace) to Earth2Studio's async data fetching infrastructure. <br>
 
+Defaults to protocol-compatible wrappers in the user's own Python project with relevant smoke/contract checks.
+Repository integration, component test suites and repository checks apply only to confirmed contributions.
+If intent is unclear, ask: "Are you planning to contribute this to NVIDIA Earth2Studio?" <br>
+
 ### Deployment Geography for Use: <br>
 Global <br>
 
@@ -22,12 +26,13 @@ Mitigation: Review and scan skill before deployment. <br>
 - [Reference Implementation](references/reference-implementation.py) <br>
 - [Reference Lexicon](references/reference-lexicon.py) <br>
 - [Testing Guide](references/testing-guide.py) <br>
+- [Temporal Statistics](references/temporal-statistics.py) <br>
 - [Validation Guide](references/validation-guide.md) <br>
 
 
 ## Skill Output: <br>
 **Output Type(s):** [Code, Shell commands, Configuration instructions] <br>
-**Output Format:** [Markdown with inline Python and bash code blocks] <br>
+**Output Format:** [Python source and test files, verification commands] <br>
 **Output Parameters:** [1D] <br>
 **Other Properties Related to Output:** [None] <br>
 

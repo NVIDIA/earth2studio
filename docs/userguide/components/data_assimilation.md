@@ -1,97 +1,112 @@
 # Data Assimilation Models { #data_assimilation_model_userguide }
 
-Data assimilation models in Earth2Studio combine observations with a model state or
-background estimate to produce an updated state. They are useful when a workflow needs
-to ingest observation-like data, correct a forecast or analysis state, or prepare an
-initial condition for a downstream model.
+Earth2Studio's data assimilation interface supports models that ingest, predict,
+and assimilate sparse observations. Traditional assimilation combines observations
+with an optional background field to produce an updated state. The same interface
+also supports predicting observations directly from other observations, without
+requiring a gridded analysis as an intermediate output.
 
-Unlike [Prognostic Models](prognostic.md#prognostic_model_userguide), data assimilation
-models are not primarily responsible for rolling a forecast forward in time. Unlike
-[Diagnostic Models](diagnostic.md#diagnostic_model_userguide), they are usually driven
-by observation batches or state-update logic rather than deriving a single physical
-field from an existing tensor state.
+Use these models to prepare initial conditions, update forecasts with new
+measurements, or produce observation-space predictions. The
+[assimilation API](../../modules/models_da.md) supports both independent calls and
+models that continue a stateful trajectory.
 
-The list of data assimilation models that are already built into Earth2Studio can be
-found in the API documentation [earth2studio.models.da](../../modules/models_da.md).
+## Interface
 
-## Data Assimilation Interface
+| Method | Purpose |
+| --- | --- |
+| `input_coords()` | Declare initial inputs, including observations for independent models. |
+| `output_coords(...)` | Validate input declarations and plan the output. |
+| `default_sources()` | Recommend providers in input-then-forcing order. |
+| `model(...)` | Produce an analysis or prediction from separate, named inputs. |
+| `to(device)` | Place model computation on the requested device. |
 
-The full requirements for a standard data assimilation model are defined explicitly in
-`earth2studio/models/da/base.py`.
+`AssimilationModel` defines this independent interface. `StatefulAssimilationModel`
+adds `forcing_coords()`, `initialize(...)`, `step(..., state=state)`, and
+`create_iterator(...)`, following the [prognostic](prognostic.md) explicit-state
+convention. For these models, observations supplied during a rollout are forcing.
+The protocols are in [`earth2studio.models.da.base`][interface]; inheritance is optional.
 
-```python
---8<-- "earth2studio/models/da/base.py:assimilation-model-interface"
-```
+Each input or output slot is either a gridded DataArray described by a
+`CoordinateSystem`, or a DataFrame described by a `FrameSchema`. A schema maps column
+names to representative NumPy arrays: empty arrays leave values unconstrained;
+nonempty arrays specify allowed values. Multiple slots form an ordered tuple, which
+can mix gridded and tabular declarations. Models expose `stochastic` and `set_rng`;
+seeding is a no-op for deterministic models.
 
-!!! note
-    Data assimilation models do not need to inherit this protocol. The protocol defines
-    the APIs that built-in workflows and utilities expect.
+For an observation-to-observation model, input and output `FrameSchema` declarations
+describe the observations consumed and predicted. Neither side requires a gridded
+field; choose the slot types that match the model's actual inputs and outputs.
 
-Data assimilation models can work with tensor data, tabular observation data, or both.
-For tabular inputs, models commonly use a `FrameSchema` to describe fields and
-constraints. For tensor inputs, models use the same `CoordSystem` convention described
-in [Data Movement](../about/overview.md#data_userguide).
+See [E2S-07: Data Assimilation Contract][da-spec] for slot ordering, observation
+schemas and timing, and independent and stateful execution requirements.
 
-## Data Assimilation Usage
+[da-spec]: ../../specs/E2S-07_DA_MODEL_CONTRACT_SPEC.md
+[interface]: https://github.com/NVIDIA/earth2studio/blob/1.0.0-rc/earth2studio/models/da/base.py
 
-### Loading a Pre-trained Data Assimilation Model
+## Usage
 
-Use the concrete data assimilation model class you want to run. When that class
-supports automatic packages, the following pattern downloads and loads the pre-trained
-weights. More information on automatic downloading of checkpoints can be found in the
-[AutoModels](../advanced/auto.md#automodel_userguide) section.
+### Choose the Execution Pattern
+
+| Model | Inputs | Forcing | Execution |
+| --- | --- | --- | --- |
+| `InterpEquirectangular` | Observations | — | Independent |
+| `HealDA` | Conventional, satellite observations | — | Independent |
+| `CorrDiffCosmoEra5SDA` | ERA5 background, observations | — | Independent |
+| `StormCastSDA` | HRRR background | Conditioning, observations | Independent or stateful |
+| `StormCastConusSDA` | HRRR background | Conditioning, observations | Independent or stateful |
+
+For example, load HealDA through its concrete class, with its optional dependencies
+and weights installed. Given observation frames prepared to match its two schemas:
 
 ```python
 from earth2studio.models.da import HealDA
 
-model_package = HealDA.load_default_package()
-model = HealDA.load_model(model_package)
+model = HealDA.load_model(HealDA.load_default_package())
+analysis = model(conv_obs, sat_obs)
 ```
 
-### Stateless Assimilation
+HealDA requires at least one observation batch. CorrDiff accepts
+`model(background, observations)`, where observations may be `None`. Use
+[`fetch_dataframe` and `fetch_dataframes`](datasources.md#tabular-observations) to
+prepare observation requests and retain request-time metadata.
 
-The main work of a data assimilation model is the `__call__` function. It accepts one
-or more observation or state inputs and returns one or more assimilated outputs.
+### Continue a Stateful Analysis
+
+For a loaded StormCastSDA model and prepared fields:
 
 ```python
-# Assume model is an instance of an AssimilationModel
-analysis, = model(observations)
+analysis, state = model.initialize(x0, conditioning0, obs0)
+analysis, state = model.step(analysis, conditioning1, None, state=state)
 ```
 
-### Stateful Assimilation
-
-Some assimilation workflows need to process a sequence of observation batches while
-maintaining internal state. For those workflows, use `create_generator`.
+Or let the iterator retain state:
 
 ```python
-# Assume model is an instance of an AssimilationModel
-generator = model.create_generator()
-generator.send(None)  # Prime the generator
-
-for observations in observation_batches:
-    analysis, = generator.send(observations)
-
-generator.close()
+iterator = model.create_iterator(x0, conditioning0, obs0)
+analysis = next(iterator)  # First computed analysis, one hour after x0
+analysis = iterator.send((conditioning1, None))  # Next step without observations
+iterator.close()
 ```
 
-## Custom Data Assimilation Models
+Conditioning remains required when observations are absent: `next(iterator)` or
+`send(None)` cannot replace `send((conditioning, None))`. StormCastSDA aligns
+conditioning to the input valid time and observations to the output time, one hour
+later. StormCastConusSDA aligns both to the output valid time and filters observations
+using the wrapped model's `time_tolerance`.
 
-To integrate your own data assimilation model, satisfy the interface above and keep the
-input and output schemas explicit. The model should advertise initialization
-requirements with `init_coords()`, accepted inputs with `input_coords()`, and produced
-outputs with `output_coords()`.
+## Wrap Your Own Assimilation Model
 
-We recommend reviewing the [extension examples](../../examples/index.md#extend), which
-show the style expected for adding custom Earth2Studio components.
+Keep a wrapper in your own project. Declare gridded signatures and observation
+schemas, use fixed named execution arguments, and implement the stateful extension
+only when outputs and explicit state continue a trajectory. Validate observation
+timing and optional-input behavior as well as numerical agreement with your
+reference analysis or observation predictions.
 
-## Contributing a Data Assimilation Model
+The [earth2studio-create-assimilation skill][assimilation-skill] provides contract
+and validation guidance. Ask your agent to adapt it to a local wrapper, supplying
+your inference code, observation schema, background/forcing requirements, and
+reference cases. See the [prognostic customization guide](prognostic.md#wrap-your-own-prognostic-model)
+for an example agent request scoped to your project.
 
-Want to add a data assimilation model to the package? We are happy to work with you.
-We expect the model to abide by the defined interface and meet the requirements set
-forth in our contribution guide. Typically, you are expected to provide any required
-weights or assets in a downloadable location that can be fetched.
-
-[Open an issue](https://github.com/NVIDIA/earth2studio/issues) when you have an initial
-implementation you would like us to review. If you are aware of an existing model and want
-us to implement it, [open a feature request](https://github.com/NVIDIA/earth2studio/issues)
-and we will get it triaged.
+[assimilation-skill]: https://github.com/NVIDIA/earth2studio/tree/1.0.0-rc/skills/earth2studio-create-assimilation

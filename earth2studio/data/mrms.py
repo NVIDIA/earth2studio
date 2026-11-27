@@ -39,6 +39,7 @@ from earth2studio.data.utils import (
     obstore_store_from_url,
     prep_data_inputs,
 )
+from earth2studio.grids import with_grid_metadata
 from earth2studio.lexicon import MRMSLexicon
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
@@ -137,6 +138,9 @@ class MRMS:
 
     - https://registry.opendata.aws/noaa-mrms-pds/
     - https://noaa-mrms-pds.s3.amazonaws.com/index.html
+
+    The CONUS grid is registered as ``mrms-conus-0.01deg`` (see
+    :func:`earth2studio.grids.resolve_grid`).
 
     Badges
     ------
@@ -309,7 +313,7 @@ class MRMS:
                 {f"actual_time_{v}": ("time", actual_time_by_var[v])}
             )
 
-        return out
+        return with_grid_metadata(out, "mrms-conus-0.01deg")
 
     async def _fetch_task(
         self,

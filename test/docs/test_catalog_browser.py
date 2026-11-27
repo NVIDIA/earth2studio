@@ -72,6 +72,12 @@ def test_generated_catalog_in_browser() -> None:
         page.route("**/*", serve)
         page.goto("http://catalog.test/catalog/")
         select = page.get_by_label("Available GPU VRAM")
+        expect(page.locator('label[for="e2s-catalog-vram"]')).to_have_css(
+            "display", "block"
+        )
+        expect(page.locator("label.e2s-catalog-filter").first).to_have_css(
+            "display", "flex"
+        )
         select.focus()
         select.select_option("80")
         expect(select).to_be_focused()
@@ -94,5 +100,8 @@ def test_generated_catalog_in_browser() -> None:
         assert "vram=" not in page.url
         page.get_by_role("button", name="Data Sources", exact=True).click()
         expect(select).to_have_count(0)
+        expect(page.locator("label.e2s-catalog-filter").first).to_have_css(
+            "display", "flex"
+        )
         assert not errors
         browser.close()

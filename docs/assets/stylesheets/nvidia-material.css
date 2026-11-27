@@ -2665,7 +2665,7 @@ body .md-grid {
   cursor: pointer;
 }
 
-.e2s-catalog-filter-group > label {
+.e2s-catalog-filter-group > label[for="e2s-catalog-vram"] {
   display: block;
   font-size: 0.72rem;
   font-weight: 700;

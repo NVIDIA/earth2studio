@@ -186,7 +186,8 @@ class NNJAObsSatLexicon(metaclass=LexiconType):
     sensor, returned as brightness temperature in Kelvin: ``airs`` is encoded
     as ``TMBR`` directly, while ``iasi`` (scaled radiance ``SCRA``) and
     ``cris`` (float radiance ``SRAD``) are converted via Planck inversion
-    during decode.
+    during decode. ``iasi_radiance`` requests the original scaled radiance
+    in SI units, without a brightness-temperature conversion.
 
     Note
     ----
@@ -202,6 +203,8 @@ class NNJAObsSatLexicon(metaclass=LexiconType):
         "amsub": "amsub::TMBR",
         "airs": "airs::TMBR",
         "iasi": "iasi::SCRA",
+        # Same scaled radiance as "iasi", returned without the Planck inversion
+        "iasi_radiance": "iasi::SCRA",
         "cris": "cris::SRAD",
     }
 
