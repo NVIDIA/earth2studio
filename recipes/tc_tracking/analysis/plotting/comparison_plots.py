@@ -198,14 +198,17 @@ def plot_over_time(
 
 
 def plot_storm_size(
-    ensemble: Ensemble, best_track: pd.DataFrame, storm: Storm
+    ensembles: Mapping[str, Ensemble], best_track: pd.DataFrame, storm: Storm
 ) -> Figure:
     """Radius of maximum wind and radius of 17.5 m/s wind over time.
 
+    Only runs reporting the storm's size, the WN2 tracker, are drawn; the time
+    axis spans the forecasts of all runs, as in the other plots.
+
     Parameters
     ----------
-    ensemble : Ensemble
-        The storm's tracks of a run reporting the storm's size, the WN2 tracker
+    ensembles : Mapping[str, Ensemble]
+        The storm's tracks of each run
     best_track : pd.DataFrame
         Best track of the storm
     storm : Storm
@@ -219,7 +222,7 @@ def plot_storm_size(
     variables = ("rmw_km", "r17_km")
     fig, axes = plt.subplots(1, len(variables), figsize=(12, 4.5), layout="constrained")
     for ax, variable in zip(axes, variables):
-        _draw_over_time(ax, {"size": ensemble}, variable, best_track)
+        _draw_over_time(ax, ensembles, variable, best_track)
         ax.set_title(VARIABLES[variable].title.capitalize())
     _add_header(fig, f"Ensemble mean storm size {storm.label}")
     return fig
@@ -320,7 +323,7 @@ def plot_rapid_intensification(
         )
     ax.set_ylim(0, 100)
     ax.set_ylabel(f"members intensifying by {RI_THRESHOLD_MS} m/s in 24 h [%]")
-    _style_time_axis(ax)
+    _style_time_axis(ax, forecast_period(ensembles))
     _add_header(fig, f"Rapid intensification {storm.label}")
     return fig
 
@@ -360,7 +363,7 @@ def _draw_over_time(
         ax.plot(track["time"], track[variable] * shown.factor, lw=2, **style)
 
     ax.set_ylabel(shown.axis_label)
-    _style_time_axis(ax)
+    _style_time_axis(ax, period)
 
 
 def _add_header(fig: Figure, title: str) -> None:
@@ -401,10 +404,14 @@ def _style_axes(ax: Axes) -> None:
     ax.spines[["top", "right"]].set_visible(False)
 
 
-def _style_time_axis(ax: Axes) -> None:
+def _style_time_axis(ax: Axes, period: tuple[pd.Timestamp, pd.Timestamp]) -> None:
+    """Style a time axis spanning ``period``, the same in every plot of a storm."""
     _style_axes(ax)
-    start, end = ax.get_xlim()  # in days
+    start, end = period
+    margin = pd.Timedelta(hours=6)
+    ax.set_xlim(start - margin, end + margin)
     # every day, or every second day for spans longer than a week
-    ax.xaxis.set_major_locator(mdates.DayLocator(interval=1 if end - start <= 8 else 2))
+    days = (end - start) / pd.Timedelta(days=1)
+    ax.xaxis.set_major_locator(mdates.DayLocator(interval=1 if days <= 8 else 2))
     ax.xaxis.set_major_formatter(mdates.DateFormatter("%d %b"))
     ax.set_xlabel("valid time [UTC]")

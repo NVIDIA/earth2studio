@@ -299,7 +299,7 @@ plt.show()
 # Pacific.
 
 # %%
-plot_storm_size(ensembles["wn2"], best_track, storm)
+plot_storm_size(ensembles, best_track, storm)
 plt.show()
 
 # %% [markdown]
