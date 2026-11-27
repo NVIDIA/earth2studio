@@ -278,9 +278,18 @@ def supplemented_source(
     -------
     CompositeSource
         Earth2Studio's composite of both sources
+
+    Raises
+    ------
+    TypeError
+        If ``source`` has no ``LEXICON`` naming the variables it provides
     """
+    # not part of the DataSource protocol, but every remote source has one
+    lexicon = getattr(source, "LEXICON", None)
+    if lexicon is None:
+        raise TypeError(f"{type(source).__name__} has no LEXICON listing its variables")
     supplied = [str(variable) for variable in variables]
-    provided = [name for name in source.LEXICON.VOCAB if name not in supplied]
+    provided = [name for name in lexicon.VOCAB if name not in supplied]
     return CompositeSource(
         {"source": source, "supplement": supplement},
         {"source": provided, "supplement": supplied},
