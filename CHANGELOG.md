@@ -25,6 +25,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Fixed noisy StormScope Flash GOES forecasts when a missing input band masked
+  every history patch; fill raw NaNs before normalization and patch masking.
 - `CAMulator` converts the CO2 forcing from ppm to mol mol-1 in float64; the
   float32 round trip lost one ulp for some values and broke bitwise agreement
   with the CREDIT toolbox after a few steps.
@@ -37,6 +39,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   year when a window crosses a year boundary.
 - Fixed weighted running variance and standard deviation (`batch_update=True`) to use
   the same weighted denominator as the non-batched statistic.
+- Fixed asymmetric cyclic coordinate reorderings in map_coords bypassing the torch.roll
+  path.
 
 ### Security
 

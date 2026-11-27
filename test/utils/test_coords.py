@@ -435,17 +435,16 @@ def test_map_nearest(device):
     assert torch.allclose(out, data[:, :2])
 
 
-def test_map_roll_condition():
+def test_map_roll_condition(monkeypatch: pytest.MonkeyPatch):
     input_coords = OrderedDict({"lon": np.array([0, 90, 180, 270])})
     output_coords = OrderedDict({"lon": np.array([180, 270, 0, 90])})
     x = torch.arange(4).float()
 
     mapped_x, mapped_coords = map_coords(x, input_coords, output_coords)
     expected_x = torch.tensor([2, 3, 0, 1], dtype=torch.float32)
-    expected_coords = OrderedDict({"lon": np.array([180, 270, 0, 90])})
 
     assert torch.equal(mapped_x, expected_x)
-    assert np.all(mapped_coords["lon"] == expected_coords["lon"])
+    np.testing.assert_array_equal(mapped_coords["lon"], output_coords["lon"])
 
     input_coords = OrderedDict({"lat": np.array([0, 30, 60, 90])})
     output_coords = OrderedDict({"lat": np.array([60, 90, 0, 30])})
@@ -453,10 +452,9 @@ def test_map_roll_condition():
 
     mapped_x, mapped_coords = map_coords(x, input_coords, output_coords)
     expected_x = torch.tensor([2, 3, 0, 1], dtype=torch.float32)
-    expected_coords = OrderedDict({"lat": np.array([60, 90, 0, 30])})
 
     assert torch.equal(mapped_x, expected_x)
-    assert np.all(mapped_coords["lat"] == expected_coords["lat"])
+    np.testing.assert_array_equal(mapped_coords["lat"], output_coords["lat"])
 
     input_coords = OrderedDict(
         {"lon": np.array([0, 90, 180, 270]), "lat": np.array([0, 30, 60, 90])}
@@ -471,13 +469,24 @@ def test_map_roll_condition():
         [[10, 11, 8, 9], [14, 15, 12, 13], [2, 3, 0, 1], [6, 7, 4, 5]],
         dtype=torch.float32,
     )
-    expected_coords = OrderedDict(
-        {"lon": np.array([180, 270, 0, 90]), "lat": np.array([60, 90, 0, 30])}
-    )
 
     assert torch.equal(mapped_x, expected_x)
-    assert np.all(mapped_coords["lon"] == expected_coords["lon"])
-    assert np.all(mapped_coords["lat"] == expected_coords["lat"])
+    np.testing.assert_array_equal(mapped_coords["lon"], output_coords["lon"])
+    np.testing.assert_array_equal(mapped_coords["lat"], output_coords["lat"])
+
+    # Output checks alone would also pass through the generic fallback.
+    def fail_index_select(*args, **kwargs):
+        pytest.fail("Cyclic reorder should use torch.roll")
+
+    monkeypatch.setattr(torch, "index_select", fail_index_select)
+
+    x = torch.arange(4).float()
+    coords = OrderedDict(lon=np.array([0, 90, 180, 270]))
+    for indices in ([1, 2, 3, 0], [3, 0, 1, 2]):
+        target = OrderedDict(lon=coords["lon"][indices])
+        actual, actual_coords = map_coords(x, coords, target)
+        assert torch.equal(actual, x[indices])
+        np.testing.assert_array_equal(actual_coords["lon"], target["lon"])
 
 
 def test_map_errors():
