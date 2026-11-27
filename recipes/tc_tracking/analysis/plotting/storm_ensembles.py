@@ -67,6 +67,14 @@ class Storm:
         return f"reference_track_{self.name}_{self.season}_{self.basin}.csv"
 
 
+# the storms of the notebook's storm_name; add one with its IBTrACS name,
+# season and basin
+STORMS = {
+    "melissa": Storm("melissa", 2025, "north_atlantic"),
+    "ragasa": Storm("ragasa", 2025, "west_pacific"),
+}
+
+
 @dataclass(frozen=True)
 class Run:
     """A tracker applied to the forecast of one model, and how it is shown.

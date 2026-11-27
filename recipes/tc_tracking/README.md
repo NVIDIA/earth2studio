@@ -1254,8 +1254,10 @@ GPU:
 - IBTrACS is downloaded from NCEI on first use (about
   300 MB) to `aux_data/`; it is not part of the recipe.
 
-`storm` in the configuration cell picks the storm, `melissa`
-or `ragasa`; add a storm to `STORMS` to analyse another one.
+The settings cell at the top of the notebook holds all
+choices: `storm_name` (`"melissa"` or `"ragasa"`),
+`use_sample_tracks` and `runs_dir`. To analyse another storm,
+add it to `STORMS` in `plotting/storm_ensembles.py`.
 The helpers are in `analysis/plotting/`: `storm_ensembles.py`
 loads and summarises the tracks, `comparison_plots.py` draws
 the figures.

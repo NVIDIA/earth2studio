@@ -28,6 +28,20 @@
 # (FCN3) and
 # [AIFS-ENS](https://nvidia.github.io/earth2studio/main/modules/generated/models/px/AIFSENS/).
 #
+# ## Settings
+#
+# Pick the storm and where its tracks come from, then run all cells. The
+# defaults need no forecasts of your own and no GPU.
+
+# %%
+# the storm: "melissa" or "ragasa"
+storm_name = "melissa"
+# True: the tracks that come with the recipe; False: your own runs in runs_dir
+use_sample_tracks = True
+# your runs: the directory main.py wrote outputs_<storm>_<model> to
+runs_dir = ".."
+
+# %% [markdown]
 # ### The two trackers
 #
 # | | TempestExtremes (TE) | WN2 built-in tracker |
@@ -77,7 +91,7 @@
 #
 # ### Data prerequisites
 #
-# None with `use_sample_tracks = True` below: the tracks of the forecasts shown
+# None with `use_sample_tracks = True` above: the tracks of the forecasts shown
 # here come with the recipe, in `aux_data/sample_tracks`, and IBTrACS is
 # downloaded from NOAA on first use (about 300 MB). To produce the tracks
 # yourself, see section 6.1 of the recipe's README:
@@ -101,20 +115,14 @@
 # jupyter lab
 # ```
 #
-# ### Configuration
-#
-# - `storm` - the storm, one of `STORMS`; add a storm there with its IBTrACS
-#   name, season and basin
-# - `use_sample_tracks` - use the tracks that come with the recipe, or read
-#   your own runs from `runs_dir`
-# - `runs_dir` - directory holding your runs' outputs, `outputs_<storm>_wn2`
-#   and so on, as written by `main.py`; runs that do not exist are left out
-# - `ibtracs_csv` - where IBTrACS is, or will be, stored
+# Runs missing from `runs_dir` are left out. To analyse another storm, add it
+# to `STORMS` in `plotting/storm_ensembles.py`, with its IBTrACS name, season
+# and basin.
 
 # %%
-import os
+import os  # noqa: E402
 
-import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt  # noqa: E402
 
 if not os.path.isdir("plotting"):
     raise RuntimeError(
@@ -130,21 +138,16 @@ from plotting.comparison_plots import (  # noqa: E402
     plot_wind_pressure,
 )
 from plotting.storm_ensembles import (  # noqa: E402
-    Storm,
+    STORMS,
     load_analysis_track,
     load_runs,
     peak_intensity_table,
 )
 from src.data.ibtracs import load_ibtracs_storm  # noqa: E402
 
-STORMS = {
-    "melissa": Storm("melissa", 2025, "north_atlantic"),
-    "ragasa": Storm("ragasa", 2025, "west_pacific"),
-}
-storm = STORMS["melissa"]
-
-use_sample_tracks = True
-runs_dir, run_prefix = "..", "outputs_"  # main.py writes ../outputs_<storm>_<model>
+storm = STORMS[storm_name]
+# main.py writes <runs_dir>/outputs_<storm>_<model>; the sample tracks have no prefix
+run_prefix = "outputs_"
 if use_sample_tracks:
     runs_dir, run_prefix = "../aux_data/sample_tracks", ""
 ibtracs_csv = "../aux_data/ibtracs.ALL.list.v04r01.csv"
