@@ -313,6 +313,8 @@ def rapid_intensification_share(ensemble: Ensemble) -> pd.Series:
     tracks = add_intensity_change(ensemble.tracks)
     rapid = (tracks["wind_speed_change"] >= RI_THRESHOLD_MS).groupby(tracks["time"])
     share = rapid.sum() / ensemble.n_members
+    if share.empty:  # no member tracked the storm
+        return share
     every_step = pd.date_range(share.index.min(), share.index.max(), freq="6h")
     return share.reindex(every_step, fill_value=0.0)
 
@@ -388,5 +390,7 @@ def forecast_period(
 
 
 def _mean_and_range(values: pd.Series) -> str:
+    if values.empty:
+        return "-"
     q10, q90 = values.quantile([0.1, 0.9])
     return f"{values.mean():.0f} ({q10:.0f} to {q90:.0f})"
