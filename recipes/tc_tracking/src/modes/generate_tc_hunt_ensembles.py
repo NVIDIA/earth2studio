@@ -25,7 +25,9 @@ The run is built from Earth2Studio's pipeline components:
 - :class:`~earth2studio.run.Pipeline` distributes the batches over the ranks,
   writes the fields of stream ``forecast`` and records finished batches, so an
   interrupted run can resume;
-- :class:`~src.ensemble.tracking.TrackingScorer` tracks cyclones in every batch.
+- :class:`~src.ensemble.tracking.TrackingScorer` tracks cyclones in every batch;
+- :class:`~src.ensemble.wn2_tracking.WN2TrackWriter` writes the tracks of the
+  tracker built into WeatherNext 2 Cyclones, which no other model can use.
 """
 
 import os
@@ -53,6 +55,7 @@ from src.ensemble.output import (
 from src.ensemble.progress import BatchProgress
 from src.ensemble.runner import BatchObserver, InstabilityDetection, StableRunner
 from src.ensemble.tracking import TRACKING_STREAM, TrackerInputs, TrackingScorer
+from src.ensemble.wn2_tracking import WN2_MODEL, WN2TrackWriter, validate_wn2_tracking
 from src.tc_hunt_utils import set_initial_times
 from src.tempest_extremes import TempestExtremes
 
@@ -96,8 +99,10 @@ def load_model(cfg: DictConfig) -> PrognosticModel:
     ----------
     cfg : DictConfig
         Hydra configuration object. Must contain ``model`` (str) and may
-        contain ``model_package`` (str). Supported models are ``fcn3``,
-        ``aifs`` (AIFS-ENS v1) and ``aifs-v2`` (AIFS-ENS v2)
+        contain ``model_package`` (str) and ``model_kwargs`` (keyword
+        arguments of the model's ``load_model``). Supported models are
+        ``fcn3``, ``aifs`` (AIFS-ENS v1), ``aifs-v2`` (AIFS-ENS v2) and ``wn2``
+        (WeatherNext 2 Cyclones)
 
     Returns
     -------
@@ -117,6 +122,7 @@ def load_model(cfg: DictConfig) -> PrognosticModel:
 
     # imported lazily, so that only the installed models' dependencies are needed
     model_cls: type[AutoModelMixin]
+    load_kwargs = dict(cfg.get("model_kwargs", {}))
     if cfg.model == "fcn3":
         from earth2studio.models.px import FCN3
 
@@ -143,9 +149,26 @@ def load_model(cfg: DictConfig) -> PrognosticModel:
                 "their tracks may not match exactly. See README, section 2.2.\n"
                 + "!" * 78
             )
+    elif cfg.model == WN2_MODEL:
+        # JAX shares the GPU with PyTorch: allocate on demand instead of all
+        # memory up front, set before JAX initialises its GPU backend
+        os.environ.setdefault("XLA_PYTHON_CLIENT_PREALLOCATE", "false")
+        os.environ.setdefault("XLA_PYTHON_CLIENT_ALLOCATOR", "vmm")
+        from earth2studio.models.px import WeatherNext2Cyclones
+
+        model_cls = WeatherNext2Cyclones
+        # the model tracks cyclones itself, see src/ensemble/wn2_tracking.py
+        load_kwargs["track_cyclones"] = "wn2_tracking" in cfg
+        if cfg.mode == "reproduce_members":
+            logger.warning(
+                "WeatherNext 2 is not bitwise reproducible on GPU: reproduced "
+                "members start identical and drift slowly from the original "
+                "run. See README, section 6.1."
+            )
     else:
         raise ValueError(
-            f"model {cfg.model} not supported, choose from 'fcn3', 'aifs', 'aifs-v2'"
+            f"model {cfg.model} not supported, choose from 'fcn3', 'aifs', "
+            f"'aifs-v2', '{WN2_MODEL}'"
         )
 
     # load weights
@@ -155,7 +178,7 @@ def load_model(cfg: DictConfig) -> PrognosticModel:
         else model_cls.load_default_package()
     )
 
-    model = model_cls.load_model(pkg).to(DistributedManager().device)
+    model = model_cls.load_model(pkg, **load_kwargs).to(DistributedManager().device)
 
     return model
 
@@ -213,6 +236,11 @@ def progress_tags(cfg: DictConfig) -> dict:
         "data_source": OmegaConf.to_container(cfg.data_source, resolve=True),
         "store_type": cfg.store_type,
     }
+    # only tagged if set, so runs of other models resume as before
+    if "model_kwargs" in cfg:
+        tags["model_kwargs"] = OmegaConf.to_container(cfg.model_kwargs, resolve=True)
+    if "wn2_tracking" in cfg:
+        tags["wn2_tracking"] = True
     if "cyclone_tracking" in cfg:
         tags["cyclone_tracking"] = {
             key: cfg.cyclone_tracking.get(key)
@@ -349,6 +377,7 @@ def run_ensemble(cfg: DictConfig) -> None:
         raise ValueError("resume is not supported for reproducing ensemble members")
     if reproduce and cfg.get("random_seed") is None:
         raise ValueError("reproducing members needs the random_seed of the run")
+    validate_wn2_tracking(cfg)
 
     initialise(cfg)
     progress_dir = os.path.join(cfg.store_dir, f"{cfg.project}_progress")
@@ -371,8 +400,9 @@ def run_ensemble(cfg: DictConfig) -> None:
             )
 
         # initial conditions are fetched once for all batches and retries of an IC
+        model = load_model(cfg)
         runner = StableRunner(
-            load_model(cfg),
+            model,
             stability_check,
             source=CachedSource(data_source_from_config(cfg.data_source)),
             diagnostics=diagnostics,
@@ -413,12 +443,17 @@ def run_ensemble(cfg: DictConfig) -> None:
         store = field_store(cfg, items, forecast["lead_time"].values, not resume)
 
         scorer = None if tracker is None else TrackingScorer(tracker, cfg.batch_size)
-        if store is None and scorer is None:
+        wn2_tracks = None
+        if "wn2_tracking" in cfg:
+            wn2_tracks = WN2TrackWriter.from_config(cfg, model)
+        if store is None and scorer is None and wn2_tracks is None:
             raise ValueError("the run neither stores fields nor tracks cyclones")
 
         observers: list[BatchObserver] = []
         if scorer is not None:
             observers.append(scorer)
+        if wn2_tracks is not None:
+            observers.append(wn2_tracks)
         if store is not None:
             seeds = SeedRecorder(store, items)
             rank0_first(seeds.add_array)

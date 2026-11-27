@@ -15,7 +15,6 @@
 # limitations under the License.
 
 import os
-import urllib.request
 from concurrent.futures import ProcessPoolExecutor
 from functools import partial
 
@@ -26,43 +25,10 @@ from loguru import logger
 from omegaconf import DictConfig
 
 from earth2studio.data import DataSource, fetch_data
+from src.data.ibtracs import KNOTS_TO_MS, ensure_ibtracs
 from src.data.tc_hunt_data_utils import data_source_from_config
-from src.tc_hunt_utils import great_circle_distance
+from src.tc_hunt_utils import match_track
 from src.tempest_extremes import TempestExtremes
-
-IBTRACS_URL = (
-    "https://www.ncei.noaa.gov/data/international-best-track-archive-for-climate-stewardship-ibtracs"
-    "/v04r01/access/csv/ibtracs.ALL.list.v04r01.csv"
-)
-
-
-def ensure_ibtracs(path: str) -> str:
-    """Ensure the IBTrACS CSV exists at *path*, downloading it if necessary.
-
-    The full IBTrACS v04r01 dataset (~300 MB) is downloaded from NCEI on
-    first use and cached at the specified location for subsequent runs.
-
-    Parameters
-    ----------
-    path : str
-        Local file path where the IBTrACS CSV should reside.
-
-    Returns
-    -------
-    str
-        Absolute path to the IBTrACS CSV file.
-    """
-    path = os.path.abspath(path)
-    if os.path.isfile(path):
-        return path
-
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    logger.info(
-        f"IBTrACS file not found at {path} — downloading from NCEI (~300 MB)..."
-    )
-    urllib.request.urlretrieve(IBTRACS_URL, path)  # noqa: S310
-    logger.success(f"IBTrACS downloaded to {path}")
-    return path
 
 
 def extract_from_historic_data(
@@ -167,7 +133,8 @@ def extract_from_ibtracs(
             "hour": times.hour,
             "lat": storm.lat,
             "lon": storm.lon,
-            "wind_speed": storm.vmax,
+            # tropycal gives the wind in knots
+            "wind_speed": storm.vmax * KNOTS_TO_MS,
             "mslp": storm.mslp,
             "type": storm.type,
         }
@@ -197,7 +164,7 @@ def match_tracks(
 
     A match is the track closest to the IBTrACS position at the first
     IBTrACS time at which any extracted track lies within ``max_dist``
-    metres of it.
+    metres of it, see :func:`~src.tc_hunt_utils.match_track`.
 
     Parameters
     ----------
@@ -220,29 +187,14 @@ def match_tracks(
     hist_tracks.insert(
         0, "time", pd.to_datetime(hist_tracks[["year", "month", "day", "hour"]])
     )
-
-    # all (track point, IBTrACS position) pairs at the same time
-    pairs = hist_tracks[["track_id", "time", "lat", "lon"]].merge(
-        ib_storm[["time", "lat", "lon"]], on="time", suffixes=("", "_ib")
-    )
-    pairs["dist"] = great_circle_distance(
-        pairs["lat_ib"].to_numpy(),
-        pairs["lon_ib"].to_numpy(),
-        pairs["lat"].to_numpy(),
-        pairs["lon"].to_numpy(),
-    )
-    pairs = pairs[pairs["dist"] < max_dist]
-    if pairs.empty:
-        return hist_tracks.iloc[0:0].reset_index(drop=True)
-
-    best = pairs.sort_values(["time", "dist"]).iloc[0]
-    logger.info(
-        f"matched track {best['track_id']} for storm {case} "
-        f"with distance {best['dist'] / 1000:.2f} km"
-    )
-    return hist_tracks[hist_tracks["track_id"] == best["track_id"]].reset_index(
-        drop=True
-    )
+    matched = match_track(hist_tracks, ib_storm, max_dist)
+    if not matched.empty:
+        first = matched.dropna(subset=["dist"]).sort_values("time").iloc[0]
+        logger.info(
+            f"matched track {matched['track_id'].iloc[0]} for storm {case}, "
+            f"{first['dist'] / 1000:.2f} km from it at {first['time']}"
+        )
+    return matched.drop(columns="dist")
 
 
 def add_ibtracs_data(

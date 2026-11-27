@@ -1,6 +1,6 @@
 # Image for the TC tracking recipe: PhysicsNeMo base, TempestExtremes and the
 # recipe's Python dependencies (installed with uv). The recipe code itself is
-# not baked in, mount it at runtime (see launch_tc_tracking.sh).
+# not baked in, mount it at runtime (see README, section 1.1).
 #
 #   docker build -t tc_tracking:1.0 .                                  # AIFS-ENS v1
 #   docker build --build-arg AIFS_VERSION=2 -t tc_tracking:1.0-aifs2 . # AIFS-ENS v2

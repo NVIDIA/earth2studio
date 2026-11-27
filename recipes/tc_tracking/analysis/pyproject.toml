@@ -1,0 +1,32 @@
+# Lightweight environment for the recipe's analysis notebooks in this directory
+# (plot_tracks_analysis.py, plot_tracks_n_fields.py, wn2_tracker_comparison.py):
+# no models, no GPU. The pipeline itself uses ../pyproject.toml or the Dockerfile.
+#
+# In this directory, with uv:
+#   uv sync && source .venv/bin/activate
+# or with pip (>= 25.1), in an environment of your choice:
+#   pip install --group analysis
+# then:
+#   jupytext --to notebook wn2_tracker_comparison.py
+#   jupyter lab
+[project]
+name = "e2s_tc_analysis"
+version = "0.1.0"
+description = "Environment for the analysis notebooks of the TC tracking recipe"
+requires-python = ">=3.12"
+dependencies = []
+
+[dependency-groups]
+analysis = [
+    "earth2studio>=1.0.0a0",
+    "cartopy>=0.24.1",
+    "matplotlib>=3.10.3",
+    "omegaconf>=2.3.0",
+    "jupytext>=1.16",
+    "jupyterlab>=4.0",
+]
+
+[tool.uv]
+# only the environment is installed, the notebooks are run from source
+package = false
+default-groups = ["analysis"]

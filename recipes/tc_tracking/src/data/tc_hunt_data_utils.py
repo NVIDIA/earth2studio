@@ -18,7 +18,7 @@ import asyncio
 import os
 import re
 from collections import OrderedDict
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 
 import hydra
@@ -27,7 +27,7 @@ import xarray as xr
 from huggingface_hub import hf_hub_download
 from omegaconf import DictConfig
 
-from earth2studio.data import DataSource
+from earth2studio.data import CompositeSource, DataSource
 from earth2studio.data.utils import datasource_cache_root
 from earth2studio.run.work import rank0_first
 from earth2studio.utils.time import to_time_array
@@ -251,3 +251,46 @@ class CachedSource(_SourceWrapper):
             while len(self._cache) > self.size:
                 self._cache.popitem(last=False)
         return self._cache[key].copy(deep=False)
+
+
+def supplemented_source(
+    source: DataSource, supplement: DataSource, variables: Sequence[str]
+) -> CompositeSource:
+    """Data source taking a few variables from a second source.
+
+    For analyses lacking a variable a model needs. In this recipe it is used
+    for one case only: WeatherNext 2 reads the sea surface temperature, which
+    the IFS produces but ECMWF's open data does not include, so the WN2
+    configs take ``sst`` from ERA5 and every other variable from the IFS. A
+    model not reading ``variables``, such as FCN3 or AIFS-ENS, gets everything
+    from ``source``.
+
+    Parameters
+    ----------
+    source : DataSource
+        Source of all other variables, with a ``LEXICON`` listing them
+    supplement : DataSource
+        Source of ``variables``, on the same grid as ``source``
+    variables : Sequence[str]
+        Variables fetched from ``supplement``
+
+    Returns
+    -------
+    CompositeSource
+        Earth2Studio's composite of both sources
+
+    Raises
+    ------
+    TypeError
+        If ``source`` has no ``LEXICON`` naming the variables it provides
+    """
+    # not part of the DataSource protocol, but every remote source has one
+    lexicon = getattr(source, "LEXICON", None)
+    if lexicon is None:
+        raise TypeError(f"{type(source).__name__} has no LEXICON listing its variables")
+    supplied = [str(variable) for variable in variables]
+    provided = [name for name in lexicon.VOCAB if name not in supplied]
+    return CompositeSource(
+        {"source": source, "supplement": supplement},
+        {"source": provided, "supplement": supplied},
+    )

@@ -33,6 +33,11 @@ executes TempestExtremes on completed time steps while the
 GPU continues producing subsequent predictions, so that
 tracking adds little to the runtime.
 
+The recipe also runs WeatherNext 2 Cyclones, a model with
+its own cyclone tracker, and compares the intensities of
+both trackers with observed best tracks, see
+[Section 6](#6-weathernext-2-cyclones-and-its-built-in-tracker).
+
 ## Table of Contents
 
 1. [Setting up the Environment](#1-setting-up-the-environment)
@@ -43,13 +48,18 @@ tracking adds little to the runtime.
    - [2.2 Reproduce Individual Ensemble Members](#22-reproduce-individual-ensemble-members)
    - [2.3 Extract Reference Tracks from ERA5](#23-extract-reference-tracks-from-era5)
    - [2.4 How the Ensemble Pipeline Is Built](#24-how-the-ensemble-pipeline-is-built)
-3. [Visualisation](#3-visualisation)
+3. [Analysis and Visualisation](#3-analysis-and-visualisation)
 4. [TempestExtremes Integration](#4-tempestextremes-integration)
 5. [Example Workflow](#5-example-workflow)
    - [5.1 Extract Baseline](#51-extract-baseline-optional)
    - [5.2 Produce Ensemble Forecasts](#52-produce-ensemble-forecasts)
    - [5.3 Analyse Tracks](#53-analyse-tracks)
    - [5.4 Reproduce Interesting Members](#54-reproduce-interesting-members-to-extract-fields)
+6. [WeatherNext 2 Cyclones and Its Built-in Tracker](#6-weathernext-2-cyclones-and-its-built-in-tracker)
+   - [6.1 Running the Cases](#61-running-the-cases)
+   - [6.2 Track Files](#62-track-files)
+   - [6.3 The Comparison Notebook](#63-the-comparison-notebook)
+   - [6.4 Models and Data](#64-models-and-data)
 
 ## 1. Setting up the Environment
 
@@ -102,31 +112,36 @@ docker build --build-arg AIFS_VERSION=2 \
 The image builds on x86 and ARM machines (e.g. DGX Spark); on ARM,
 build it on the machine itself.
 
-[launch_tc_tracking.sh](./launch_tc_tracking.sh) starts the
-container with the repository mounted at `/workspace` and the
-shell in the recipe directory:
+How to start the container depends on the machine: Docker on
+a workstation, a container runtime such as Enroot or
+Apptainer on a cluster. Whichever it is, the container needs
+
+- the repository mounted, e.g. at `/workspace`, and the
+  recipe directory as working directory; the recipe code is
+  not part of the image,
+- access to the GPUs,
+- enough shared memory (`/dev/shm`), where TempestExtremes
+  stages its input; Docker's default of 64 MB is too small,
+- persistent caches for model weights and data, so they are
+  downloaded only once: set `EARTH2STUDIO_CACHE` and
+  `HF_HOME` to mounted directories,
+- `~/.cdsapirc` mounted, if `CDS_ERA5` is used,
+- to run as the calling user, so outputs are not owned by
+  root.
+
+With Docker, from the recipe directory, for example:
 
 ```bash
-./launch_tc_tracking.sh                                    # interactive shell
-./launch_tc_tracking.sh python main.py --config-name=helene.yaml
-GPUS=0,1 IMAGE=tc_tracking:1.0-aifs2 ./launch_tc_tracking.sh
+docker run --rm -it --gpus all --ipc=host \
+    --user "$(id -u):$(id -g)" -e HOME=/tmp \
+    -v "$PWD/../..:/workspace" -v "$HOME/.cache:/cache" \
+    -e EARTH2STUDIO_CACHE=/cache/earth2studio -e HF_HOME=/cache/huggingface \
+    -w /workspace/recipes/tc_tracking tc_tracking:1.0
 ```
 
-The script
-
-- runs the container as the calling user, so all outputs and
-  cache files are owned by that user on the host,
-- caches model weights and data on the host in
-  `~/.cache/earth2studio` (`E2S_CACHE`) and `~/.cache/huggingface`
-  (`HF_CACHE`), so they are downloaded only once,
-- mounts `~/.cdsapirc` if present, which `CDS_ERA5` needs,
-- uses the host's shared memory (`--ipc=host`), where
-  TempestExtremes stages its input. Docker's default of 64 MB is
-  too small for that.
-
-With `LOCAL_E2S=1`, the container uses the Earth2Studio code of the
-mounted repository instead of the one installed in the image, to
-develop the recipe and Earth2Studio together.
+To use the Earth2Studio code of the mounted repository instead
+of the one installed in the image, e.g. to develop the recipe
+and Earth2Studio together, add `-e PYTHONPATH=/workspace`.
 
 ### 1.2 UV Environment
 
@@ -234,6 +249,19 @@ finished. See
 [Section 2.4](#24-how-the-ensemble-pipeline-is-built) for
 the components of the run.
 
+On the first run, every rank downloads what it needs:
+checkpoints, and the initial conditions of its members.
+Ranks starting at once fetch the same files, can read them
+half written and fail. Fill the cache first with a single
+process, e.g. one member, or use a local data source; later
+runs read from the cache:
+
+```bash
+python main.py --config-name=config.yaml ensemble_size=1 \
+    project=cache_fill
+torchrun --nproc-per-node=8 main.py --config-name=config.yaml
+```
+
 The CPU-bound `extract_baseline` mode does not use
   `torchrun` and does not require a GPU. Instead, individual
   storms are distributed across CPU worker processes via the
@@ -269,7 +297,7 @@ be found at `cfg/helene.yaml`.
 ```yaml
 project: 'helene'             # project name
 mode: 'generate_ensemble'     # choose mode
-model: 'aifs'                 # 'fcn3', 'aifs' or 'aifs-v2'
+model: 'aifs'                 # 'fcn3', 'aifs', 'aifs-v2' or 'wn2' (see 6)
 # optional: bitwise reproducible runs, see 2.2 (default: False)
 deterministic: False
 # optional: random seed, from which the seed of every batch
@@ -794,11 +822,11 @@ tells the scorer, the seed recorder and the progress store
 about every attempt of a batch (`BatchObserver`), so they can
 discard an unstable attempt and record failed batches.
 
-## 3. Visualisation
+## 3. Analysis and Visualisation
 
-Two [JupyText](https://jupytext.readthedocs.io/) notebook scripts are
-provided in the recipe root for analysing and visualising tropical cyclone
-tracking results:
+The notebooks analysing the tracks live in
+[analysis/](./analysis), with their helpers in
+`analysis/plotting/`:
 
 - **`plot_tracks_analysis.py`**: Ensemble track analysis
   including spaghetti plots (trajectory visualisation),
@@ -806,23 +834,49 @@ tracking results:
   MSLP), comparisons against ERA5 reference tracks and
   IBTrACS observations, extreme value statistics, and
   error moment analysis over lead time.
-
 - **`plot_tracks_n_fields.py`**: Create animated
   visualisations of storm tracks overlaid on atmospheric
   field data.
+- **`wn2_tracker_comparison.py`**: Intensities of the
+  WeatherNext 2 tracker and TempestExtremes against IBTrACS,
+  see section 6.3.
 
-Both scripts can be run as plain Python files or converted to Jupyter
-notebooks via JupyText. From the recipe root:
+**Environment.** The notebooks run no model and need no GPU,
+only a small Python environment, described in
+[analysis/pyproject.toml](./analysis/pyproject.toml) and
+separate from the pipeline's environment and container. In
+the `analysis` directory, with [uv](https://docs.astral.sh/uv/):
 
 ```bash
-jupytext --to notebook plot_tracks_analysis.py
-jupytext --to notebook plot_tracks_n_fields.py
-jupyter notebook plot_tracks_analysis.ipynb
+cd analysis
+uv sync                        # creates analysis/.venv, named e2s-tc-analysis
+source .venv/bin/activate
 ```
 
-The recipe root must be the working directory so that `src.plt.*` imports
-resolve correctly. Helper modules (`analyse_n_plot.py`, `data_handling.py`,
-`plotting_helpers.py`) live in `src/plt/`.
+or with pip 25.1 or newer, in an environment of your choice
+(venv, conda, ...):
+
+```bash
+cd analysis
+python -m venv .venv && source .venv/bin/activate
+pip install --upgrade pip
+pip install --group analysis
+```
+
+**Running.** The notebooks are [Jupytext](https://jupytext.readthedocs.io/)
+scripts, Python with `# %%` cells. With the environment
+activated, convert one to a notebook and open it, from the
+`analysis` directory:
+
+```bash
+jupytext --to notebook wn2_tracker_comparison.py
+jupyter lab
+```
+
+or open the `.ipynb` in an editor such as VS Code and select
+the environment's Python as kernel. The `.ipynb` files are
+not part of the recipe; edit the `.py` scripts to keep
+changes.
 
 ## 4. TempestExtremes Integration
 
@@ -856,8 +910,7 @@ files that TempestExtremes can access while avoiding
 physical disk I/O. Each tracker uses its own subdirectory,
 so several runs can share a node. In Docker, `/dev/shm`
 is limited to 64MB unless the container is started with
-`--ipc=host` or a larger `--shm-size`, as
-`launch_tc_tracking.sh` does.
+`--ipc=host` or a larger `--shm-size`, see section 1.1.
 
 <!-- markdownlint-disable MD033 -->
 
@@ -956,7 +1009,7 @@ trajectories.
 ### 5.3 Analyse Tracks
 
 Visualise the results using the notebook
-`plot_tracks_analysis.py` (or convert to `.ipynb` via jupytext).
+`analysis/plot_tracks_analysis.py`, see section 3.
 
 **For Helene**, configure the first cell of the notebook
 with:
@@ -1011,7 +1064,7 @@ both runs need `deterministic: True`.
 
 **Visualise Tracks and Fields**:
 
-Use the notebook `plot_tracks_n_fields.py` to
+Use the notebook `analysis/plot_tracks_n_fields.py` to
 create animated visualisations:
 
 1. Configure the file paths:
@@ -1043,8 +1096,215 @@ correctly, point `track_dir` to the original Helene run
 (`outputs_helene/cyclone_tracks_te`) and confirm that the
 tracks are identical.
 
+## 6. WeatherNext 2 Cyclones and Its Built-in Tracker
+
+Machine-learning weather models forecast cyclone tracks well
+but their intensity poorly: tracked in the 0.25° fields, as
+TempestExtremes does, their storms come out far weaker than
+observed. [WeatherNext 2 Cyclones][wn2-docs] (WN2,
+`model: 'wn2'`) addresses this directly, and is the model
+the US National Hurricane Center used in the 2025 season.
+
+**What makes its tracker different.** Next to the weather,
+the WN2 network predicts gridded cyclone fields: where a
+cyclone is likely, and its intensity and size. They are
+learnt from IBTrACS best tracks, so they hold the quantities
+forecasters report, the 1-minute sustained wind and the
+central pressure, rather than what a 0.25° grid can resolve.
+WN2's own tracker turns these fields into tracks while the
+model rolls out. TempestExtremes instead finds pressure
+minima in the forecast fields and reads wind and pressure off
+the grid.
+
+| | TempestExtremes | WN2 built-in tracker |
+| --- | --- | --- |
+| Reads | forecast fields | cyclone fields predicted by the network |
+| Wind | largest grid-point wind near the centre | 1-minute sustained wind |
+| Pressure | grid-point minimum | central pressure |
+| Storm size | not reported | radii of maximum, 17.5, 25.7 and 32.9 m/s wind |
+| Models | any | `wn2` only |
+
+**Why compare them.** Running both trackers on the same WN2
+members shows how much of the storm's intensity the fields
+contain and how much the cyclone head adds. TempestExtremes
+on FCN3 and AIFS-ENS v1, started from the same analysis, and
+on the analysis itself put WN2's fields in context.
+
+**Why these storms.** Both are from 2025, after the data the
+WN2 checkpoint was trained on (up to 2024), and both
+intensified rapidly, the hardest case for intensity
+forecasts:
+
 <!-- markdownlint-disable MD013 -->
 
+| Storm | Basin | Forecast start | Why |
+| --- | --- | --- | --- |
+| Hurricane Melissa | North Atlantic | 2025-10-24 00 UTC | Intensified for three days to 82 m/s, the strongest landfall on record in Jamaica; observed by aircraft, final best track |
+| Typhoon Ragasa | West Pacific | 2025-09-18 12 UTC | Gained 35 m/s in 24 h; another basin, intensity from satellite estimates, provisional best track |
+
+<!-- markdownlint-enable MD013 -->
+
+The notebook
+[wn2_tracker_comparison.py](./analysis/wn2_tracker_comparison.py)
+shows the comparison, see [6.3](#63-the-comparison-notebook).
+The models and data are credited in [6.4](#64-models-and-data).
+
+### 6.1 Running the Cases
+
+> [!Note]
+> This step is optional. Running the forecasts needs large
+> GPUs: 80 GB for WeatherNext 2, over 60 GB for FCN3 and
+> about 38 GB for AIFS-ENS v1 (see 2.1).
+> For convenience, the tracks of all forecasts below come
+> with the recipe in
+> [aux_data/sample_tracks](./aux_data/sample_tracks), and
+> the notebook uses them by default. IBTrACS is downloaded
+> automatically when the notebook first runs. To only look
+> at the results, skip to [6.3](#63-the-comparison-notebook).
+
+```bash
+# WN2 with both trackers (80 GB GPU); also ragasa_wn2.yaml
+python main.py --config-name=melissa_wn2.yaml
+
+# the same storm with FCN3 and AIFS-ENS v1, TempestExtremes only
+python main.py --config-name=melissa_wn2.yaml model=fcn3 \
+    '~wn2_tracking' '~model_kwargs' project=melissa_fcn3
+python main.py --config-name=melissa_wn2.yaml model=aifs \
+    deterministic=True '~wn2_tracking' '~model_kwargs' \
+    project=melissa_aifs
+
+# optional: TempestExtremes on the IFS analysis
+python main.py --config-name=extract_ifs.yaml
+```
+
+The settings are explained in `cfg/melissa_wn2.yaml`. In
+short: `wn2_tracking: {}` switches the built-in tracker on.
+It needs `model: 'wn2'` and `batch_size: 1`, and the run
+stops with an error otherwise. Both trackers need rollouts
+of more than 2.5 days.
+
+The initial conditions are the IFS analysis from ECMWF's
+open data, which WN2 was fine-tuned on, for all three
+models. One variable is missing there: WN2 reads the sea
+surface temperature, which the IFS produces (parameter 34)
+but the open data does not include. The configs therefore
+take only `sst` from ERA5: `supplemented_source` in
+`src/data/tc_hunt_data_utils.py` combines both sources with
+Earth2Studio's `CompositeSource`. This is needed for WN2
+alone; FCN3 and AIFS-ENS do not read the
+sea surface temperature (AIFS-ENS uses the skin temperature,
+which the open data has) and get every variable from the
+IFS.
+
+On several GPUs, fill the data cache with a single process
+first, see the note on parallelism in
+[section 2](#2-configure-and-execute-runs).
+
+Reproduced WN2 members (`cfg/reproduce_melissa_wn2.yaml`,
+see [2.2](#22-reproduce-individual-ensemble-members)) are
+close to the original but not bitwise identical, as JAX's
+GPU kernels are not deterministic.
+
+### 6.2 Track Files
+
+The built-in tracker writes `<store_dir>/cyclone_tracks_wn2/`
+with the file names and columns TempestExtremes uses in
+`cyclone_tracks_te/`, so the recipe's analysis tools read
+both. `#` lines at the top name the model and tracker; skip
+them with `pd.read_csv(path, comment="#")`.
+
+<!-- markdownlint-disable MD013 -->
+
+| Column | TempestExtremes | WN2 built-in tracker |
+| --- | --- | --- |
+| `track_id` | track number in the file, from 0 | same, ordered by first time |
+| `year`, `month`, `day`, `hour` | valid time | same |
+| `i`, `j` | grid indices of the centre | nearest 0.25° grid point |
+| `lon`, `lat` | centre, longitude 0 to 360 | same |
+| `msl` | grid-point minimum pressure [Pa] | central pressure [Pa] |
+| `wind_speed` | largest grid-point 10 m wind [m/s] | 1-minute sustained 10 m wind [m/s] |
+| `height` | terrain height [m] | not predicted, `nan` |
+| `rmw_km` | - | radius of maximum wind [km] |
+| `r17_<q>_km`, `r26_<q>_km`, `r33_<q>_km` | - | radius of 17.5, 25.7 and 32.9 m/s wind in quadrant `<q>` (`ne`, `se`, `sw`, `nw`) [km] |
+
+<!-- markdownlint-enable MD013 -->
+
+### 6.3 The Comparison Notebook
+
+[wn2_tracker_comparison.py](./analysis/wn2_tracker_comparison.py)
+compares, for one storm at a time, the tracks of up to four
+runs: the WN2 tracker, and TempestExtremes on WN2, FCN3 and
+AIFS-ENS. It plots the tracks, track error, maximum wind,
+minimum pressure, the wind-pressure relationship, rapid
+intensification and storm size against the IBTrACS best
+track, and explains how to read them.
+
+**Data.** The notebook needs no forecasts of your own and no
+GPU:
+
+- `use_sample_tracks = True` (default) reads the tracks of
+  the forecasts in section 6.1, which come with the recipe in
+  [aux_data/sample_tracks](./aux_data/sample_tracks): one
+  directory per storm and model, plus TempestExtremes' track
+  in the IFS analysis (`reference_tracks_ifs`).
+- `use_sample_tracks = False` reads your own runs from
+  `runs_dir`, the directory `main.py` wrote
+  `outputs_<storm>_<model>` to (the recipe root by default).
+  Runs that do not exist are left out.
+- IBTrACS is downloaded from NCEI on first use (about
+  300 MB) to `aux_data/`; it is not part of the recipe.
+
+The settings cell at the top of the notebook holds all
+choices: `storm_name` (`"melissa"` or `"ragasa"`),
+`use_sample_tracks` and `runs_dir`. To analyse another storm,
+add it to `STORMS` in `plotting/storm_ensembles.py`.
+The helpers are in `analysis/plotting/`: `storm_ensembles.py`
+loads and summarises the tracks, `comparison_plots.py` draws
+the figures.
+
+**Running.** With the analysis environment activated, from the
+`analysis` directory, see [section 3](#3-analysis-and-visualisation):
+
+```bash
+jupytext --to notebook wn2_tracker_comparison.py
+jupyter lab
+```
+
+### 6.4 Models and Data
+
+<!-- markdownlint-disable MD013 -->
+
+| Model | Created by | Reference | Weights |
+| --- | --- | --- | --- |
+| WeatherNext 2 Cyclones | Google DeepMind | Alet et al. (2026), [Nature][wn2-paper]; [code and checkpoints][wn2-repo] | CC BY 4.0 (code Apache 2.0) |
+| FourCastNet 3 | NVIDIA | Bonev et al. (2025), [arXiv:2507.12144][fcn3-paper] | [Apache 2.0][fcn3-weights] |
+| AIFS-ENS v1 | ECMWF | Lang et al. (2024), [arXiv:2412.15832][aifs-paper] | [CC BY 4.0][aifs-weights] |
+
+<!-- markdownlint-enable MD013 -->
+
+Tracker and data: TempestExtremes, Ullrich et al. (2021),
+[GMD][te-paper]. IBTrACS, Knapp et al. (2010),
+[BAMS][ibtracs-paper], downloaded from [NCEI][ibtracs] on
+first use and not redistributed. Initial conditions are
+based on data and products of ECMWF ([open data][ecmwf-open-data],
+CC BY 4.0); the sea surface temperature WN2 needs is ERA5
+([doi:10.24381/cds.adbb2d47][era5]) and contains modified
+Copernicus Climate Change Service information.
+
+<!-- markdownlint-disable MD013 -->
+
+[wn2-docs]: https://nvidia.github.io/earth2studio/main/modules/generated/models/px/WeatherNext2Cyclones/
+[wn2-paper]: https://doi.org/10.1038/s41586-026-10953-2
+[fcn3-paper]: https://arxiv.org/abs/2507.12144
+[fcn3-weights]: https://huggingface.co/nvidia/fourcastnet3
+[aifs-paper]: https://arxiv.org/abs/2412.15832
+[aifs-weights]: https://huggingface.co/ecmwf/aifs-ens-1.0
+[ecmwf-open-data]: https://www.ecmwf.int/en/forecasts/datasets/open-data
+[era5]: https://doi.org/10.24381/cds.adbb2d47
+[wn2-repo]: https://github.com/google-deepmind/weathernext
+[te-paper]: https://doi.org/10.5194/gmd-14-5023-2021
+[ibtracs-paper]: https://doi.org/10.1175/2009BAMS2755.1
+[ibtracs]: https://www.ncei.noaa.gov/products/international-best-track-archive
 [te-repo]: https://github.com/ClimateGlobalChange/tempestextremes
 [te-install]: https://github.com/ClimateGlobalChange/tempestextremes?tab=readme-ov-file#installation-via-cmake-recommended
 [flash-attn-help]: https://nvidia.github.io/earth2studio/userguide/support/troubleshooting.html#flash-attention-has-long-build-time-for-aifs-models

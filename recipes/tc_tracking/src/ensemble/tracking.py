@@ -25,12 +25,12 @@ at a time.
 
 from typing import Any
 
-import numpy as np
 import xarray as xr
 
 from earth2studio.run import WorkItem
 from earth2studio.utils.coords import coord_array_like
 from earth2studio.utils.type import CoordinateSystem
+from src.tc_hunt_utils import track_file_name
 from src.tempest_extremes import TempestExtremes
 
 # name of the stream holding the tracker's input fields
@@ -221,11 +221,9 @@ class TrackingScorer:
         """
         if self._failed:
             return
-        ic = np.datetime_as_string(item.time, unit="s")
         self.tracker(
             out_file_names=[
-                f"tracks_{ic}_mem_{member:04d}_seed_{self._seed}"
-                f"_bs_{self.batch_size}.csv"
+                track_file_name(item.time, member, self._seed, self.batch_size)
                 for member in item.member_ids
             ]
         )
