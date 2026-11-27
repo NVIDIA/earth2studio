@@ -87,7 +87,11 @@ def ensure_ibtracs(path: str) -> str:
     logger.info(
         f"IBTrACS file not found at {path} — downloading from NCEI (~300 MB)..."
     )
-    urllib.request.urlretrieve(IBTRACS_URL, path)  # noqa: S310
+    # download to a temporary file, so that an interrupted download is not
+    # mistaken for the dataset by the next run
+    partial = f"{path}.part"
+    urllib.request.urlretrieve(IBTRACS_URL, partial)  # noqa: S310
+    os.replace(partial, path)
     logger.success(f"IBTrACS downloaded to {path}")
     return path
 

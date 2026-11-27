@@ -189,9 +189,10 @@ def match_tracks(
     )
     matched = match_track(hist_tracks, ib_storm, max_dist)
     if not matched.empty:
+        first = matched.dropna(subset=["dist"]).sort_values("time").iloc[0]
         logger.info(
             f"matched track {matched['track_id'].iloc[0]} for storm {case}, "
-            f"closest distance {matched['dist'].min() / 1000:.2f} km"
+            f"{first['dist'] / 1000:.2f} km from it at {first['time']}"
         )
     return matched.drop(columns="dist")
 

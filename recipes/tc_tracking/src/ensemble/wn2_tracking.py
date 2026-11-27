@@ -281,7 +281,11 @@ class WN2TrackWriter:
         WN2TrackWriter
             Writer to ``<store_dir>/cyclone_tracks_wn2/``
         """
-        model_kwargs = OmegaConf.to_container(cfg.get("model_kwargs", {}))
+        model_kwargs = (
+            OmegaConf.to_container(cfg.model_kwargs, resolve=True)
+            if "model_kwargs" in cfg
+            else {}
+        )
         header = {"model": cfg.model, **model_kwargs}
         return cls(model, cfg.store_dir, cfg.batch_size, header)
 

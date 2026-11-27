@@ -143,6 +143,21 @@ def test_writer_writes_one_file_per_stable_member(tmp_path):
     assert len(extract_tracks_from_file(str(path))) == 5
 
 
+@pytest.mark.parametrize(
+    "extra, header",
+    [
+        ({}, {"model": "wn2"}),  # model_kwargs is optional
+        ({"model_kwargs": {"checkpoint_member": 1}}, {"checkpoint_member": 1}),
+    ],
+)
+def test_writer_from_config(tmp_path, extra, header):
+    cfg = OmegaConf.create(
+        {"model": "wn2", "store_dir": str(tmp_path), "batch_size": 1, **extra}
+    )
+    writer = WN2TrackWriter.from_config(cfg, SimpleNamespace(track_cyclones=True))
+    assert header.items() <= writer.header.items()
+
+
 def test_writer_needs_a_tracking_model(tmp_path):
     with pytest.raises(ValueError, match="track_cyclones"):
         WN2TrackWriter(SimpleNamespace(track_cyclones=False), str(tmp_path), 1)

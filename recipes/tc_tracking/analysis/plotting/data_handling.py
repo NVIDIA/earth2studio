@@ -217,7 +217,7 @@ def extract_tracks(in_dir: str) -> list[dict[str, Any]]:
         (int), and ``"tracks"`` (DataFrame).
     """
     tracks: list[dict[str, Any]] = []
-    files = glob.glob(f"{in_dir}/*.csv")
+    files = glob.glob(f"{in_dir}/tracks_*.csv")
     files.sort()
 
     for csv_file in files:

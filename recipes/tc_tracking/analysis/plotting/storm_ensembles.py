@@ -191,14 +191,25 @@ def load_runs(
     -------
     dict[str, Ensemble]
         Ensemble of each run whose track directory exists, keyed as :data:`RUNS`
+
+    Raises
+    ------
+    FileNotFoundError
+        If none of the runs exists
     """
     ensembles = {}
+    track_dirs = []
     for key, run in RUNS.items():
         track_dir = os.path.join(
             runs_dir, prefix + run.track_dir.format(storm=storm.name)
         )
+        track_dirs.append(track_dir)
         if os.path.isdir(track_dir):
             ensembles[key] = load_ensemble(track_dir, run, best_track)
+    if not ensembles:
+        raise FileNotFoundError(
+            f"no runs of {storm.name} found, looked for {', '.join(track_dirs)}"
+        )
     return ensembles
 
 
@@ -292,7 +303,9 @@ def rapid_intensification_share(ensemble: Ensemble) -> pd.Series:
     """
     tracks = add_intensity_change(ensemble.tracks)
     rapid = (tracks["wind_speed_change"] >= RI_THRESHOLD_MS).groupby(tracks["time"])
-    return rapid.sum() / ensemble.n_members
+    share = rapid.sum() / ensemble.n_members
+    every_step = pd.date_range(share.index.min(), share.index.max(), freq="6h")
+    return share.reindex(every_step, fill_value=0.0)
 
 
 def peak_intensity_table(
@@ -317,7 +330,10 @@ def peak_intensity_table(
     """
     start, end = forecast_period(ensembles)
     observed = best_track[best_track["time"].between(start, end)]
-    observed_change = add_intensity_change(best_track)["wind_speed_change"]
+    changes = add_intensity_change(best_track)
+    observed_change = changes.loc[
+        changes["time"].between(start, end), "wind_speed_change"
+    ]
     rows = {
         "IBTrACS best track": {
             "peak wind [m/s]": f"{observed['wind_speed'].max():.0f}",
