@@ -3,7 +3,7 @@
 # no models, no GPU. The pipeline itself uses ../pyproject.toml or the Dockerfile.
 #
 # In this directory, with uv:
-#   uv venv --prompt e2s_tc_analysis && uv sync && source .venv/bin/activate
+#   uv sync && source .venv/bin/activate
 # or with pip (>= 25.1), in an environment of your choice:
 #   pip install --group analysis
 # then:
