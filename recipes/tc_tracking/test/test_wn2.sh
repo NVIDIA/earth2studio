@@ -55,6 +55,11 @@ python ../main.py --config-path="$(pwd)/cfg" --config-name=reproduce_melissa_wn2
 # WN2 is not bitwise reproducible on GPU: the reproduced tracks have to stay
 # close to the original ones, see compare_tracks.py for the tolerances
 for tracker in "${trackers[@]}"; do
+    # every member reproduced, under the name of the original
+    if ! diff <(ls "$baseline/$tracker") <(ls "$reproduce/$tracker"); then
+        banner "ERROR: $tracker: the reproduced track files differ from the baseline's"
+        exit 1
+    fi
     if ! python compare_tracks.py "$baseline/$tracker" "$reproduce/$tracker"; then
         banner "oh no!!! ERROR: $tracker tracks of the reproduced members differ"
         exit 1

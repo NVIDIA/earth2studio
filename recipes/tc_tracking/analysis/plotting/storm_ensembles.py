@@ -151,10 +151,19 @@ def load_ensemble(track_dir: str, run: Run, best_track: pd.DataFrame) -> Ensembl
     ------
     FileNotFoundError
         If the directory holds no track files
+    ValueError
+        If the track files are of more than one initial time
     """
     members = extract_tracks(track_dir)
     if not members:
         raise FileNotFoundError(f"no track files in {track_dir}")
+    # members are told apart by number, which repeats for every initial time
+    initial_times = sorted({member["ic"] for member in members})
+    if len(initial_times) > 1:
+        raise ValueError(
+            f"{track_dir} holds forecasts from {len(initial_times)} initial times, "
+            f"{initial_times[0]} to {initial_times[-1]}; an ensemble has one"
+        )
 
     tracks = []
     for member in members:
