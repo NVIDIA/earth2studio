@@ -30,10 +30,11 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 
 import pandas as pd
+from matplotlib.artist import Artist
 from matplotlib.axes import Axes
+from matplotlib.collections import PathCollection
+from matplotlib.colors import to_rgb
 from matplotlib.figure import Figure
-from matplotlib.legend import Legend
-from matplotlib.lines import Line2D
 
 _RECIPE_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
 if _RECIPE_ROOT not in sys.path:
@@ -48,6 +49,11 @@ RI_THRESHOLD_MS = 15.4
 RI_HOURS = 24
 
 BEST_TRACK_COLOR = "#1a1a19"
+# maps: pale ocean and land, the best track slightly softer than in the plots
+OCEAN_COLOR = "#e3eef8"
+LAND_COLOR = "#e6eedd"
+COAST_COLOR = "#8a9a86"
+MAP_BEST_TRACK_COLOR = "#3d3d3a"
 REFERENCE_COLOR = "#8a8a84"
 
 
@@ -384,7 +390,6 @@ def plot_over_time(
     variable: str,
     best_track: pd.DataFrame | None = None,
     analysis_track: pd.DataFrame | None = None,
-    legend: bool = True,
 ) -> None:
     """Plot a variable over time: every member thin and pale, the ensemble mean bold.
 
@@ -400,9 +405,6 @@ def plot_over_time(
         Best track, drawn in black if it has the variable, by default None
     analysis_track : pd.DataFrame | None, optional
         Track in the analysis, see :func:`load_analysis_track`, by default None
-    legend : bool, optional
-        Draw the legend, to the right of the axes, by default True; leave it
-        out for all but one of several axes showing the same runs
     """
     label, factor = VARIABLES[variable]
     start, end = None, None
@@ -424,7 +426,7 @@ def plot_over_time(
             spread["mean"],
             color=run.color,
             lw=2.5,
-            label=f"{run.label} (ensemble mean)",
+            label=run.label,
         )
         start = spread.index.min() if start is None else min(start, spread.index.min())
         end = spread.index.max() if end is None else max(end, spread.index.max())
@@ -440,8 +442,6 @@ def plot_over_time(
 
     ax.set_ylabel(label)
     _style_time_axis(ax)
-    if legend:
-        _legend_outside(ax)
 
 
 def plot_wind_pressure(
@@ -478,13 +478,9 @@ def plot_wind_pressure(
         lw=1.5,
         label="IBTrACS",
     )
-    ax.invert_xaxis()
     ax.set_xlabel(VARIABLES["msl"][0])
     ax.set_ylabel(VARIABLES["wind_speed"][0])
     _style_axes(ax)
-    legend = _legend_outside(ax)
-    for handle in legend.legend_handles:
-        handle.set_alpha(1.0)
 
 
 def plot_rapid_intensification(
@@ -531,7 +527,6 @@ def plot_rapid_intensification(
     ax.set_ylim(0, 100)
     ax.set_ylabel("members intensifying by 15.4 m/s in 24 h [%]")
     _style_time_axis(ax)
-    _legend_outside(ax)
 
 
 def plot_tracks(
@@ -590,46 +585,76 @@ def plot_tracks(
     geodetic = ccrs.Geodetic()
     for ax, (key, ensemble) in zip(axes.flat, ensembles.items()):
         run = RUNS[key]
+        # pastel version of the run's colour, so that the best track stands out
+        color = _pastel(run.color)
         for _, track in ensemble.groupby("member"):
             ax.plot(
                 track["lon"],
                 track["lat"],
-                color=run.color,
-                lw=0.8,
-                alpha=0.5,
+                color=color,
+                lw=1.1,
+                alpha=0.8,
                 transform=geodetic,
             )
         ax.plot(
             observed["lon"],
             observed["lat"],
-            color=BEST_TRACK_COLOR,
+            color=MAP_BEST_TRACK_COLOR,
             lw=2,
             marker="o",
             ms=3,
             transform=geodetic,
+            label="IBTrACS",
         )
         ax.set_extent(extent, crs=ccrs.PlateCarree())
-        ax.add_feature(cfeature.LAND, facecolor="#ecebe6")
-        ax.coastlines(lw=0.5, color="#8a8a84")
+        ax.add_feature(cfeature.OCEAN, facecolor=OCEAN_COLOR)
+        ax.add_feature(cfeature.LAND, facecolor=LAND_COLOR)
+        ax.coastlines(lw=0.8, color=COAST_COLOR)
         gridlines = ax.gridlines(draw_labels=True, lw=0.3, color="#c3c2b7")
         gridlines.top_labels = gridlines.right_labels = False
-        ax.set_title(run.label, fontsize="medium")
+        n_members = ensemble.attrs["n_members"]
+        ax.set_title(f"{run.label}, {n_members} members", fontsize="medium")
     for ax in axes.flat[len(ensembles) :]:
         ax.set_visible(False)
-    fig.legend(
-        handles=[
-            Line2D([], [], color=BEST_TRACK_COLOR, lw=2, marker="o", ms=3),
-        ],
-        labels=["IBTrACS best track"],
-        loc="outside lower center",
-        frameon=False,
-    )
     return fig
 
 
-def _legend_outside(ax: Axes) -> Legend:
-    """Legend to the right of the axes, so that it hides no data."""
-    return ax.legend(frameon=False, loc="upper left", bbox_to_anchor=(1.01, 1.0))
+def _pastel(color: str, whiteness: float = 0.35) -> tuple[float, float, float]:
+    """``color`` mixed with white: 0 keeps it, 1 is white."""
+    return tuple(c + (1.0 - c) * whiteness for c in to_rgb(color))
+
+
+def add_header(fig: Figure, title: str) -> None:
+    """Give a figure a bold title and, beneath it, one legend for all its axes.
+
+    The figure needs ``layout="constrained"``, which makes room for both above
+    the axes. Entries with the same label on several axes are shown once.
+
+    Parameters
+    ----------
+    fig : Figure
+        Figure whose axes have labelled artists
+    title : str
+        Title of the figure
+    """
+    entries: dict[str, Artist] = {}
+    for ax in fig.axes:
+        for handle, label in zip(*ax.get_legend_handles_labels()):
+            entries.setdefault(label, handle)
+    # the title heads the legend, so that the layout keeps both clear of the axes
+    legend = fig.legend(
+        entries.values(),
+        entries.keys(),
+        loc="outside upper center",
+        ncol=len(entries),
+        frameon=False,
+        title=title,
+        title_fontproperties={"weight": "bold", "size": "large"},
+    )
+    # scatter points are drawn transparent; show them opaque in the legend
+    for handle in legend.legend_handles:
+        if isinstance(handle, PathCollection):
+            handle.set_alpha(1.0)
 
 
 def _style_axes(ax: Axes) -> None:
@@ -642,6 +667,8 @@ def _style_time_axis(ax: Axes) -> None:
     import matplotlib.dates as mdates
 
     _style_axes(ax)
-    ax.xaxis.set_major_locator(mdates.DayLocator())
+    start, end = ax.get_xlim()  # in days
+    # every day, or every second day for spans longer than a week
+    ax.xaxis.set_major_locator(mdates.DayLocator(interval=1 if end - start <= 8 else 2))
     ax.xaxis.set_major_formatter(mdates.DateFormatter("%d %b"))
     ax.set_xlabel("valid time [UTC]")

@@ -139,6 +139,7 @@ if not os.path.isdir("plotting"):
 sys.path.insert(0, "..")  # the recipe root, for its IBTrACS loader in src
 
 from plotting.tracker_comparison import (  # noqa: E402
+    add_header,
     load_analysis_track,
     load_runs,
     peak_intensity_table,
@@ -223,7 +224,7 @@ for key, ensemble in ensembles.items():
 
 # %%
 fig = plot_tracks(ensembles, best_track)
-fig.suptitle(f"{storm}: tracks of all members")
+add_header(fig, f"Spaghetti plots {storm}")
 plt.show()
 
 # %% [markdown]
@@ -231,9 +232,9 @@ plt.show()
 # each thin, pale line is one member and the bold line the ensemble mean.
 
 # %%
-fig, ax = plt.subplots(figsize=(8, 4))
+fig, ax = plt.subplots(figsize=(10, 4.5), layout="constrained")
 plot_over_time(ax, ensembles, "track_error_km")
-ax.set_title(f"{storm}: track error")
+add_header(fig, f"Ensemble mean track error {storm}")
 plt.show()
 
 # %% [markdown]
@@ -260,9 +261,9 @@ plt.show()
 # peak on.
 
 # %%
-fig, ax = plt.subplots(figsize=(8, 4.5))
+fig, ax = plt.subplots(figsize=(10, 5), layout="constrained")
 plot_over_time(ax, ensembles, "wind_speed", best_track, analysis_track)
-ax.set_title(f"{storm}: maximum wind")
+add_header(fig, f"Ensemble mean maximum wind {storm}")
 plt.show()
 
 # %% [markdown]
@@ -275,9 +276,9 @@ plt.show()
 # on the three models' fields stays between 950 and 990 hPa.
 
 # %%
-fig, ax = plt.subplots(figsize=(8, 4.5))
+fig, ax = plt.subplots(figsize=(10, 5), layout="constrained")
 plot_over_time(ax, ensembles, "msl", best_track, analysis_track)
-ax.set_title(f"{storm}: minimum sea-level pressure")
+add_header(fig, f"Ensemble mean minimum sea-level pressure {storm}")
 plt.show()
 
 # %% [markdown]
@@ -303,9 +304,9 @@ peak_intensity_table(ensembles, best_track)
 #   relationship, here learnt from the best tracks: WN2's tracker.
 
 # %%
-fig, ax = plt.subplots(figsize=(6, 5))
+fig, ax = plt.subplots(figsize=(10, 6), layout="constrained")
 plot_wind_pressure(ax, ensembles, best_track)
-ax.set_title(f"{storm}: wind-pressure relationship")
+add_header(fig, f"Wind-pressure relationship {storm}")
 plt.show()
 
 # %% [markdown]
@@ -323,9 +324,9 @@ plt.show()
 # WN2 for Ragasa.
 
 # %%
-fig, ax = plt.subplots(figsize=(8, 4))
+fig, ax = plt.subplots(figsize=(10, 4.5), layout="constrained")
 plot_rapid_intensification(ax, ensembles, best_track)
-ax.set_title(f"{storm}: rapid intensification")
+add_header(fig, f"Rapid intensification {storm}")
 plt.show()
 
 # %% [markdown]
@@ -338,13 +339,12 @@ plt.show()
 # Pacific.
 
 # %%
-fig, axes = plt.subplots(1, 2, figsize=(12, 4))
+fig, axes = plt.subplots(1, 2, figsize=(12, 4.5), layout="constrained")
 for ax, variable in zip(axes, ("rmw_km", "r17_km")):
-    # one legend, next to the right panel
-    legend = ax is axes[-1]
-    plot_over_time(ax, {"wn2": ensembles["wn2"]}, variable, best_track, legend=legend)
-axes[0].set_title(f"{storm}: radius of maximum wind")
-axes[1].set_title(f"{storm}: radius of 17.5 m/s wind")
+    plot_over_time(ax, {"wn2": ensembles["wn2"]}, variable, best_track)
+axes[0].set_title("Radius of maximum wind")
+axes[1].set_title("Radius of 17.5 m/s wind")
+add_header(fig, f"Ensemble mean storm size {storm}")
 plt.show()
 
 # %% [markdown]
