@@ -830,7 +830,8 @@ the `analysis` directory, with [uv](https://docs.astral.sh/uv/):
 
 ```bash
 cd analysis
-uv sync                        # creates analysis/.venv
+uv venv --prompt e2s_tc_analysis
+uv sync
 source .venv/bin/activate
 ```
 
@@ -839,7 +840,8 @@ or with pip 25.1 or newer, in an environment of your choice
 
 ```bash
 cd analysis
-python -m venv .venv && source .venv/bin/activate
+python -m venv .venv --prompt e2s_tc_analysis
+source .venv/bin/activate
 pip install --upgrade pip
 pip install --group analysis
 ```

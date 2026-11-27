@@ -3,14 +3,14 @@
 # no models, no GPU. The pipeline itself uses ../pyproject.toml or the Dockerfile.
 #
 # In this directory, with uv:
-#   uv sync && source .venv/bin/activate
+#   uv venv --prompt e2s_tc_analysis && uv sync && source .venv/bin/activate
 # or with pip (>= 25.1), in an environment of your choice:
 #   pip install --group analysis
 # then:
 #   jupytext --to notebook wn2_tracker_comparison.py
 #   jupyter lab
 [project]
-name = "earth2studio-recipe-tc-tracking-analysis"
+name = "e2s_tc_analysis"
 version = "0.1.0"
 description = "Environment for the analysis notebooks of the TC tracking recipe"
 requires-python = ">=3.12"
