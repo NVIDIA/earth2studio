@@ -333,7 +333,7 @@ _IFS_IC_PRESSURE_LEVELS = (
 )
 
 
-class _EarthMoverLexiconBase(metaclass=LexiconType):
+class _EarthmoverLexiconBase(metaclass=LexiconType):
     """Common Earthmover Arraylake lexicon helpers."""
 
     VOCAB: dict[str, str]
@@ -352,7 +352,7 @@ class _EarthMoverLexiconBase(metaclass=LexiconType):
         return cls.SPECS[val]
 
 
-class EarthMoverIFSInitialConditionLexicon(_EarthMoverLexiconBase):
+class EarthmoverIFSInitialConditionLexicon(_EarthmoverLexiconBase):
     """Earthmover Brightband IFS initial-condition Marketplace lexicon."""
 
     PRESSURE_LEVELS = _IFS_IC_PRESSURE_LEVELS
@@ -390,7 +390,7 @@ class EarthMoverIFSInitialConditionLexicon(_EarthMoverLexiconBase):
     SPECS: dict[str, VariableSpec] = _build_specs(VOCAB)
 
 
-class EarthMoverIFSLexicon(_EarthMoverLexiconBase):
+class EarthmoverIFSLexicon(_EarthmoverLexiconBase):
     """Earthmover Brightband IFS forecast Marketplace lexicon."""
 
     VOCAB: dict[str, str] = {
@@ -417,7 +417,7 @@ _ERA5_LEVELS = (50, 100, 150, 200, 250, 300, 400, 500, 600, 700, 850, 925, 1000)
 _ERA5_PRESSURE_VARIABLES = ("pv", "q", "r", "t", "u", "v", "w", "z")
 
 
-class EarthMoverERA5Lexicon(_EarthMoverLexiconBase):
+class EarthmoverERA5Lexicon(_EarthmoverLexiconBase):
     """Earthmover ERA5 Marketplace lexicon."""
 
     PRESSURE_LEVELS = _ERA5_LEVELS

@@ -36,9 +36,9 @@ from earth2studio.data.utils import (
 from earth2studio.grids import with_grid_metadata
 from earth2studio.lexicon.base import LexiconType
 from earth2studio.lexicon.earthmover import (
-    EarthMoverERA5Lexicon,
-    EarthMoverIFSInitialConditionLexicon,
-    EarthMoverIFSLexicon,
+    EarthmoverERA5Lexicon,
+    EarthmoverIFSInitialConditionLexicon,
+    EarthmoverIFSLexicon,
     VariableSpec,
     make_modifier,
 )
@@ -89,10 +89,10 @@ class _Resolved:
     rule: str  # which metadata rule matched (for diagnostics)
 
 
-class _EarthMoverBase:
+class _EarthmoverBase:
     """Shared Earthmover Arraylake connection and resolution logic."""
 
-    LEXICON: LexiconType = EarthMoverIFSLexicon
+    LEXICON: LexiconType = EarthmoverIFSLexicon
     ORG_ENV_VAR = "EARTHMOVER_ORGANIZATION"
     SUBSCRIPTION_REPO_NAME: str
     MARKETPLACE_URL: str | None = None
@@ -558,7 +558,7 @@ class _EarthMoverBase:
 
 
 @check_optional_dependencies()
-class EarthMoverERA5(_EarthMoverBase):
+class EarthmoverERA5(_EarthmoverBase):
     """Earthmover ERA5 0.25 degree reanalysis data source.
 
     Parameters
@@ -611,13 +611,13 @@ class EarthMoverERA5(_EarthMoverBase):
     region:global dataclass:reanalysis dataset:era5 product:wind product:precip product:temp product:atmos product:solar provider:earthmover
     """
 
-    LEXICON = EarthMoverERA5Lexicon
+    LEXICON = EarthmoverERA5Lexicon
     MARKETPLACE_URL = "https://app.earthmover.io/marketplace/6a19bcfe9aa6e97720a2fad2"
     ORG_ENV_VAR = "EARTHMOVER_ORGANIZATION"
     SUBSCRIPTION_REPO_NAME = "era5-subscription"
     DEFAULT_BRANCH = "main"
     TIME_START = datetime(year=1940, month=1, day=1)
-    VARIABLES = tuple(EarthMoverERA5Lexicon.VOCAB)
+    VARIABLES = tuple(EarthmoverERA5Lexicon.VOCAB)
 
     def __init__(
         self,
@@ -717,7 +717,7 @@ class EarthMoverERA5(_EarthMoverBase):
 
 
 @check_optional_dependencies()
-class EarthMoverBrightBandIFS(_EarthMoverBase):
+class EarthmoverBrightBandIFS(_EarthmoverBase):
     """Brightband ECMWF IFS 0.25 degree initial-condition data source on
     Earthmover Arraylake.
 
@@ -773,8 +773,8 @@ class EarthMoverBrightBandIFS(_EarthMoverBase):
     DEFAULT_BRANCH = "main"
     ORG_ENV_VAR = "EARTHMOVER_ORGANIZATION"
     SUBSCRIPTION_REPO_NAME = "ecmwf-ifs-initial-conditions-open-subscription"
-    LEXICON = EarthMoverIFSInitialConditionLexicon
-    VARIABLES = tuple(EarthMoverIFSInitialConditionLexicon.VOCAB)
+    LEXICON = EarthmoverIFSInitialConditionLexicon
+    VARIABLES = tuple(EarthmoverIFSInitialConditionLexicon.VOCAB)
 
     def __init__(
         self,
@@ -866,7 +866,7 @@ class EarthMoverBrightBandIFS(_EarthMoverBase):
 
 
 @check_optional_dependencies()
-class EarthMoverBrightBandIFS_FX(_EarthMoverBase):
+class EarthmoverBrightBandIFS_FX(_EarthmoverBase):
     """Brightband ECMWF IFS 0.1 degree (10km) 15-day forecast data source on Earthmover
     Arraylake.
 
@@ -922,7 +922,7 @@ class EarthMoverBrightBandIFS_FX(_EarthMoverBase):
     DEFAULT_BRANCH = "main"
     ORG_ENV_VAR = "EARTHMOVER_ORGANIZATION"
     SUBSCRIPTION_REPO_NAME = "ecmwf-ifs-15-day-forecast-open-subscription"
-    LEXICON = EarthMoverIFSLexicon
+    LEXICON = EarthmoverIFSLexicon
     DATASET_VARIABLES = (
         "100u",
         "100v",
@@ -940,7 +940,7 @@ class EarthMoverBrightBandIFS_FX(_EarthMoverBase):
         "ssrd",
         "tp",
     )
-    VARIABLES = tuple(EarthMoverIFSLexicon.VOCAB)
+    VARIABLES = tuple(EarthmoverIFSLexicon.VOCAB)
 
     def __init__(
         self,

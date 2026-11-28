@@ -274,7 +274,7 @@ plugins:
         text_color: '#fff'
         hide_in: [autosummary, filter]
       provider:earthmover:
-        label: EarthMover
+        label: Earthmover
         color: '#6D0EDB'
         text_color: '#fff'
         hide_in: [autosummary, filter]

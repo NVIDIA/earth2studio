@@ -15,6 +15,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Renamed the `EarthMover` data sources and lexicons to `Earthmover` (#1326).
+  Update imports and class references from `EarthMover...` to `Earthmover...`.
+
 ### Deprecated
 
 ### Removed

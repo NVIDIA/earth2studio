@@ -240,7 +240,7 @@ run.deterministic(["2024-01-01"], 10, model, GFS(), ZarrBackend("fcn.zarr"))
       <div class="e2s-connector e2s-accent--blue e2s-reveal">ECMWF</div>
       <div class="e2s-connector e2s-accent--gold e2s-reveal">NASA</div>
       <div class="e2s-connector e2s-accent--cyan e2s-reveal">EUMETSAT</div>
-      <div class="e2s-connector e2s-accent--purple e2s-reveal">EarthMover</div>
+      <div class="e2s-connector e2s-accent--purple e2s-reveal">Earthmover</div>
       <div class="e2s-connector e2s-accent--green e2s-reveal">Dynamical</div>
       <div class="e2s-connector e2s-accent--blue e2s-reveal">Planetary Computer</div>
       <div class="e2s-connector e2s-accent--cyan e2s-reveal">Copernicus CDS</div>

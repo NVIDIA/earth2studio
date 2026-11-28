@@ -27,9 +27,9 @@ from .cmip6 import CMIP6Lexicon
 from .cosmo import CosmoLexicon
 from .dynamical import DynamicalLexicon
 from .earthmover import (
-    EarthMoverERA5Lexicon,
-    EarthMoverIFSInitialConditionLexicon,
-    EarthMoverIFSLexicon,
+    EarthmoverERA5Lexicon,
+    EarthmoverIFSInitialConditionLexicon,
+    EarthmoverIFSLexicon,
 )
 from .ecmwf import AIFSLexicon, IFSLexicon
 from .gdas import GDASObsConvLexicon
