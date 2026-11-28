@@ -31,9 +31,9 @@ for three listings:
 
 | Earth2Studio data source | Dataset |
 | --- | --- |
-| [`EarthMoverERA5`](../../modules/datasources_analysis.md) | [ERA5 0.25° reanalysis](https://app.earthmover.io/marketplace/6a19bcfe9aa6e97720a2fad2) |
-| [`EarthMoverBrightBandIFS`](../../modules/datasources_analysis.md) | [Brightband ECMWF IFS 0.25° initial conditions](https://app.earthmover.io/marketplace/697162921880507a6587c31b) |
-| [`EarthMoverBrightBandIFS_FX`](../../modules/datasources_forecast.md) | [Brightband ECMWF IFS 0.1° 15-day forecast](https://app.earthmover.io/marketplace/6971be98fc964a0d0fb66e04) |
+| [`EarthmoverERA5`](../../modules/datasources_analysis.md) | [ERA5 0.25° reanalysis](https://app.earthmover.io/marketplace/6a19bcfe9aa6e97720a2fad2) |
+| [`EarthmoverBrightBandIFS`](../../modules/datasources_analysis.md) | [Brightband ECMWF IFS 0.25° initial conditions](https://app.earthmover.io/marketplace/697162921880507a6587c31b) |
+| [`EarthmoverBrightBandIFS_FX`](../../modules/datasources_forecast.md) | [Brightband ECMWF IFS 0.1° 15-day forecast](https://app.earthmover.io/marketplace/6971be98fc964a0d0fb66e04) |
 
 This list covers Marketplace datasets with dedicated Earth2Studio classes. Other
 Marketplace listings are not automatically supported by these integrations.
@@ -82,15 +82,15 @@ explicitly.
 
 ### 3. Read ERA5 data
 
-With both environment variables configured, `EarthMoverERA5` can derive the repository
+With both environment variables configured, `EarthmoverERA5` can derive the repository
 and authenticate automatically:
 
 ```python
 from datetime import datetime
 
-from earth2studio.data import EarthMoverERA5
+from earth2studio.data import EarthmoverERA5
 
-source = EarthMoverERA5()
+source = EarthmoverERA5()
 data = source(
     time=datetime(2021, 6, 1),
     variable=["t2m", "u10m", "z500"],
@@ -108,7 +108,7 @@ cycle instead of a fixed historical timestamp:
 ```python
 from datetime import UTC, datetime, timedelta
 
-from earth2studio.data import EarthMoverBrightBandIFS
+from earth2studio.data import EarthmoverBrightBandIFS
 
 recent_cycle = datetime.now(UTC).replace(tzinfo=None) - timedelta(days=1)
 recent_cycle = recent_cycle.replace(
@@ -118,7 +118,7 @@ recent_cycle = recent_cycle.replace(
     microsecond=0,
 )
 
-source = EarthMoverBrightBandIFS(
+source = EarthmoverBrightBandIFS(
     repo="my-org/ecmwf-ifs-initial-conditions-open-subscription"
 )
 data = source(
@@ -132,9 +132,9 @@ Forecast sources also accept lead times:
 ```python
 import numpy as np
 
-from earth2studio.data import EarthMoverBrightBandIFS_FX
+from earth2studio.data import EarthmoverBrightBandIFS_FX
 
-source = EarthMoverBrightBandIFS_FX()
+source = EarthmoverBrightBandIFS_FX()
 forecast = source(
     time=recent_cycle,
     lead_time=np.array([np.timedelta64(hour, "h") for hour in [0, 6, 12]]),
@@ -155,10 +155,10 @@ Applications that already manage Arraylake clients can inject an authenticated
 import os
 
 import arraylake
-from earth2studio.data import EarthMoverERA5
+from earth2studio.data import EarthmoverERA5
 
 client = arraylake.AsyncClient(token=os.environ["EARTHMOVER_API_KEY"])
-source = EarthMoverERA5(
+source = EarthmoverERA5(
     repo="my-org/era5-subscription",
     client=client,
 )
@@ -197,10 +197,10 @@ layout expected by the selected class:
 
 ```python
 # Reads the single/spatial and pressure/spatial groups.
-era5 = EarthMoverERA5(repo="my-org/my-era5-repo")
+era5 = EarthmoverERA5(repo="my-org/my-era5-repo")
 
 # Reads the repository root.
-ifs = EarthMoverBrightBandIFS(repo="my-org/my-ifs-repo")
+ifs = EarthmoverBrightBandIFS(repo="my-org/my-ifs-repo")
 ```
 
 Variable matching uses GRIB parameter identifiers, short names, CF variable names, and

@@ -34,8 +34,8 @@ earth2studio.data.DynamicalGEFS
 earth2studio.data.DynamicalHRRR
 earth2studio.data.DynamicalIFS_ENS
 earth2studio.data.DynamicalMRMS
-earth2studio.data.EarthMoverBrightBandIFS
-earth2studio.data.EarthMoverERA5
+earth2studio.data.EarthmoverBrightBandIFS
+earth2studio.data.EarthmoverERA5
 earth2studio.data.GFS
 earth2studio.data.GOES
 earth2studio.data.GOESGLMGrid

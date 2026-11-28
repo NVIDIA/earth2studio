@@ -24,9 +24,9 @@ import pytest
 import xarray as xr
 
 from earth2studio.data import (
-    EarthMoverBrightBandIFS,
-    EarthMoverBrightBandIFS_FX,
-    EarthMoverERA5,
+    EarthmoverBrightBandIFS,
+    EarthmoverBrightBandIFS_FX,
+    EarthmoverERA5,
 )
 from earth2studio.data.base import DataSource, ForecastSource
 from earth2studio.utils.imports import OptionalDependencyFailure
@@ -167,7 +167,7 @@ IFS_LIVE_TIME = (datetime.now(timezone.utc) - timedelta(days=1)).replace(
 )
 @pytest.mark.parametrize("variable", ["t2m", ["t2m", "msl", "z500"]])
 def test_earthmover_era5_fetch(time, variable):
-    ds = EarthMoverERA5(cache=False)
+    ds = EarthmoverERA5(cache=False)
     data = ds(time, variable)
 
     if isinstance(variable, str):
@@ -190,7 +190,7 @@ def test_earthmover_era5_fetch(time, variable):
 )
 @pytest.mark.parametrize("variable", ["t2m", ["t2m", "msl"]])
 def test_earthmover_brightband_ifs_fetch(time, variable):
-    ds = EarthMoverBrightBandIFS(cache=False)
+    ds = EarthmoverBrightBandIFS(cache=False)
     data = ds(time, variable)
 
     if isinstance(variable, str):
@@ -213,7 +213,7 @@ def test_earthmover_brightband_ifs_fetch(time, variable):
 )
 @pytest.mark.parametrize("variable", ["t2m", ["t2m", "msl"]])
 def test_earthmover_brightband_ifs_fx_fetch(time, lead_time, variable):
-    ds = EarthMoverBrightBandIFS_FX(cache=False)
+    ds = EarthmoverBrightBandIFS_FX(cache=False)
     data = ds(time, lead_time, variable)
 
     if isinstance(variable, str):
@@ -464,12 +464,12 @@ def assert_forecast_data_array(
     assert np.isfinite(out.values).all()
 
 
-class TestEarthMoverSources:
+class TestEarthmoverSources:
     def test_constructor_signatures(self):
         for cls in (
-            EarthMoverERA5,
-            EarthMoverBrightBandIFS,
-            EarthMoverBrightBandIFS_FX,
+            EarthmoverERA5,
+            EarthmoverBrightBandIFS,
+            EarthmoverBrightBandIFS_FX,
         ):
             assert list(inspect.signature(cls.__init__).parameters) == [
                 "self",
@@ -481,36 +481,36 @@ class TestEarthMoverSources:
             ]
 
     def test_protocols(self):
-        assert isinstance(EarthMoverERA5("org/repo"), DataSource)
-        assert isinstance(EarthMoverBrightBandIFS("org/repo"), DataSource)
-        assert isinstance(EarthMoverBrightBandIFS_FX("org/repo"), ForecastSource)
+        assert isinstance(EarthmoverERA5("org/repo"), DataSource)
+        assert isinstance(EarthmoverBrightBandIFS("org/repo"), DataSource)
+        assert isinstance(EarthmoverBrightBandIFS_FX("org/repo"), ForecastSource)
 
     def test_era5_supported_variables_match_marketplace_listing(self):
-        assert EarthMoverERA5.VARIABLES == ERA5_VARIABLES
-        assert "z500" in EarthMoverERA5.VARIABLES
-        assert "pv500" in EarthMoverERA5.VARIABLES
-        assert "fdir" in EarthMoverERA5.VARIABLES
-        assert "sf" in EarthMoverERA5.VARIABLES
-        assert "stl1" in EarthMoverERA5.VARIABLES
+        assert EarthmoverERA5.VARIABLES == ERA5_VARIABLES
+        assert "z500" in EarthmoverERA5.VARIABLES
+        assert "pv500" in EarthmoverERA5.VARIABLES
+        assert "fdir" in EarthmoverERA5.VARIABLES
+        assert "sf" in EarthmoverERA5.VARIABLES
+        assert "stl1" in EarthmoverERA5.VARIABLES
 
     def test_analysis_supported_variables_match_marketplace_listing(self):
-        assert EarthMoverBrightBandIFS.VARIABLES == IFS_ANALYSIS_VARIABLES
-        assert "q500" in EarthMoverBrightBandIFS.VARIABLES
-        assert "fdir" not in EarthMoverBrightBandIFS.VARIABLES
+        assert EarthmoverBrightBandIFS.VARIABLES == IFS_ANALYSIS_VARIABLES
+        assert "q500" in EarthmoverBrightBandIFS.VARIABLES
+        assert "fdir" not in EarthmoverBrightBandIFS.VARIABLES
 
     def test_forecast_supported_variables_match_marketplace_listing(self):
         assert (
-            EarthMoverBrightBandIFS_FX.DATASET_VARIABLES
+            EarthmoverBrightBandIFS_FX.DATASET_VARIABLES
             == IFS_FORECAST_DATASET_VARIABLES
         )
-        assert EarthMoverBrightBandIFS_FX.VARIABLES == IFS_FORECAST_VARIABLES
-        assert "fdir" in EarthMoverBrightBandIFS_FX.VARIABLES
-        assert "q500" not in EarthMoverBrightBandIFS_FX.VARIABLES
+        assert EarthmoverBrightBandIFS_FX.VARIABLES == IFS_FORECAST_VARIABLES
+        assert "fdir" in EarthmoverBrightBandIFS_FX.VARIABLES
+        assert "q500" not in EarthmoverBrightBandIFS_FX.VARIABLES
 
     def test_earthmover_era5_call_mock(self, patch_earthmover):
         patch_earthmover(mock_earthmover_era5())
         variables = ["t2m", "msl", "sf", "stl1", "q500", "z500"]
-        ds = EarthMoverERA5("vandelay-industries/era5")
+        ds = EarthmoverERA5("vandelay-industries/era5")
 
         out = ds(datetime(2022, 1, 1), variables)
 
@@ -521,7 +521,7 @@ class TestEarthMoverSources:
     def test_earthmover_brightband_ifs_call_mock(self, patch_earthmover):
         patch_earthmover(mock_earthmover_brightband_ifs())
         variables = ["t2m", "msl", "q500"]
-        ds = EarthMoverBrightBandIFS("vandelay-industries/ifs")
+        ds = EarthmoverBrightBandIFS("vandelay-industries/ifs")
 
         out = ds(datetime(2022, 1, 1), variables)
 
@@ -531,7 +531,7 @@ class TestEarthMoverSources:
     def test_earthmover_brightband_ifs_fx_call_mock(self, patch_earthmover):
         patch_earthmover(mock_earthmover_brightband_ifs_fx())
         variables = ["t2m", "fdir", "msl"]
-        ds = EarthMoverBrightBandIFS_FX("vandelay-industries/ifs")
+        ds = EarthmoverBrightBandIFS_FX("vandelay-industries/ifs")
 
         out = ds(
             datetime(2022, 1, 1),
@@ -547,7 +547,7 @@ class TestEarthMoverSources:
 
     def test_era5_available(self, patch_earthmover):
         patch_earthmover(mock_earthmover_era5())
-        ds = EarthMoverERA5("vandelay-industries/era5")
+        ds = EarthmoverERA5("vandelay-industries/era5")
 
         assert ds.available(datetime(2022, 1, 1, 0))
         assert ds.available(np.datetime64("2022-01-01T06:00:00"))
@@ -557,7 +557,7 @@ class TestEarthMoverSources:
 
     def test_analysis_available(self, patch_earthmover):
         patch_earthmover(mock_earthmover_brightband_ifs())
-        ds = EarthMoverBrightBandIFS("vandelay-industries/ifs")
+        ds = EarthmoverBrightBandIFS("vandelay-industries/ifs")
 
         assert ds.available(datetime(2022, 1, 1, 0))
         assert ds.available(np.datetime64("2022-01-01T06:00:00"))
@@ -565,24 +565,24 @@ class TestEarthMoverSources:
 
     def test_forecast_available(self, patch_earthmover):
         patch_earthmover(mock_earthmover_brightband_ifs_fx())
-        ds = EarthMoverBrightBandIFS_FX("vandelay-industries/ifs")
+        ds = EarthmoverBrightBandIFS_FX("vandelay-industries/ifs")
 
         assert ds.available(datetime(2022, 1, 1, 0))
         assert ds.available(np.datetime64("2022-01-01T06:00:00"))
         assert not ds.available(datetime(1999, 1, 1, 0))
 
 
-class TestEarthMoverConfig:
+class TestEarthmoverConfig:
     def test_repo_from_organization_env(self, monkeypatch):
         monkeypatch.setenv("EARTHMOVER_ORGANIZATION", "my-org")
 
-        assert EarthMoverERA5()._repo_name == "my-org/era5-subscription"
+        assert EarthmoverERA5()._repo_name == "my-org/era5-subscription"
         assert (
-            EarthMoverBrightBandIFS()._repo_name
+            EarthmoverBrightBandIFS()._repo_name
             == "my-org/ecmwf-ifs-initial-conditions-open-subscription"
         )
         assert (
-            EarthMoverBrightBandIFS_FX()._repo_name
+            EarthmoverBrightBandIFS_FX()._repo_name
             == "my-org/ecmwf-ifs-15-day-forecast-open-subscription"
         )
 
@@ -590,15 +590,15 @@ class TestEarthMoverConfig:
         monkeypatch.setenv("EARTHMOVER_ORGANIZATION", "my-org")
 
         assert (
-            EarthMoverERA5("other-org/custom-repo")._repo_name
+            EarthmoverERA5("other-org/custom-repo")._repo_name
             == "other-org/custom-repo"
         )
         assert (
-            EarthMoverBrightBandIFS("other-org/custom-repo")._repo_name
+            EarthmoverBrightBandIFS("other-org/custom-repo")._repo_name
             == "other-org/custom-repo"
         )
         assert (
-            EarthMoverBrightBandIFS_FX("other-org/custom-repo")._repo_name
+            EarthmoverBrightBandIFS_FX("other-org/custom-repo")._repo_name
             == "other-org/custom-repo"
         )
 
@@ -606,13 +606,13 @@ class TestEarthMoverConfig:
         monkeypatch.delenv("EARTHMOVER_ORGANIZATION", raising=False)
 
         with pytest.raises(ValueError, match="EARTHMOVER_ORGANIZATION"):
-            EarthMoverERA5()
+            EarthmoverERA5()
 
         with pytest.raises(ValueError, match="EARTHMOVER_ORGANIZATION"):
-            EarthMoverBrightBandIFS()
+            EarthmoverBrightBandIFS()
 
         with pytest.raises(ValueError, match="EARTHMOVER_ORGANIZATION"):
-            EarthMoverBrightBandIFS_FX()
+            EarthmoverBrightBandIFS_FX()
 
     def test_env_api_key_used(self, patch_earthmover):
         seen = {}
@@ -622,7 +622,7 @@ class TestEarthMoverConfig:
                 seen["api_key"] = token
 
         patch_earthmover(mock_earthmover_era5(), client_cls=_APIKeyClient)
-        ds = EarthMoverERA5("vandelay-industries/era5")
+        ds = EarthmoverERA5("vandelay-industries/era5")
 
         ds._make_client()
 
@@ -632,14 +632,14 @@ class TestEarthMoverConfig:
         earthmover = patch_earthmover(mock_earthmover_era5())
         sentinel = earthmover.arraylake.AsyncClient()
         monkeypatch.delenv("EARTHMOVER_API_KEY", raising=False)
-        ds = EarthMoverERA5("vandelay-industries/era5", client=sentinel)
+        ds = EarthmoverERA5("vandelay-industries/era5", client=sentinel)
 
         assert ds._make_client() is sentinel
 
     def test_missing_api_key_requires_env(self, monkeypatch, patch_earthmover):
         patch_earthmover(mock_earthmover_era5())
         monkeypatch.delenv("EARTHMOVER_API_KEY", raising=False)
-        ds = EarthMoverERA5("vandelay-industries/era5")
+        ds = EarthmoverERA5("vandelay-industries/era5")
 
         with pytest.raises(ValueError, match="EARTHMOVER_API_KEY"):
             ds._make_client()
@@ -654,16 +654,16 @@ class TestEarthMoverConfig:
 
         patch_earthmover(mock_earthmover_era5(), client_cls=_DeniedClient)
         monkeypatch.setenv("EARTHMOVER_API_KEY", "test-key")
-        ds = EarthMoverERA5("vandelay-industries/era5")
+        ds = EarthmoverERA5("vandelay-industries/era5")
 
         with pytest.raises(PermissionError, match="subscription"):
             ds(datetime(2022, 1, 1), "t2m")
 
 
-class TestEarthMoverErrors:
+class TestEarthmoverErrors:
     def test_era5_exceptions(self, patch_earthmover):
         patch_earthmover(mock_earthmover_era5())
-        ds = EarthMoverERA5("vandelay-industries/era5")
+        ds = EarthmoverERA5("vandelay-industries/era5")
 
         with pytest.raises(ValueError, match="not a known Earth2Studio variable"):
             ds(datetime(2022, 1, 1), "definitely_not_a_var")
@@ -678,7 +678,7 @@ class TestEarthMoverErrors:
 
     def test_analysis_exceptions(self, patch_earthmover):
         patch_earthmover(mock_earthmover_brightband_ifs())
-        ds = EarthMoverBrightBandIFS("vandelay-industries/ifs")
+        ds = EarthmoverBrightBandIFS("vandelay-industries/ifs")
 
         with pytest.raises(ValueError, match="not a known Earth2Studio variable"):
             ds(datetime(2022, 1, 1), "definitely_not_a_var")
@@ -691,7 +691,7 @@ class TestEarthMoverErrors:
 
     def test_forecast_exceptions(self, patch_earthmover):
         patch_earthmover(mock_earthmover_brightband_ifs_fx())
-        ds = EarthMoverBrightBandIFS_FX("vandelay-industries/ifs")
+        ds = EarthmoverBrightBandIFS_FX("vandelay-industries/ifs")
 
         with pytest.raises(ValueError, match="not a known Earth2Studio variable"):
             ds(datetime(2022, 1, 1), timedelta(hours=0), "definitely_not_a_var")

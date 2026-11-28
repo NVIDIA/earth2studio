@@ -51,9 +51,9 @@ from .dynamical import (
     DynamicalMRMS,
 )
 from .earthmover import (
-    EarthMoverBrightBandIFS,
-    EarthMoverBrightBandIFS_FX,
-    EarthMoverERA5,
+    EarthmoverBrightBandIFS,
+    EarthmoverBrightBandIFS_FX,
+    EarthmoverERA5,
 )
 from .ecmwf import AIFS_ENS_FX, AIFS_FX, IFS, IFS_ENS, IFS_ENS_FX, IFS_FX
 from .gdas import NomadsGDASObsConv
